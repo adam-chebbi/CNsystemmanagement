@@ -1,16 +1,11 @@
 import React, { useState } from 'react';
 import {
-  Moon,
-  Sun,
   ChevronDown,
-  Check,
   PanelLeft,
 } from 'lucide-react';
 
 interface HeaderProps {
   onToggleSidebar: () => void;
-  isDarkMode: boolean;
-  onToggleDarkMode: () => void;
   onRefresh: () => void;
   isRefreshing: boolean;
   isCollapsed?: boolean;
@@ -21,8 +16,6 @@ interface HeaderProps {
 
 export const Header: React.FC<HeaderProps> = ({
   onToggleSidebar,
-  isDarkMode,
-  onToggleDarkMode,
   onRefresh,
   isRefreshing,
   isCollapsed = false,
@@ -30,16 +23,7 @@ export const Header: React.FC<HeaderProps> = ({
   activeTab = 'dashboard',
   onNavigate,
 }) => {
-  const [showLangMenu, setShowLangMenu] = useState(false);
-  const [currentLang, setCurrentLang] = useState('Français');
   const [showUserMenu, setShowUserMenu] = useState(false);
-
-  const languages = [
-    { code: 'fr', label: 'Français', flag: '🇫🇷' },
-    { code: 'en', label: 'English', flag: '🇬🇧' },
-    { code: 'es', label: 'Español', flag: '🇪🇸' },
-    { code: 'de', label: 'Deutsch', flag: '🇩🇪' },
-  ];
 
   const handleToggleSidebar = () => {
     if (typeof window !== 'undefined' && window.innerWidth < 1024) {
@@ -93,58 +77,8 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
         </div>
 
-        {/* Right: Controls (Dark mode, Language, Company user profile) */}
+        {/* Right: Controls (Company user profile) */}
         <div className="flex items-center gap-2 sm:gap-3">
-          {/* Dark mode button */}
-          <button
-            id="toggle-dark-mode-button"
-            onClick={onToggleDarkMode}
-            className="w-8 h-8 rounded-full border border-gray-200 dark:border-gray-700 flex items-center justify-center text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition shadow-2xs cursor-pointer"
-            title={isDarkMode ? 'Passer en mode clair' : 'Passer en mode sombre'}
-          >
-            {isDarkMode ? <Sun size={15} /> : <Moon size={15} />}
-          </button>
-
-          {/* Language selector */}
-          <div className="relative">
-            <button
-              id="language-selector-button"
-              onClick={() => setShowLangMenu(!showLangMenu)}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full border border-gray-200 dark:border-gray-700 text-xs font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition shadow-2xs cursor-pointer"
-            >
-              <span className="text-sm leading-none">🌐</span>
-              <span className="hidden sm:inline">{currentLang}</span>
-              <span className="text-sm leading-none">🇫🇷</span>
-              <ChevronDown size={13} className="text-gray-400" />
-            </button>
-
-            {showLangMenu && (
-              <div
-                id="language-dropdown-menu"
-                className="absolute right-0 mt-1.5 w-40 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg py-1 z-50 animate-in fade-in"
-              >
-                {languages.map((lang) => (
-                  <button
-                    key={lang.code}
-                    onClick={() => {
-                      setCurrentLang(lang.label);
-                      setShowLangMenu(false);
-                    }}
-                    className="w-full flex items-center justify-between px-3 py-1.5 text-xs text-left hover:bg-gray-50 dark:hover:bg-gray-700/60 text-gray-700 dark:text-gray-300 cursor-pointer"
-                  >
-                    <span className="flex items-center gap-2">
-                      <span>{lang.flag}</span>
-                      <span>{lang.label}</span>
-                    </span>
-                    {currentLang === lang.label && (
-                      <Check size={13} className="text-emerald-500" />
-                    )}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-
           {/* Company User profile dropdown */}
           <div className="relative">
             <button

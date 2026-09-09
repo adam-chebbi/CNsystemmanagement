@@ -1,4 +1,4 @@
-import React, { useState, useEffect, Suspense, lazy } from 'react';
+import React, { useState, Suspense, lazy } from 'react';
 import { Sidebar } from './components/Sidebar';
 import { Header } from './components/Header';
 import { HeroBanner } from './components/HeroBanner';
@@ -151,7 +151,10 @@ export default function App() {
   // subitem, so the default subitem is '' (not a stray leftover like 'sales'), matching how every
   // onNavigateToDashboard handler below already resets it.
   const { activeTab, activeSubItem, setActiveTab, setActiveSubItem } = useUrlNavigation({ tab: 'dashboard', sub: '' });
-  const [isDarkMode, setIsDarkMode] = useState(false);
+  // The project handles light mode only — no dark-mode toggle exists in the UI. Kept as a plain
+  // constant (rather than removing the prop from every page) so the many existing
+  // isDarkMode={isDarkMode} call sites throughout this file don't need to change.
+  const isDarkMode = false;
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [showRefreshToast, setShowRefreshToast] = useState(false);
   const [activePeriod, setActivePeriod] = useState<TimeFilterPeriod>('today');
@@ -183,15 +186,6 @@ export default function App() {
   const [hrRecurringPlans, setHrRecurringPlans] = useState<RecurringPlan[]>(initialRecurringPlans);
   const [hrFinancialRecords, setHrFinancialRecords] = useState<FinancialRecord[]>(initialFinancialRecords);
   const [treatedAlerts, setTreatedAlerts] = useState<Record<string, { treatedAt: string; treatedBy: string }>>({});
-
-  // Synchronize dark class on root document
-  useEffect(() => {
-    if (isDarkMode) {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
-  }, [isDarkMode]);
 
   const handleRefresh = () => {
     if (isRefreshing) return;
@@ -720,8 +714,6 @@ export default function App() {
           {/* Top Header */}
           <Header
             onToggleSidebar={() => setSidebarOpen(!sidebarOpen)}
-            isDarkMode={isDarkMode}
-            onToggleDarkMode={() => setIsDarkMode(!isDarkMode)}
             onRefresh={handleRefresh}
             isRefreshing={isRefreshing}
             isCollapsed={isSidebarCollapsed}
