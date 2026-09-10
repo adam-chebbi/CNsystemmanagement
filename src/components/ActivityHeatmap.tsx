@@ -70,8 +70,11 @@ export const ActivityHeatmap: React.FC<ActivityHeatmapProps> = ({ data }) => {
 
   const handleCellClick = (cell: DailySalesCalendarCell, weekTotal: number, e: React.MouseEvent<HTMLDivElement>) => {
     if (!cell.inRange) return;
+    // Read the DOM rect synchronously, right now — e.currentTarget is nulled by React once this
+    // handler returns, so it can't be read lazily from inside a setState updater callback.
+    const nextState = buildTooltipState(cell, weekTotal, e);
     setHovered(null);
-    setPinned((prev) => (prev && prev.cell.dateIso === cell.dateIso ? null : buildTooltipState(cell, weekTotal, e)));
+    setPinned((prev) => (prev && prev.cell.dateIso === cell.dateIso ? null : nextState));
   };
 
   // A click anywhere outside the card closes a pinned tooltip; clicks on the tooltip itself
