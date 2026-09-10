@@ -381,14 +381,7 @@ export const buildDailyHeatmap = (transactions: SaleTransaction[], weekCount = 2
   return { weeks, monthLabels, totalSales, totalTickets, averageSales: daysWithSales > 0 ? totalSales / daysWithSales : 0, maxDay };
 };
 
-// --- Sales / purchases by day/month/year series (replaces SALES_BY_PERIOD / PURCHASES_BY_PERIOD) --
-
-export interface SeriesPoint {
-  label: string;
-  current: number;
-  previous: number;
-  tickets: number;
-}
+// --- Purchases by day/month/year series (replaces PURCHASES_BY_PERIOD) ---------------------
 
 export interface PurchaseSeriesPoint {
   label: string;
@@ -399,46 +392,45 @@ export interface PurchaseSeriesPoint {
 
 const WEEKDAY_SHORT_FR = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
 
-export const buildSalesByPeriod = (transactions: SaleTransaction[]): { days: SeriesPoint[]; months: SeriesPoint[]; years: SeriesPoint[] } => {
+// --- Hourly sales heatmap: last N days x 24 hours (replaces the day/month/year sales chart) -----
+
+export interface HourlyHeatmapDay {
+  label: string; // short French weekday, e.g. 'Lun'
+  dateIso: string;
+  hours: number[]; // 24 entries, revenue per hour
+}
+
+export interface HourlySalesHeatmap {
+  days: HourlyHeatmapDay[]; // oldest to newest
+  maxValue: number;
+}
+
+export const buildHourlySalesHeatmap = (transactions: SaleTransaction[], dayCount = 7): HourlySalesHeatmap => {
   const paid = transactions.filter((t) => t.status === 'Payé');
   const today = new Date();
+  today.setHours(0, 0, 0, 0);
 
-  const days: SeriesPoint[] = Array.from({ length: 7 }, (_, i) => {
+  const days: HourlyHeatmapDay[] = [];
+  let maxValue = 0;
+
+  for (let i = dayCount - 1; i >= 0; i -= 1) {
     const d = new Date(today);
-    d.setDate(d.getDate() - (6 - i));
+    d.setDate(d.getDate() - i);
     const iso = d.toISOString().slice(0, 10);
-    const prevIso = new Date(d.getTime() - 7 * 86400000).toISOString().slice(0, 10);
-    const dayTx = paid.filter((t) => t.date === iso);
-    const prevTx = paid.filter((t) => t.date === prevIso);
-    return {
-      label: `${WEEKDAY_SHORT_FR[(d.getDay() + 6) % 7]} ${d.getDate().toString().padStart(2, '0')}/${(d.getMonth() + 1).toString().padStart(2, '0')}`,
-      current: dayTx.reduce((s, t) => s + t.totalAmount, 0),
-      previous: prevTx.reduce((s, t) => s + t.totalAmount, 0),
-      tickets: dayTx.length,
-    };
-  });
+    const hours = new Array(24).fill(0) as number[];
+    paid
+      .filter((t) => t.date === iso)
+      .forEach((t) => {
+        const hh = parseInt(t.time.slice(0, 2), 10);
+        if (!Number.isNaN(hh) && hh >= 0 && hh < 24) hours[hh] += t.totalAmount;
+      });
+    hours.forEach((v) => {
+      if (v > maxValue) maxValue = v;
+    });
+    days.push({ label: WEEKDAY_SHORT_FR[(d.getDay() + 6) % 7], dateIso: iso, hours });
+  }
 
-  const months: SeriesPoint[] = Array.from({ length: 9 }, (_, i) => {
-    const d = new Date(today.getFullYear(), today.getMonth() - (8 - i), 1);
-    const prevD = new Date(d.getFullYear(), d.getMonth() - 1, 1);
-    const monthTx = paid.filter((t) => t.date.slice(0, 7) === d.toISOString().slice(0, 7));
-    const prevTx = paid.filter((t) => t.date.slice(0, 7) === prevD.toISOString().slice(0, 7));
-    return {
-      label: MONTH_LABELS_FR[d.getMonth()].replace('.', ''),
-      current: monthTx.reduce((s, t) => s + t.totalAmount, 0),
-      previous: prevTx.reduce((s, t) => s + t.totalAmount, 0),
-      tickets: monthTx.length,
-    };
-  });
-
-  const years: SeriesPoint[] = Array.from({ length: 4 }, (_, i) => {
-    const y = today.getFullYear() - (3 - i);
-    const yearTx = paid.filter((t) => t.year === y);
-    const prevTx = paid.filter((t) => t.year === y - 1);
-    return { label: String(y), current: yearTx.reduce((s, t) => s + t.totalAmount, 0), previous: prevTx.reduce((s, t) => s + t.totalAmount, 0), tickets: yearTx.length };
-  });
-
-  return { days, months, years };
+  return { days, maxValue };
 };
 
 export const buildPurchasesByPeriod = (orders: PurchaseOrder[]): { days: PurchaseSeriesPoint[]; months: PurchaseSeriesPoint[]; years: PurchaseSeriesPoint[] } => {

@@ -32,7 +32,7 @@ import {
   buildLowStockList,
   buildDashboardAlerts,
   buildDailyHeatmap,
-  buildSalesByPeriod,
+  buildHourlySalesHeatmap,
   buildPurchasesByPeriod,
   buildCategoryShares,
 } from './data/dashboardModel';
@@ -630,7 +630,7 @@ export default function App() {
   );
 
   const dailyHeatmapData = useMemo(() => buildDailyHeatmap(salesTransactions), [salesTransactions]);
-  const salesByPeriodData = useMemo(() => buildSalesByPeriod(salesTransactions), [salesTransactions]);
+  const hourlySalesHeatmapData = useMemo(() => buildHourlySalesHeatmap(salesTransactions), [salesTransactions]);
   const purchasesByPeriodData = useMemo(() => buildPurchasesByPeriod(purchaseOrders), [purchaseOrders]);
   const categoryShareData = useMemo(() => buildCategoryShares(salesTransactions, dashboardRange), [salesTransactions, dashboardRange]);
 
@@ -1349,7 +1349,7 @@ export default function App() {
                 </div>
 
                 {/* Sales Chart: Ventes par jours with Jours/Mois/Année filters & period comparison */}
-                <SalesChart data={salesByPeriodData} compareWithPrevious={compareWithPrevious} />
+                <SalesChart data={hourlySalesHeatmapData} />
 
                 {/* Purchases Chart: Achats par jours with Jours/Mois/Année filters & period comparison */}
                 <PurchasesChart data={purchasesByPeriodData} compareWithPrevious={compareWithPrevious} />
