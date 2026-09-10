@@ -23,7 +23,7 @@ import { ProductCategory, ProductSubCategory, SubRecipe } from './data/productsM
 import { ActivityLogEntry } from './data/activityLog';
 import { Expense, ExpenseCategory, ExpenseStatus } from './data/expensesModel';
 import { Supplier, PurchaseOrder, PurchaseOrderStatus, PurchaseReception, SupplierInvoice } from './data/purchasesModel';
-import { OperationalAlert } from './data/alertsModel';
+import { OperationalAlert, computeOperationalAlerts } from './data/alertsModel';
 import { Employee, Shift, DayRecord, RecurringPlan, FinancialRecord, AttendanceStatus, WeeklyPattern, getEmployeeFullName } from './data/hrModel';
 import {
   resolveDashboardRange,
@@ -573,27 +573,6 @@ export default function App() {
     runMutation(() => salesApi.createSalesTransactions(newTransactions.map(toTicketInput)));
   };
 
-  const handleQuickAction = (action: string) => {
-    switch (action) {
-      case 'notifications':
-        setActiveTab('notifications');
-        break;
-      case 'pos':
-        setActiveTab('pos');
-        break;
-      case 'products':
-        setModalType('products');
-        break;
-      case 'clients':
-        setModalType('clients');
-        break;
-      case 'reports':
-        setActiveTab('reports');
-        break;
-      default:
-        break;
-    }
-  };
 
   const dashboardRange = useMemo(() => resolveDashboardRange(activePeriod, customRange), [activePeriod, customRange]);
 
@@ -634,6 +613,34 @@ export default function App() {
 
   const employeeFullNames = useMemo(() => hrEmployees.map(getEmployeeFullName), [hrEmployees]);
   const shiftNames = useMemo(() => hrShifts.map((s) => s.name), [hrShifts]);
+
+  // Hero banner always shows "today", independent of the dashboard's selected analysis period.
+  const heroTodayData = useMemo(
+    () =>
+      computeDashboardPeriodData(resolveDashboardRange('today'), {
+        transactions: salesTransactions,
+        orders: purchaseOrders,
+        expenses,
+        stockProducts,
+        financialRecords: hrFinancialRecords,
+        articles: catalogArticles,
+        subRecipes,
+      }),
+    [salesTransactions, purchaseOrders, expenses, stockProducts, hrFinancialRecords, catalogArticles, subRecipes]
+  );
+
+  const unreadAlertsCount = useMemo(() => {
+    const allAlerts = computeOperationalAlerts({
+      stockProducts,
+      stockLots,
+      stockLedger,
+      articles: catalogArticles,
+      subRecipes,
+      suppliers,
+      invoices: supplierInvoices,
+    });
+    return allAlerts.filter((a) => !(a.id in treatedAlerts)).length;
+  }, [stockProducts, stockLots, stockLedger, catalogArticles, subRecipes, suppliers, supplierInvoices, treatedAlerts]);
 
   const dailyHeatmapData = useMemo(() => buildDailyHeatmap(salesTransactions), [salesTransactions]);
   const salesByPeriodData = useMemo(() => buildSalesByPeriod(salesTransactions), [salesTransactions]);
@@ -1309,7 +1316,16 @@ export default function App() {
                 </div>
 
                 {/* Hero Dark Greeting Banner */}
-                <HeroBanner onActionClick={handleQuickAction} />
+                <HeroBanner
+                  todaySalesLabel={heroTodayData.turnover}
+                  growthLabel={heroTodayData.turnoverChange}
+                  growthIsPositive={!heroTodayData.turnoverChange.startsWith('-')}
+                  unreadAlertsCount={unreadAlertsCount}
+                  onNavigate={(tab, sub) => {
+                    setActiveTab(tab);
+                    setActiveSubItem(sub ?? '');
+                  }}
+                />
 
                 {/* Section Analyse de gestion (Placed BEFORE the KPI cards as requested) */}
                 <AnalysisFilterBar

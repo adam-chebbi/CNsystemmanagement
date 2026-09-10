@@ -48,3 +48,22 @@
   background: rgba(156, 163, 175, 0.4);
   border-radius: 9999px;
 }
+
+@keyframes wave-scroll {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+.animate-water-wave-1 { animation: wave-scroll 8s linear infinite; }
+.animate-water-wave-2 { animation: wave-scroll 12s linear infinite reverse; }
+.animate-water-wave-3 { animation: wave-scroll 16s linear infinite; }
+
+@keyframes hand-wave {
+  0%, 100% { transform: rotate(0deg); }
+  10% { transform: rotate(14deg); }
+  20% { transform: rotate(-8deg); }
+  30% { transform: rotate(14deg); }
+  40% { transform: rotate(-4deg); }
+  50% { transform: rotate(10deg); }
+  60% { transform: rotate(0deg); }
+}
+.animate-hand-wave { animation: hand-wave 2.5s ease-in-out infinite; transform-origin: 70% 70%; display: inline-block; }
