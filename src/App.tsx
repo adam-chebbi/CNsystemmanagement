@@ -730,7 +730,7 @@ export default function App() {
             3 sides), flush on mobile/tablet so small screens stay full-bleed. */}
         <div className="flex-1 flex flex-col min-w-0 h-full lg:py-3 lg:pr-3">
           {/* Framed main workspace panel: sidebar + this panel together read as one shell */}
-          <div className="flex-1 flex flex-col min-w-0 min-h-0 bg-white dark:bg-[#151D2A] lg:rounded-2xl lg:shadow-md lg:border lg:border-gray-100 lg:dark:border-gray-800 overflow-hidden">
+          <div className="flex-1 flex flex-col min-w-0 min-h-0 bg-[#fcfcfc] dark:bg-[#151D2A] lg:rounded-2xl lg:shadow-md lg:border lg:border-gray-100 lg:dark:border-gray-800 overflow-hidden">
             {/* Top Header */}
             <Header
               onToggleSidebar={() => setSidebarOpen(!sidebarOpen)}

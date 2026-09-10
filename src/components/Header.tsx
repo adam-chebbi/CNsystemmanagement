@@ -38,7 +38,7 @@ export const Header: React.FC<HeaderProps> = ({
   };
 
   return (
-    <header className="sticky top-0 z-30 bg-white/90 dark:bg-[#111827]/90 backdrop-blur-md border-b border-gray-100 dark:border-gray-800 px-4 sm:px-6 py-2.5 transition-colors">
+    <header className="sticky top-0 z-30 bg-[#fcfcfc]/90 dark:bg-[#111827]/90 backdrop-blur-md border-b border-gray-100 dark:border-gray-800 px-4 sm:px-6 py-2.5 transition-colors">
       <div className="flex items-center justify-between">
         {/* Left: Collapsible Sidebar Icon + Breadcrumbs */}
         <div className="flex items-center gap-3">
