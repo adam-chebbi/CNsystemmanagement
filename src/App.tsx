@@ -1328,6 +1328,10 @@ export default function App() {
                 <MetricCards
                   data={dashboardPeriodData}
                   compareWithPrevious={compareWithPrevious}
+                  onNavigate={(tab, sub) => {
+                    setActiveTab(tab);
+                    setActiveSubItem(sub ?? '');
+                  }}
                 />
 
                 {/* Heatmap (Ventes par jour - Responsive Calendar Heatmap) & Plan Overview (Objectifs & Répartition) Row */}
