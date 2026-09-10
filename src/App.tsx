@@ -23,7 +23,7 @@ import { ProductCategory, ProductSubCategory, SubRecipe } from './data/productsM
 import { ActivityLogEntry } from './data/activityLog';
 import { Expense, ExpenseCategory, ExpenseStatus } from './data/expensesModel';
 import { Supplier, PurchaseOrder, PurchaseOrderStatus, PurchaseReception, SupplierInvoice } from './data/purchasesModel';
-import { OperationalAlert, computeOperationalAlerts } from './data/alertsModel';
+import { OperationalAlert } from './data/alertsModel';
 import { Employee, Shift, DayRecord, RecurringPlan, FinancialRecord, AttendanceStatus, WeeklyPattern, getEmployeeFullName } from './data/hrModel';
 import {
   resolveDashboardRange,
@@ -628,19 +628,6 @@ export default function App() {
       }),
     [salesTransactions, purchaseOrders, expenses, stockProducts, hrFinancialRecords, catalogArticles, subRecipes]
   );
-
-  const unreadAlertsCount = useMemo(() => {
-    const allAlerts = computeOperationalAlerts({
-      stockProducts,
-      stockLots,
-      stockLedger,
-      articles: catalogArticles,
-      subRecipes,
-      suppliers,
-      invoices: supplierInvoices,
-    });
-    return allAlerts.filter((a) => !(a.id in treatedAlerts)).length;
-  }, [stockProducts, stockLots, stockLedger, catalogArticles, subRecipes, suppliers, supplierInvoices, treatedAlerts]);
 
   const dailyHeatmapData = useMemo(() => buildDailyHeatmap(salesTransactions), [salesTransactions]);
   const salesByPeriodData = useMemo(() => buildSalesByPeriod(salesTransactions), [salesTransactions]);
@@ -1320,7 +1307,6 @@ export default function App() {
                   todaySalesLabel={heroTodayData.turnover}
                   growthLabel={heroTodayData.turnoverChange}
                   growthIsPositive={!heroTodayData.turnoverChange.startsWith('-')}
-                  unreadAlertsCount={unreadAlertsCount}
                   onNavigate={(tab, sub) => {
                     setActiveTab(tab);
                     setActiveSubItem(sub ?? '');

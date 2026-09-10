@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import {
-  Bell,
   Monitor,
   Wallet,
   ShoppingCart,
@@ -11,7 +10,6 @@ interface HeroBannerProps {
   todaySalesLabel: string;
   growthLabel: string;
   growthIsPositive: boolean;
-  unreadAlertsCount: number;
   onNavigate: (tab: string, sub?: string) => void;
 }
 
@@ -19,7 +17,6 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({
   todaySalesLabel,
   growthLabel,
   growthIsPositive,
-  unreadAlertsCount,
   onNavigate,
 }) => {
   const [mounted, setMounted] = useState(false);
@@ -129,23 +126,6 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({
             <p className={`text-lg font-bold leading-tight ${growthIsPositive ? 'text-emerald-400' : 'text-rose-400'}`}>{growthLabel}</p>
             <p className="text-slate-400 text-[11px]">La croissance</p>
           </div>
-
-          {/* Notifications */}
-          <button
-            id="hero-quick-notifications"
-            onClick={() => onNavigate('notifications')}
-            className="relative flex flex-col items-center gap-1 rounded-xl px-3 py-2 hover:bg-white/10 transition-all duration-200 cursor-pointer"
-          >
-            <div className="relative">
-              <Bell size={20} className="text-amber-300" />
-              <span className="absolute -top-1.5 -right-1.5 min-w-[16px] h-4 rounded-full bg-amber-500 text-white text-[9px] font-bold flex items-center justify-center px-0.5 leading-none">
-                {unreadAlertsCount}
-              </span>
-            </div>
-            <span className="text-slate-400 text-[10px] whitespace-nowrap">Les notifications</span>
-          </button>
-
-          <div className="w-px h-10 bg-white/10 hidden sm:block" />
 
           {/* Ventes */}
           <button
