@@ -18,6 +18,9 @@ import {
   Utensils,
   ShoppingBag,
   ChevronDown,
+  ChevronUp,
+  ChevronsDownUp,
+  ChevronsUpDown,
   Users,
   ClipboardList,
   RotateCcw,
@@ -87,6 +90,9 @@ export const ManualSalesEntryPage: React.FC<ManualSalesEntryPageProps> = ({
   const [saveError, setSaveError] = useState<string | null>(null);
   const [savedCount, setSavedCount] = useState(0);
   const [expandedExtras, setExpandedExtras] = useState<Set<string>>(new Set());
+  // Tickets are expanded by default (a freshly added ticket needs filling in); collapsing is
+  // purely a user choice to shorten a long list, never automatic.
+  const [collapsedTickets, setCollapsedTickets] = useState<Set<string>>(new Set());
 
   const issues = useMemo(() => validateManualSalesForm(form), [form]);
   const issuesByKey = useMemo(() => {
@@ -96,6 +102,22 @@ export const ManualSalesEntryPage: React.FC<ManualSalesEntryPageProps> = ({
     });
     return map;
   }, [issues]);
+
+  // Maps every issue back to the ticket it belongs to (item-level issues via the owning ticket),
+  // so a collapsed ticket carrying an error can still be flagged and auto-expanded on verify.
+  const errorTicketIds = useMemo(() => {
+    const ids = new Set<string>();
+    issues.forEach((issue) => {
+      const [scope, rowId] = issue.fieldKey.split(':');
+      if (scope === 'ticket') {
+        ids.add(rowId);
+      } else if (scope === 'item') {
+        const owner = form.tickets.find((t) => t.items.some((it) => it.rowId === rowId));
+        if (owner) ids.add(owner.rowId);
+      }
+    });
+    return ids;
+  }, [issues, form.tickets]);
 
   const showErrors = hasAttemptedVerify;
   const grandTotal = useMemo(() => computeGrandTotal(form, catalog), [form, catalog]);
@@ -123,6 +145,26 @@ export const ManualSalesEntryPage: React.FC<ManualSalesEntryPageProps> = ({
 
   const removeTicket = (ticketId: string) => {
     setForm((prev) => ({ ...prev, tickets: prev.tickets.filter((t) => t.rowId !== ticketId) }));
+    setCollapsedTickets((prev) => {
+      if (!prev.has(ticketId)) return prev;
+      const next = new Set(prev);
+      next.delete(ticketId);
+      return next;
+    });
+  };
+
+  const toggleTicketCollapsed = (ticketId: string) => {
+    setCollapsedTickets((prev) => {
+      const next = new Set(prev);
+      if (next.has(ticketId)) next.delete(ticketId);
+      else next.add(ticketId);
+      return next;
+    });
+  };
+
+  const allTicketsCollapsed = form.tickets.length > 0 && form.tickets.every((t) => collapsedTickets.has(t.rowId));
+  const toggleCollapseAll = () => {
+    setCollapsedTickets(allTicketsCollapsed ? new Set() : new Set(form.tickets.map((t) => t.rowId)));
   };
 
   const updateTicket = (ticketId: string, patch: Partial<DraftTicket>) => {
@@ -199,6 +241,13 @@ export const ManualSalesEntryPage: React.FC<ManualSalesEntryPageProps> = ({
     if (issues.length === 0) {
       setStep('preview');
       document.getElementById('app-main-scroll-area')?.scrollTo({ top: 0, behavior: 'smooth' });
+    } else if (errorTicketIds.size > 0) {
+      // Surface the problem instead of hiding it behind a collapsed summary.
+      setCollapsedTickets((prev) => {
+        const next = new Set(prev);
+        errorTicketIds.forEach((id) => next.delete(id));
+        return next;
+      });
     }
   };
 
@@ -250,6 +299,24 @@ export const ManualSalesEntryPage: React.FC<ManualSalesEntryPageProps> = ({
     type === 'Sur place'
       ? 'bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800/70'
       : 'bg-blue-50 dark:bg-blue-950/50 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800/70';
+
+  const buildTicketSummaryLine = (ticket: DraftTicket): string => {
+    const itemsLabel = ticket.items
+      .filter((it) => it.articleId)
+      .map((it) => {
+        const article = getArticleById(it.articleId, articles);
+        return article ? `${it.qty}x ${article.name}` : null;
+      })
+      .filter(Boolean)
+      .join(', ');
+    const placeLabel =
+      ticket.serviceType === 'Sur place'
+        ? ticket.tableNumber
+          ? `Table ${ticket.tableNumber}`
+          : 'Sur place'
+        : ticket.counterLabel || 'À emporter';
+    return `${itemsLabel || 'Aucun article'} — ${placeLabel} • ${ticket.paymentMethod}`;
+  };
 
   const getPaymentIcon = (method: PaymentMethod) => {
     switch (method) {
@@ -547,6 +614,12 @@ export const ManualSalesEntryPage: React.FC<ManualSalesEntryPageProps> = ({
                 </span>
               </h2>
               <div className="flex items-center gap-2">
+                {form.tickets.length > 1 && (
+                  <button onClick={toggleCollapseAll} className={secondaryButtonClass}>
+                    {allTicketsCollapsed ? <ChevronsUpDown size={14} /> : <ChevronsDownUp size={14} />}
+                    <span>{allTicketsCollapsed ? 'Tout développer' : 'Tout réduire'}</span>
+                  </button>
+                )}
                 <button onClick={handleReset} className={secondaryButtonClass}>
                   <RotateCcw size={14} />
                   <span>Réinitialiser</span>
@@ -578,20 +651,38 @@ export const ManualSalesEntryPage: React.FC<ManualSalesEntryPageProps> = ({
               <div className="space-y-4 max-h-[900px] overflow-y-auto custom-scrollbar pr-0.5">
                 {form.tickets.map((ticket, ticketIdx) => {
                   const ticketTotal = computeTicketTotal(ticket, catalog);
+                  const isCollapsed = collapsedTickets.has(ticket.rowId);
+                  const hasError = showErrors && errorTicketIds.has(ticket.rowId);
                   return (
                     <div
                       key={ticket.rowId}
-                      className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-[#151D2A] border border-gray-100 dark:border-gray-800 shadow-2xs space-y-4"
+                      className={`p-4 sm:p-5 rounded-2xl bg-white dark:bg-[#151D2A] border shadow-2xs space-y-4 ${
+                        hasError ? 'border-red-300 dark:border-red-800/70' : 'border-gray-100 dark:border-gray-800'
+                      }`}
                     >
-                      {/* Ticket header */}
-                      <div className="flex items-center justify-between">
-                        <h3 className="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                          <span className="w-6 h-6 rounded-lg bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-300 flex items-center justify-center text-xs font-black">
+                      {/* Ticket header — always visible; doubles as the collapse/expand toggle */}
+                      <div className="flex items-center justify-between gap-2">
+                        <button
+                          type="button"
+                          onClick={() => toggleTicketCollapsed(ticket.rowId)}
+                          className="flex items-center gap-2 text-left flex-1 min-w-0 cursor-pointer"
+                        >
+                          <span className="w-6 h-6 rounded-lg bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-300 flex items-center justify-center text-xs font-black shrink-0">
                             {ticketIdx + 1}
                           </span>
-                          Ticket {ticketIdx + 1}
-                        </h3>
-                        <div className="flex items-center gap-3">
+                          <div className="min-w-0">
+                            <h3 className="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-1.5">
+                              <span>Ticket {ticketIdx + 1}</span>
+                              {hasError && <span className="w-1.5 h-1.5 rounded-full bg-red-500 shrink-0" title="Cette carte contient une erreur" />}
+                            </h3>
+                            {isCollapsed && (
+                              <p className="text-[11px] text-gray-400 dark:text-gray-500 truncate" title={buildTicketSummaryLine(ticket)}>
+                                {buildTicketSummaryLine(ticket)}
+                              </p>
+                            )}
+                          </div>
+                        </button>
+                        <div className="flex items-center gap-3 shrink-0">
                           <span className="text-sm font-bold text-gray-900 dark:text-white">
                             {ticketTotal.toFixed(2)} <span className="text-[11px] text-gray-500">DT</span>
                           </span>
@@ -602,9 +693,18 @@ export const ManualSalesEntryPage: React.FC<ManualSalesEntryPageProps> = ({
                           >
                             <Trash2 size={15} />
                           </button>
+                          <button
+                            onClick={() => toggleTicketCollapsed(ticket.rowId)}
+                            title={isCollapsed ? 'Développer ce ticket' : 'Réduire ce ticket'}
+                            className="p-1.5 rounded-lg text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700/60 transition cursor-pointer"
+                          >
+                            {isCollapsed ? <ChevronDown size={15} /> : <ChevronUp size={15} />}
+                          </button>
                         </div>
                       </div>
 
+                      {isCollapsed ? null : (
+                        <>
                       {/* Articles */}
                       <div className="space-y-2">
                         <div className="flex items-center justify-between">
@@ -878,6 +978,8 @@ export const ManualSalesEntryPage: React.FC<ManualSalesEntryPageProps> = ({
                           </p>
                         )}
                       </div>
+                        </>
+                      )}
                     </div>
                   );
                 })}
