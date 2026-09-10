@@ -88,19 +88,9 @@ export const Header: React.FC<HeaderProps> = ({
               onClick={() => setShowUserMenu(!showUserMenu)}
               className="flex items-center gap-2 p-1 sm:px-2 sm:py-1 rounded-full hover:bg-gray-50 dark:hover:bg-gray-800 transition text-left cursor-pointer"
             >
-              <div className="w-8 h-8 rounded-full overflow-hidden border border-emerald-500/40 shrink-0">
-                <img
-                  src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80"
-                  alt="Company profile"
-                  className="w-full h-full object-cover"
-                />
-              </div>
               <div className="hidden md:block text-left pr-1">
                 <div className="text-xs font-semibold text-gray-800 dark:text-gray-200 leading-tight">
                   {user?.fullName ?? 'Utilisateur'}
-                </div>
-                <div className="text-[10px] text-gray-400 dark:text-gray-500 leading-tight">
-                  CIN {user?.cin ?? '—'}
                 </div>
               </div>
               <ChevronDown size={13} className="text-gray-400 hidden sm:inline" />
@@ -113,7 +103,6 @@ export const Header: React.FC<HeaderProps> = ({
               >
                 <div className="px-2 py-1.5 border-b border-gray-100 dark:border-gray-700 mb-1">
                   <p className="text-xs font-semibold text-gray-800 dark:text-white">{user?.fullName ?? 'Utilisateur'}</p>
-                  <p className="text-[11px] text-gray-400 truncate">CIN {user?.cin ?? '—'}</p>
                 </div>
                 <button
                   onClick={() => setShowUserMenu(false)}

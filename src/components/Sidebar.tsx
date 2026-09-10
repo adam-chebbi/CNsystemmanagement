@@ -300,9 +300,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <button
               onClick={onToggleCollapse}
               title="Développer le menu"
-              className="w-10 h-10 rounded-xl bg-[#151D2A] border border-gray-700/50 text-emerald-400 flex items-center justify-center font-black text-xs shadow-sm hover:scale-105 transition cursor-pointer mb-3"
+              className="w-10 h-10 rounded-xl bg-[#151D2A] border border-gray-700/50 flex items-center justify-center shadow-sm hover:scale-105 transition cursor-pointer mb-3 overflow-hidden"
             >
-              <span className="tracking-tighter">POS</span>
+              <img src="/logo.png" alt="Café Noir" className="w-full h-full object-contain p-1.5" />
             </button>
 
             {/* List of icons without texts */}
@@ -355,15 +355,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             {/* Header / Brand */}
             <div className="p-4 pb-2 flex items-center justify-between">
               <div className="flex items-center gap-1.5 pl-1">
-                <span className="text-2xl font-black tracking-tight text-gray-900 dark:text-white flex items-center">
-                  P
-                  <span className="relative flex items-center justify-center w-5 h-5 mx-0.5 text-emerald-500 font-black">
-                    <span className="w-4 h-4 rounded-full border-[3px] border-emerald-500 flex items-center justify-center">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                    </span>
-                  </span>
-                  S
-                </span>
+                <img src="/logo.png" alt="Café Noir" className="h-8 w-auto object-contain" />
               </div>
 
               <div className="flex items-center gap-1">
