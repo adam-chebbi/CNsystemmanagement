@@ -79,9 +79,10 @@ export const AnalysisFilterBar: React.FC<AnalysisFilterBarProps> = ({
         </div>
 
         {/* Center / Right controls */}
-        <div className="flex flex-wrap items-center gap-2 self-start md:self-auto">
-          {/* Filter Pills */}
-          <div className="inline-flex p-1 bg-gray-50 dark:bg-gray-800/80 rounded-xl border border-gray-100 dark:border-gray-700/60 shadow-2xs">
+        <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-2 w-full md:w-auto min-w-0">
+          {/* Filter Pills — its own horizontal scroller on narrow screens so 5 pills never force
+              the whole card (or page) to overflow sideways. */}
+          <div className="flex p-1 bg-gray-50 dark:bg-gray-800/80 rounded-xl border border-gray-100 dark:border-gray-700/60 shadow-2xs overflow-x-auto min-w-0 max-w-full">
             {periods.map((p) => {
               const isActive = activePeriod === p.id;
               return (
@@ -95,7 +96,7 @@ export const AnalysisFilterBar: React.FC<AnalysisFilterBarProps> = ({
                       onPeriodChange(p.id);
                     }
                   }}
-                  className={`px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
+                  className={`shrink-0 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
                     isActive
                       ? 'bg-emerald-600 text-white shadow-xs'
                       : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-white/60 dark:hover:bg-gray-700/50'
@@ -112,42 +113,44 @@ export const AnalysisFilterBar: React.FC<AnalysisFilterBarProps> = ({
             })}
           </div>
 
-          {/* Previous Period Comparison Toggle */}
-          <button
-            id="toggle-previous-period-comparison"
-            onClick={onToggleCompare}
-            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-semibold transition shadow-2xs cursor-pointer ${
-              compareWithPrevious
-                ? 'bg-emerald-50 dark:bg-emerald-950/50 border-emerald-300 dark:border-emerald-700 text-emerald-700 dark:text-emerald-300'
-                : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-50'
-            }`}
-            title="Afficher la comparaison avec la période précédente sur les indicateurs et graphiques"
-          >
-            <ArrowUpDown size={13} className={compareWithPrevious ? 'text-emerald-600 dark:text-emerald-400' : 'text-gray-400'} />
-            <span className="hidden sm:inline">Vs période préc.</span>
-            <span className="sm:hidden">Vs préc.</span>
-            <span
-              className={`w-2 h-2 rounded-full ${
-                compareWithPrevious ? 'bg-emerald-500 animate-pulse' : 'bg-gray-300 dark:bg-gray-600'
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Previous Period Comparison Toggle */}
+            <button
+              id="toggle-previous-period-comparison"
+              onClick={onToggleCompare}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-semibold transition shadow-2xs cursor-pointer ${
+                compareWithPrevious
+                  ? 'bg-emerald-50 dark:bg-emerald-950/50 border-emerald-300 dark:border-emerald-700 text-emerald-700 dark:text-emerald-300'
+                  : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-50'
               }`}
-            />
-          </button>
+              title="Afficher la comparaison avec la période précédente sur les indicateurs et graphiques"
+            >
+              <ArrowUpDown size={13} className={compareWithPrevious ? 'text-emerald-600 dark:text-emerald-400' : 'text-gray-400'} />
+              <span className="hidden sm:inline">Vs période préc.</span>
+              <span className="sm:hidden">Vs préc.</span>
+              <span
+                className={`w-2 h-2 rounded-full ${
+                  compareWithPrevious ? 'bg-emerald-500 animate-pulse' : 'bg-gray-300 dark:bg-gray-600'
+                }`}
+              />
+            </button>
 
-          {/* Explain calculation info button */}
-          <button
-            id="toggle-calc-explanation"
-            onClick={() => setShowCalcExplanation(!showCalcExplanation)}
-            className={`inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl border text-xs transition cursor-pointer ${
-              showCalcExplanation
-                ? 'bg-blue-50 dark:bg-blue-950/60 border-blue-300 dark:border-blue-700 text-blue-700 dark:text-blue-300 font-semibold'
-                : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-50'
-            }`}
-            title="Comment sont calculées les valeurs de la période précédente ?"
-          >
-            <HelpCircle size={13} />
-            <span className="hidden sm:inline">Calcul</span>
-            {showCalcExplanation ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
-          </button>
+            {/* Explain calculation info button */}
+            <button
+              id="toggle-calc-explanation"
+              onClick={() => setShowCalcExplanation(!showCalcExplanation)}
+              className={`inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl border text-xs transition cursor-pointer ${
+                showCalcExplanation
+                  ? 'bg-blue-50 dark:bg-blue-950/60 border-blue-300 dark:border-blue-700 text-blue-700 dark:text-blue-300 font-semibold'
+                  : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-50'
+              }`}
+              title="Comment sont calculées les valeurs de la période précédente ?"
+            >
+              <HelpCircle size={13} />
+              <span className="hidden sm:inline">Calcul</span>
+              {showCalcExplanation ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+            </button>
+          </div>
         </div>
       </div>
 
