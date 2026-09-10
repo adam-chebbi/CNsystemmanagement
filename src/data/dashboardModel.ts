@@ -378,45 +378,103 @@ export const buildSalesByPeriod = (transactions: SaleTransaction[]): { days: Ser
   return { days, months, years };
 };
 
-// --- Hourly sales heatmap: last N days x 24 hours (used by the "Calendrier d'activité" card) -----
+// --- Daily sales calendar: GitHub-contributions-style grid, weekday rows x week columns grouped --
+// into month labels (used by the "Ventes par jour" card). Each cell is a single calendar day.
 
-export interface HourlyHeatmapDay {
-  label: string; // short French weekday, e.g. 'Lun'
+export interface DailySalesCalendarCell {
   dateIso: string;
-  hours: number[]; // 24 entries, revenue per hour
+  weekday: number; // 0=Lun .. 6=Dim
+  revenue: number;
+  operations: number;
+  itemsSold: number;
+  inRange: boolean; // false for grid-padding days outside the displayed window
 }
 
-export interface HourlySalesHeatmap {
-  days: HourlyHeatmapDay[]; // oldest to newest
+export interface DailySalesCalendarWeek {
+  cells: DailySalesCalendarCell[]; // always 7, Lun..Dim
+}
+
+export interface DailySalesCalendarMonthLabel {
+  label: string; // full French month name, e.g. 'Avril'
+  weekIndex: number; // column index of the week this label should sit above
+}
+
+export interface DailySalesCalendarData {
+  weeks: DailySalesCalendarWeek[]; // oldest to newest
+  monthLabels: DailySalesCalendarMonthLabel[];
   maxValue: number;
+  rangeStartIso: string;
+  rangeEndIso: string;
 }
 
-export const buildHourlySalesHeatmap = (transactions: SaleTransaction[], dayCount = 7): HourlySalesHeatmap => {
+const MONTH_LABELS_FULL_FR = [
+  'Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin',
+  'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre',
+];
+
+export const buildDailySalesCalendar = (transactions: SaleTransaction[], monthsBack = 6): DailySalesCalendarData => {
   const paid = transactions.filter((t) => t.status === 'Payé');
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  const days: HourlyHeatmapDay[] = [];
-  let maxValue = 0;
+  const rangeEnd = today;
+  const rangeStart = new Date(today.getFullYear(), today.getMonth() - (monthsBack - 1), 1);
 
-  for (let i = dayCount - 1; i >= 0; i -= 1) {
-    const d = new Date(today);
-    d.setDate(d.getDate() - i);
-    const iso = d.toISOString().slice(0, 10);
-    const hours = new Array(24).fill(0) as number[];
-    paid
-      .filter((t) => t.date === iso)
-      .forEach((t) => {
-        const hh = parseInt(t.time.slice(0, 2), 10);
-        if (!Number.isNaN(hh) && hh >= 0 && hh < 24) hours[hh] += t.totalAmount;
+  // Snap the grid to full Monday-to-Sunday weeks so every column has all 7 rows.
+  const gridStart = new Date(rangeStart);
+  gridStart.setDate(gridStart.getDate() - ((gridStart.getDay() + 6) % 7));
+  const gridEnd = new Date(rangeEnd);
+  gridEnd.setDate(gridEnd.getDate() + (6 - ((gridEnd.getDay() + 6) % 7)));
+
+  const byDate = new Map<string, { revenue: number; operations: number; itemsSold: number }>();
+  paid.forEach((t) => {
+    const bucket = byDate.get(t.date) ?? { revenue: 0, operations: 0, itemsSold: 0 };
+    bucket.revenue += t.totalAmount;
+    bucket.operations += 1;
+    bucket.itemsSold += t.itemsCount;
+    byDate.set(t.date, bucket);
+  });
+
+  const weeks: DailySalesCalendarWeek[] = [];
+  const monthLabels: DailySalesCalendarMonthLabel[] = [];
+  let maxValue = 0;
+  let lastLabeledMonth = -1;
+
+  for (let cursor = new Date(gridStart); cursor <= gridEnd; ) {
+    const cells: DailySalesCalendarCell[] = [];
+    let containsFirstOfMonth = false;
+    for (let w = 0; w < 7; w += 1) {
+      const iso = cursor.toISOString().slice(0, 10);
+      const cellInRange = cursor >= rangeStart && cursor <= rangeEnd;
+      if (cursor.getDate() === 1) containsFirstOfMonth = true;
+      const bucket = byDate.get(iso);
+      const revenue = bucket?.revenue ?? 0;
+      if (cellInRange && revenue > maxValue) maxValue = revenue;
+      cells.push({
+        dateIso: iso,
+        weekday: w,
+        revenue,
+        operations: bucket?.operations ?? 0,
+        itemsSold: bucket?.itemsSold ?? 0,
+        inRange: cellInRange,
       });
-    hours.forEach((v) => {
-      if (v > maxValue) maxValue = v;
-    });
-    days.push({ label: WEEKDAY_SHORT_FR[(d.getDay() + 6) % 7], dateIso: iso, hours });
+      cursor.setDate(cursor.getDate() + 1);
+    }
+    const mondayMonth = new Date(cells[0].dateIso).getMonth();
+    if ((weeks.length === 0 || containsFirstOfMonth) && mondayMonth !== lastLabeledMonth) {
+      monthLabels.push({ label: MONTH_LABELS_FULL_FR[mondayMonth], weekIndex: weeks.length });
+      lastLabeledMonth = mondayMonth;
+    }
+    weeks.push({ cells });
   }
 
-  return { days, maxValue };
+  return {
+    weeks,
+    monthLabels,
+    maxValue,
+    rangeStartIso: rangeStart.toISOString().slice(0, 10),
+    rangeEndIso: rangeEnd.toISOString().slice(0, 10),
+  };
 };
 
 // Purchase orders only carry a date (no time-of-day field), so — unlike sales — there's no real

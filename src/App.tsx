@@ -31,7 +31,7 @@ import {
   buildProductRankings,
   buildLowStockList,
   buildDashboardAlerts,
-  buildHourlySalesHeatmap,
+  buildDailySalesCalendar,
   buildSalesByPeriod,
   buildCategoryShares,
 } from './data/dashboardModel';
@@ -628,7 +628,7 @@ export default function App() {
     [salesTransactions, purchaseOrders, expenses, stockProducts, hrFinancialRecords, catalogArticles, subRecipes]
   );
 
-  const hourlySalesHeatmapData = useMemo(() => buildHourlySalesHeatmap(salesTransactions), [salesTransactions]);
+  const dailySalesCalendarData = useMemo(() => buildDailySalesCalendar(salesTransactions), [salesTransactions]);
   const salesByPeriodData = useMemo(() => buildSalesByPeriod(salesTransactions), [salesTransactions]);
   const categoryShareData = useMemo(() => buildCategoryShares(salesTransactions, dashboardRange), [salesTransactions, dashboardRange]);
 
@@ -1339,7 +1339,7 @@ export default function App() {
                 {/* Hourly sales heatmap (Ventes par heure et par jour) & Plan Overview (Objectifs & Répartition) Row */}
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
                   <div className="lg:col-span-8">
-                    <ActivityHeatmap data={hourlySalesHeatmapData} />
+                    <ActivityHeatmap data={dailySalesCalendarData} />
                   </div>
                   <div className="lg:col-span-4">
                     <PlanOverview
