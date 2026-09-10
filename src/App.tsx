@@ -31,8 +31,8 @@ import {
   buildProductRankings,
   buildLowStockList,
   buildDashboardAlerts,
-  buildDailyHeatmap,
   buildHourlySalesHeatmap,
+  buildSalesByPeriod,
   buildPurchasesByPeriod,
   buildCategoryShares,
 } from './data/dashboardModel';
@@ -629,8 +629,8 @@ export default function App() {
     [salesTransactions, purchaseOrders, expenses, stockProducts, hrFinancialRecords, catalogArticles, subRecipes]
   );
 
-  const dailyHeatmapData = useMemo(() => buildDailyHeatmap(salesTransactions), [salesTransactions]);
   const hourlySalesHeatmapData = useMemo(() => buildHourlySalesHeatmap(salesTransactions), [salesTransactions]);
+  const salesByPeriodData = useMemo(() => buildSalesByPeriod(salesTransactions), [salesTransactions]);
   const purchasesByPeriodData = useMemo(() => buildPurchasesByPeriod(purchaseOrders), [purchaseOrders]);
   const categoryShareData = useMemo(() => buildCategoryShares(salesTransactions, dashboardRange), [salesTransactions, dashboardRange]);
 
@@ -1334,10 +1334,10 @@ export default function App() {
                   }}
                 />
 
-                {/* Heatmap (Ventes par jour - Responsive Calendar Heatmap) & Plan Overview (Objectifs & Répartition) Row */}
+                {/* Hourly sales heatmap (Ventes par heure et par jour) & Plan Overview (Objectifs & Répartition) Row */}
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
                   <div className="lg:col-span-8">
-                    <ActivityHeatmap data={dailyHeatmapData} />
+                    <ActivityHeatmap data={hourlySalesHeatmapData} />
                   </div>
                   <div className="lg:col-span-4">
                     <PlanOverview
@@ -1349,7 +1349,7 @@ export default function App() {
                 </div>
 
                 {/* Sales Chart: Ventes par jours with Jours/Mois/Année filters & period comparison */}
-                <SalesChart data={hourlySalesHeatmapData} />
+                <SalesChart data={salesByPeriodData} compareWithPrevious={compareWithPrevious} />
 
                 {/* Purchases Chart: Achats par jours with Jours/Mois/Année filters & period comparison */}
                 <PurchasesChart data={purchasesByPeriodData} compareWithPrevious={compareWithPrevious} />

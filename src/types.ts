@@ -88,16 +88,6 @@ export interface HourlyPurchasePoint {
   formattedAmount: string;
 }
 
-export interface DailyContributionDay {
-  date: string;
-  dayOfWeek: number; // 0=Mon ... 6=Sun
-  weekIndex: number;
-  amount: number;
-  tickets: number;
-  intensity: number; // 0..4
-  monthLabel?: string;
-}
-
 export interface HeatmapCell {
   day: string; // 'Mon', 'Tue', ...
   dayIndex: number;

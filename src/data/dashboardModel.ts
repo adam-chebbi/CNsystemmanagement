@@ -5,7 +5,7 @@
 // Custom-range, so the range-based aggregations below are written directly against a plain
 // {start, end} ISO range instead of reusing reportsModel's period type.
 
-import { TimeFilterPeriod, MetricCardData, TopProduct, LowStockProduct, CoffeeAlert, DailyContributionDay } from '../types';
+import { TimeFilterPeriod, MetricCardData, TopProduct, LowStockProduct, CoffeeAlert } from '../types';
 import { SaleTransaction } from './salesTransactions';
 import { StockProduct, StockLot, StockLedgerEntry, getTotalQty } from './stockModel';
 import { computeStockValue, computeLowStockProducts } from './reportsModel';
@@ -317,71 +317,16 @@ export const buildDashboardAlerts = (ctx: AlertsContext): CoffeeAlert[] =>
       actionLabel: a.actionLabel,
     }));
 
-// --- Daily sales heatmap (replaces generateDailyContributionData) -------------------------------
-
-export interface DailyHeatmapData {
-  weeks: DailyContributionDay[][];
-  monthLabels: { label: string; weekIndex: number }[];
-  totalSales: number;
-  totalTickets: number;
-  averageSales: number;
-  maxDay: { date: string; amount: number; tickets: number };
-}
-
 const MONTH_LABELS_FR = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
 
-export const buildDailyHeatmap = (transactions: SaleTransaction[], weekCount = 22): DailyHeatmapData => {
-  const byDate = new Map<string, { amount: number; tickets: number }>();
-  transactions.forEach((t) => {
-    if (t.status !== 'Payé') return;
-    const entry = byDate.get(t.date) ?? { amount: 0, tickets: 0 };
-    entry.amount += t.totalAmount;
-    entry.tickets += 1;
-    byDate.set(t.date, entry);
-  });
+// --- Sales / purchases by day/month/year series (replaces SALES_BY_PERIOD / PURCHASES_BY_PERIOD) --
 
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const todayDow = (today.getDay() + 6) % 7; // 0=Mon
-  const gridEnd = new Date(today);
-  gridEnd.setDate(gridEnd.getDate() + (6 - todayDow)); // end of this week (Sunday)
-  const gridStart = new Date(gridEnd);
-  gridStart.setDate(gridStart.getDate() - (weekCount * 7 - 1));
-
-  const weeks: DailyContributionDay[][] = [];
-  const monthLabels: { label: string; weekIndex: number }[] = [];
-  let totalSales = 0;
-  let totalTickets = 0;
-  let maxDay = { date: '', amount: -1, tickets: 0 };
-  let lastMonth = -1;
-
-  for (let w = 0; w < weekCount; w += 1) {
-    const week: DailyContributionDay[] = [];
-    for (let d = 0; d < 7; d += 1) {
-      const cursor = new Date(gridStart);
-      cursor.setDate(cursor.getDate() + w * 7 + d);
-      const iso = cursor.toISOString().slice(0, 10);
-      const stats = byDate.get(iso) ?? { amount: 0, tickets: 0 };
-      const intensity = stats.amount === 0 ? 0 : stats.amount < 850 ? 1 : stats.amount < 1400 ? 2 : stats.amount < 2100 ? 3 : 4;
-      const label = cursor.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
-      week.push({ date: label, dayOfWeek: d, weekIndex: w, amount: stats.amount, tickets: stats.tickets, intensity });
-      if (cursor.getMonth() !== lastMonth && d === 0) {
-        lastMonth = cursor.getMonth();
-        monthLabels.push({ label: MONTH_LABELS_FR[lastMonth], weekIndex: w });
-      }
-      if (stats.amount > maxDay.amount) maxDay = { date: label, amount: stats.amount, tickets: stats.tickets };
-      totalSales += stats.amount;
-      totalTickets += stats.tickets;
-    }
-    weeks.push(week);
-  }
-
-  if (maxDay.amount < 0) maxDay = { date: '', amount: 0, tickets: 0 };
-  const daysWithSales = Array.from(byDate.values()).filter((v) => v.amount > 0).length;
-  return { weeks, monthLabels, totalSales, totalTickets, averageSales: daysWithSales > 0 ? totalSales / daysWithSales : 0, maxDay };
-};
-
-// --- Purchases by day/month/year series (replaces PURCHASES_BY_PERIOD) ---------------------
+export interface SeriesPoint {
+  label: string;
+  current: number;
+  previous: number;
+  tickets: number;
+}
 
 export interface PurchaseSeriesPoint {
   label: string;
@@ -392,7 +337,49 @@ export interface PurchaseSeriesPoint {
 
 const WEEKDAY_SHORT_FR = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
 
-// --- Hourly sales heatmap: last N days x 24 hours (replaces the day/month/year sales chart) -----
+export const buildSalesByPeriod = (transactions: SaleTransaction[]): { days: SeriesPoint[]; months: SeriesPoint[]; years: SeriesPoint[] } => {
+  const paid = transactions.filter((t) => t.status === 'Payé');
+  const today = new Date();
+
+  const days: SeriesPoint[] = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(today);
+    d.setDate(d.getDate() - (6 - i));
+    const iso = d.toISOString().slice(0, 10);
+    const prevIso = new Date(d.getTime() - 7 * 86400000).toISOString().slice(0, 10);
+    const dayTx = paid.filter((t) => t.date === iso);
+    const prevTx = paid.filter((t) => t.date === prevIso);
+    return {
+      label: `${WEEKDAY_SHORT_FR[(d.getDay() + 6) % 7]} ${d.getDate().toString().padStart(2, '0')}/${(d.getMonth() + 1).toString().padStart(2, '0')}`,
+      current: dayTx.reduce((s, t) => s + t.totalAmount, 0),
+      previous: prevTx.reduce((s, t) => s + t.totalAmount, 0),
+      tickets: dayTx.length,
+    };
+  });
+
+  const months: SeriesPoint[] = Array.from({ length: 9 }, (_, i) => {
+    const d = new Date(today.getFullYear(), today.getMonth() - (8 - i), 1);
+    const prevD = new Date(d.getFullYear(), d.getMonth() - 1, 1);
+    const monthTx = paid.filter((t) => t.date.slice(0, 7) === d.toISOString().slice(0, 7));
+    const prevTx = paid.filter((t) => t.date.slice(0, 7) === prevD.toISOString().slice(0, 7));
+    return {
+      label: MONTH_LABELS_FR[d.getMonth()].replace('.', ''),
+      current: monthTx.reduce((s, t) => s + t.totalAmount, 0),
+      previous: prevTx.reduce((s, t) => s + t.totalAmount, 0),
+      tickets: monthTx.length,
+    };
+  });
+
+  const years: SeriesPoint[] = Array.from({ length: 4 }, (_, i) => {
+    const y = today.getFullYear() - (3 - i);
+    const yearTx = paid.filter((t) => t.year === y);
+    const prevTx = paid.filter((t) => t.year === y - 1);
+    return { label: String(y), current: yearTx.reduce((s, t) => s + t.totalAmount, 0), previous: prevTx.reduce((s, t) => s + t.totalAmount, 0), tickets: yearTx.length };
+  });
+
+  return { days, months, years };
+};
+
+// --- Hourly sales heatmap: last N days x 24 hours (used by the "Calendrier d'activité" card) -----
 
 export interface HourlyHeatmapDay {
   label: string; // short French weekday, e.g. 'Lun'
