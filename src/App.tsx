@@ -652,9 +652,9 @@ export default function App() {
   }
 
   return (
-    <div className={`min-h-screen ${isDarkMode ? 'dark bg-[#0E1524] text-gray-100' : 'bg-[#F9FAFB] text-gray-800'}`}>
-      <div className="flex min-h-screen">
-        {/* Sidebar */}
+    <div className={`h-screen overflow-hidden ${isDarkMode ? 'dark bg-[#0E1524] text-gray-100' : 'bg-[#F9FAFB] text-gray-800'}`}>
+      <div className="flex h-full">
+        {/* Sidebar — flush to the viewport edges, forms one side of the app shell */}
         <Sidebar
           isOpen={sidebarOpen}
           onClose={() => setSidebarOpen(false)}
@@ -668,24 +668,28 @@ export default function App() {
           onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
         />
 
-        {/* Main Content Viewport */}
-        <div className="flex-1 flex flex-col min-w-0">
-          {/* Top Header */}
-          <Header
-            onToggleSidebar={() => setSidebarOpen(!sidebarOpen)}
-            onRefresh={handleRefresh}
-            isRefreshing={isRefreshing}
-            isCollapsed={isSidebarCollapsed}
-            onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-            activeTab={activeTab}
-            onNavigate={(tab) => {
-              setActiveTab(tab);
-              if (tab !== 'sales') setActiveSubItem('');
-            }}
-          />
+        {/* Workspace gutter — reclaims the sidebar's width automatically (flex-1) when it
+            collapses; padded on desktop only (flush against the sidebar, inset on the other
+            3 sides), flush on mobile/tablet so small screens stay full-bleed. */}
+        <div className="flex-1 flex flex-col min-w-0 h-full lg:py-3 lg:pr-3">
+          {/* Framed main workspace panel: sidebar + this panel together read as one shell */}
+          <div className="flex-1 flex flex-col min-w-0 min-h-0 bg-white dark:bg-[#151D2A] lg:rounded-2xl lg:shadow-md lg:border lg:border-gray-100 lg:dark:border-gray-800 overflow-hidden">
+            {/* Top Header */}
+            <Header
+              onToggleSidebar={() => setSidebarOpen(!sidebarOpen)}
+              onRefresh={handleRefresh}
+              isRefreshing={isRefreshing}
+              isCollapsed={isSidebarCollapsed}
+              onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+              activeTab={activeTab}
+              onNavigate={(tab) => {
+                setActiveTab(tab);
+                if (tab !== 'sales') setActiveSubItem('');
+              }}
+            />
 
-          {/* Page Content Body */}
-          <main className="flex-1 p-4 sm:p-6 lg:p-7 space-y-5 max-w-[1550px] w-full mx-auto">
+            {/* Page Content Body — the only scrolling region, so the frame stays pinned */}
+            <main id="app-main-scroll-area" className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-6 lg:p-7 space-y-5 max-w-[1550px] w-full mx-auto">
             {activeTab === 'notifications' ? (
               <Suspense fallback={<StockPageLoadingFallback />}>
                 <NotificationsPage
@@ -1365,7 +1369,8 @@ export default function App() {
                 />
               </>
             )}
-          </main>
+            </main>
+          </div>
         </div>
       </div>
 

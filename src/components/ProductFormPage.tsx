@@ -177,7 +177,7 @@ export const ProductFormPage: React.FC<ProductFormPageProps> = ({
     setHasAttemptedVerify(true);
     if (issues.length === 0) {
       setStep('preview');
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+      document.getElementById('app-main-scroll-area')?.scrollTo({ top: 0, behavior: 'smooth' });
     }
   };
 
