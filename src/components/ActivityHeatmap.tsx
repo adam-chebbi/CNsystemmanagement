@@ -55,7 +55,7 @@ export const ActivityHeatmap: React.FC<ActivityHeatmapProps> = ({ data }) => {
         <div className="flex items-center justify-between flex-wrap gap-2">
           <div>
             <h3 className="tracking-tight text-base font-semibold text-gray-900 dark:text-white">Ventes par jour</h3>
-            <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">Les 6 derniers mois · plus sombre = plus occupé</p>
+            <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">Les 8 derniers mois · plus sombre = plus occupé</p>
           </div>
           <div className="flex items-center gap-1.5 text-xs text-gray-400 dark:text-gray-500">
             <span>Faible</span>

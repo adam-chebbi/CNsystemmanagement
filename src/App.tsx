@@ -628,7 +628,7 @@ export default function App() {
     [salesTransactions, purchaseOrders, expenses, stockProducts, hrFinancialRecords, catalogArticles, subRecipes]
   );
 
-  const dailySalesCalendarData = useMemo(() => buildDailySalesCalendar(salesTransactions), [salesTransactions]);
+  const dailySalesCalendarData = useMemo(() => buildDailySalesCalendar(salesTransactions, 8), [salesTransactions]);
   const salesByPeriodData = useMemo(() => buildSalesByPeriod(salesTransactions), [salesTransactions]);
   const categoryShareData = useMemo(() => buildCategoryShares(salesTransactions, dashboardRange), [salesTransactions, dashboardRange]);
 
