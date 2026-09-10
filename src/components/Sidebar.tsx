@@ -70,10 +70,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
   };
 
   const toggleMenu = (menuId: string) => {
-    setOpenMenus((prev) => ({
-      ...prev,
-      [menuId]: !prev[menuId],
-    }));
+    setOpenMenus((prev) => {
+      const isCurrentlyOpen = Boolean(prev[menuId]);
+      return isCurrentlyOpen ? {} : { [menuId]: true };
+    });
   };
 
   const menuSections: MenuSection[] = [
@@ -212,7 +212,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   useEffect(() => {
     const activeParent = menuSections.flatMap((s) => s.items).find((item) => item.subItems && isParentItemActive(item));
     if (activeParent) {
-      setOpenMenus((prev) => (prev[activeParent.id] ? prev : { ...prev, [activeParent.id]: true }));
+      setOpenMenus((prev) => (prev[activeParent.id] && Object.keys(prev).length === 1 ? prev : { [activeParent.id]: true }));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab]);

@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Clock as ClockIcon, LoaderCircle } from 'lucide-react';
+import { LoaderCircle } from 'lucide-react';
 import { useAuth } from '../auth/AuthContext';
 import { ApiError } from '../api/client';
 
@@ -14,7 +14,7 @@ type Phase = 'blank' | 'typing' | 'settled';
 const prefersReducedMotion = (): boolean =>
   typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 
-// Small live clock — a professional, unobtrusive touch in the corner of the onboarding screen.
+// Live clock — a bold centerpiece beneath the login form, not a corner afterthought.
 const LiveClock: React.FC = () => {
   const [now, setNow] = useState(() => new Date());
 
@@ -23,16 +23,18 @@ const LiveClock: React.FC = () => {
     return () => clearInterval(id);
   }, []);
 
-  const time = now.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  const timeParts = now.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', second: '2-digit' }).split(':');
   const date = now.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 
   return (
-    <div className="flex items-center gap-2 text-gray-400">
-      <ClockIcon size={13} className="shrink-0" />
-      <div className="leading-tight">
-        <p className="text-xs font-semibold text-gray-600 font-mono tracking-wide">{time}</p>
-        <p className="text-[10px] text-gray-400 capitalize">{date}</p>
+    <div className="flex flex-col items-center gap-1.5">
+      <div className="flex items-baseline gap-1 font-mono tabular-nums text-gray-900">
+        <span className="text-4xl sm:text-5xl font-bold tracking-tight">{timeParts[0]}</span>
+        <span className="text-3xl sm:text-4xl font-semibold text-emerald-500/70 animate-pulse">:</span>
+        <span className="text-4xl sm:text-5xl font-bold tracking-tight">{timeParts[1]}</span>
+        <span className="text-lg sm:text-xl font-semibold text-gray-400 ml-1 self-start mt-1.5">{timeParts[2]}</span>
       </div>
+      <p className="text-xs font-medium text-gray-500 capitalize tracking-wide">{date}</p>
     </div>
   );
 };
@@ -88,14 +90,17 @@ export const LoginPage: React.FC = () => {
 
   return (
     <div className="relative min-h-screen w-full overflow-hidden bg-gray-50">
-      {/* Ambient background accents */}
-      <div className="pointer-events-none absolute -top-24 -left-24 w-72 h-72 rounded-full bg-emerald-100/60 blur-3xl" />
-      <div className="pointer-events-none absolute bottom-0 right-0 w-80 h-80 rounded-full bg-emerald-50 blur-3xl" />
-      <div className="pointer-events-none absolute inset-0 opacity-[0.35] bg-[radial-gradient(#d1d5db_1px,transparent_1px)] [background-size:26px_26px]" />
+      {/* Ambient background: drifting gradient blobs + panning dot grid + rising steam wisps */}
+      <div className="pointer-events-none absolute -top-24 -left-24 w-72 h-72 rounded-full bg-emerald-100/60 blur-3xl animate-blob-float-1" />
+      <div className="pointer-events-none absolute bottom-0 right-0 w-80 h-80 rounded-full bg-emerald-50 blur-3xl animate-blob-float-2" />
+      <div className="pointer-events-none absolute top-1/3 right-1/4 w-56 h-56 rounded-full bg-amber-100/40 blur-3xl animate-blob-float-3" />
+      <div className="pointer-events-none absolute inset-0 opacity-[0.35] bg-[radial-gradient(#d1d5db_1px,transparent_1px)] [background-size:26px_26px] animate-grid-pan" />
 
-      {/* Live clock */}
-      <div className="absolute top-5 right-5 sm:top-7 sm:right-7 z-10">
-        <LiveClock />
+      {/* Rising steam wisps — a quiet nod to the coffee brand */}
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 h-64 overflow-hidden">
+        <span className="absolute left-[22%] bottom-10 w-8 h-20 rounded-full bg-gray-300/30 blur-xl animate-steam-rise" style={{ animationDelay: '0s' }} />
+        <span className="absolute left-[48%] bottom-6 w-10 h-24 rounded-full bg-gray-300/25 blur-xl animate-steam-rise" style={{ animationDelay: '1.6s' }} />
+        <span className="absolute left-[74%] bottom-14 w-7 h-16 rounded-full bg-gray-300/30 blur-xl animate-steam-rise" style={{ animationDelay: '3.1s' }} />
       </div>
 
       {/* Title: types out centered, then settles at top-center at a smaller scale */}
@@ -119,7 +124,7 @@ export const LoginPage: React.FC = () => {
 
       {/* Form: fades in beneath the settled title */}
       <div
-        className={`absolute left-1/2 -translate-x-1/2 top-[38%] sm:top-[40%] w-full max-w-sm px-4 transition-all duration-700 ease-out ${
+        className={`absolute left-1/2 -translate-x-1/2 top-[34%] sm:top-[36%] w-full max-w-sm px-4 transition-all duration-700 ease-out ${
           settled ? 'opacity-100 translate-y-0 delay-200' : 'opacity-0 translate-y-3 pointer-events-none'
         }`}
       >
@@ -150,6 +155,12 @@ export const LoginPage: React.FC = () => {
             Se connecter
           </button>
         </form>
+
+        {/* Live clock — a bold, creative centerpiece beneath the form */}
+        <div className="mt-6 flex flex-col items-center gap-3">
+          <div className="h-px w-16 bg-gradient-to-r from-transparent via-gray-300 to-transparent" />
+          <LiveClock />
+        </div>
       </div>
     </div>
   );
