@@ -84,29 +84,6 @@ export const getEmployeeFullName = (e: Pick<Employee, 'firstName' | 'lastName'>)
 // "postes" CRUD was requested), so this is only used to populate a <datalist>.
 export const SUGGESTED_POSTES = ['Barista', 'Serveur(se)', 'Cuisinier(ère)', 'Pâtissier(ère)', 'Caissier(ère)', 'Manager', 'Plongeur(se)'];
 
-export const initialEmployees: Employee[] = [
-  {
-    id: 'emp-1', firstName: 'Karim', lastName: 'Ben Salah', phone: '+216 22 345 678', poste: 'Barista',
-    entryDate: '2024-03-01', status: 'Actif', salary: 950, cinNumber: '08234567', cinIssueDate: '2018-05-12', createdAt: '2024-03-01',
-  },
-  {
-    id: 'emp-2', firstName: 'Leila', lastName: 'Mansour', phone: '+216 98 456 789', poste: 'Manager',
-    entryDate: '2023-06-15', status: 'Actif', salary: 1400, cinNumber: '07654321', cinIssueDate: '2016-09-02', createdAt: '2023-06-15',
-  },
-  {
-    id: 'emp-3', firstName: 'Samira', lastName: 'Trabelsi', phone: '+216 55 123 456', poste: 'Serveur(se)',
-    entryDate: '2024-11-10', status: 'Actif', salary: 850, cinNumber: '09876543', cinIssueDate: '2020-01-20', createdAt: '2024-11-10',
-  },
-  {
-    id: 'emp-4', firstName: 'Mehdi', lastName: 'Chaabane', phone: '+216 26 789 012', poste: 'Cuisinier(ère)',
-    entryDate: '2022-02-01', status: 'Inactif', salary: 1000, cinNumber: '06543210', cinIssueDate: '2015-03-18', createdAt: '2022-02-01',
-  },
-  {
-    id: 'emp-5', firstName: 'Youssef', lastName: 'Gharbi', phone: '+216 29 234 567', poste: 'Caissier(ère)',
-    entryDate: '2025-04-05', status: 'Actif', salary: 880, cinNumber: '05432109', cinIssueDate: '2019-11-07', createdAt: '2025-04-05',
-  },
-];
-
 export interface DraftEmployee {
   id: string;
   firstName: string;
@@ -223,11 +200,6 @@ export interface Shift {
   createdAt: string;
 }
 
-export const initialShifts: Shift[] = [
-  { id: 'shift-1', name: 'Shift 1 — Matin', startTime: '07:00', endTime: '15:00', createdAt: '2025-08-01' },
-  { id: 'shift-2', name: 'Shift 2 — Soir', startTime: '15:00', endTime: '23:00', createdAt: '2025-08-01' },
-];
-
 export interface DraftShift {
   id: string;
   name: string;
@@ -292,23 +264,6 @@ export interface DayRecord {
   updatedBy: string;
 }
 
-// A small illustrative seed for the current week so the planning calendar isn't empty on first
-// load — mirrors how other modules (Stock, Ventes) seed a bit of realistic starting data.
-const seedMonday = getMondayOfWeek(todayIso());
-const seedWeek = getWeekDates(seedMonday);
-export const initialDayRecords: DayRecord[] = [
-  { id: 'day-seed-1', employeeId: 'emp-1', date: seedWeek[0], status: 'Présent', shiftIds: ['shift-1'], updatedAt: new Date().toISOString(), updatedBy: 'Company' },
-  { id: 'day-seed-2', employeeId: 'emp-1', date: seedWeek[1], status: 'Présent', shiftIds: ['shift-1'], updatedAt: new Date().toISOString(), updatedBy: 'Company' },
-  { id: 'day-seed-3', employeeId: 'emp-1', date: seedWeek[2], status: 'Repos', shiftIds: [], updatedAt: new Date().toISOString(), updatedBy: 'Company' },
-  { id: 'day-seed-4', employeeId: 'emp-1', date: seedWeek[3], status: 'Planifié', shiftIds: ['shift-1'], updatedAt: new Date().toISOString(), updatedBy: 'Company' },
-  { id: 'day-seed-5', employeeId: 'emp-2', date: seedWeek[0], status: 'Doublage', shiftIds: ['shift-1', 'shift-2'], updatedAt: new Date().toISOString(), updatedBy: 'Company' },
-  { id: 'day-seed-6', employeeId: 'emp-2', date: seedWeek[1], status: 'Retard', shiftIds: ['shift-2'], updatedAt: new Date().toISOString(), updatedBy: 'Company' },
-  { id: 'day-seed-7', employeeId: 'emp-2', date: seedWeek[2], status: 'Planifié', shiftIds: ['shift-2'], updatedAt: new Date().toISOString(), updatedBy: 'Company' },
-  { id: 'day-seed-8', employeeId: 'emp-3', date: seedWeek[0], status: 'Absent', shiftIds: [], updatedAt: new Date().toISOString(), updatedBy: 'Company' },
-  { id: 'day-seed-9', employeeId: 'emp-3', date: seedWeek[1], status: 'Congé', shiftIds: [], updatedAt: new Date().toISOString(), updatedBy: 'Company' },
-  { id: 'day-seed-10', employeeId: 'emp-5', date: seedWeek[0], status: 'Planifié', shiftIds: ['shift-1'], updatedAt: new Date().toISOString(), updatedBy: 'Company' },
-];
-
 export const findDayRecord = (employeeId: string, date: string, records: DayRecord[]): DayRecord | undefined =>
   records.find((r) => r.employeeId === employeeId && r.date === date);
 
@@ -363,8 +318,6 @@ export interface RecurringPlan {
   createdAt: string;
   createdBy: string;
 }
-
-export const initialRecurringPlans: RecurringPlan[] = [];
 
 export const expandWeeklyPattern = (
   pattern: WeeklyPattern,
@@ -432,8 +385,6 @@ export interface FinancialRecord {
   paymentDate?: string;
   createdAt: string;
 }
-
-export const initialFinancialRecords: FinancialRecord[] = [];
 
 // The amount actually owed for the period — advances are tracked separately as a liquidity
 // figure (cash already handed out), not subtracted here, since a V1 monitoring tool should not

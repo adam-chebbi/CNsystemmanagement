@@ -19,27 +19,6 @@ export interface ExpenseCategory {
   createdAt: string;
 }
 
-export const DEFAULT_EXPENSE_CATEGORY_NAMES = [
-  'Loyer',
-  'STEG',
-  'SONEDE',
-  'Téléphone / Internet',
-  'Personnel',
-  'Entretien',
-  'Réparation',
-  'Marketing',
-  'Fournitures',
-  'Transport',
-  'Taxes et frais',
-  'Divers',
-];
-
-export const initialExpenseCategories: ExpenseCategory[] = DEFAULT_EXPENSE_CATEGORY_NAMES.map((name) => ({
-  id: generateExpenseId('ecat'),
-  name,
-  createdAt: '2025-09-01',
-}));
-
 export const resolveExpenseCategoryByName = (raw: string, categories: ExpenseCategory[]): ExpenseCategory | undefined => {
   const key = normalizeKey(raw);
   if (!key) return undefined;
@@ -85,8 +64,6 @@ export interface Expense {
 }
 
 const todayIso = (): string => new Date().toISOString().slice(0, 10);
-
-export const initialExpenses: Expense[] = [];
 
 // --- Draft / workflow helpers (Saisie → Validation → Prévisualisation → Confirmation) ----------
 

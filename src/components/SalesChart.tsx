@@ -1,16 +1,17 @@
 import React, { useState } from 'react';
-import { SALES_BY_PERIOD } from '../data/mockData';
+import { SeriesPoint } from '../data/dashboardModel';
 import { TrendingUp, TrendingDown, ArrowUpRight } from 'lucide-react';
 
 interface SalesChartProps {
+  data: { days: SeriesPoint[]; months: SeriesPoint[]; years: SeriesPoint[] };
   compareWithPrevious?: boolean;
 }
 
-export const SalesChart: React.FC<SalesChartProps> = ({ compareWithPrevious = true }) => {
+export const SalesChart: React.FC<SalesChartProps> = ({ data: salesByPeriod, compareWithPrevious = true }) => {
   const [activeTab, setActiveTab] = useState<'days' | 'months' | 'years'>('days');
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
 
-  const data = SALES_BY_PERIOD[activeTab];
+  const data = salesByPeriod[activeTab];
 
   // SVG viewBox coordinates
   const width = 800;
@@ -27,8 +28,8 @@ export const SalesChart: React.FC<SalesChartProps> = ({ compareWithPrevious = tr
   const maxVal = Math.max(
     ...data.map((d) => Math.max(d.current, d.previous || 0))
   );
-  // Round up to nice number
-  const roundMax = Math.ceil(maxVal * 1.15 / 100) * 100;
+  // Round up to nice number (minimum scale so an all-zero dataset still renders a valid axis)
+  const roundMax = Math.max(100, Math.ceil((maxVal * 1.15) / 100) * 100);
 
   // Compute points
   const pointsCurrent = data.map((d, i) => {
@@ -80,7 +81,7 @@ export const SalesChart: React.FC<SalesChartProps> = ({ compareWithPrevious = tr
 
   const totalCurrent = data.reduce((acc, d) => acc + d.current, 0);
   const totalPrevious = data.reduce((acc, d) => acc + (d.previous || 0), 0);
-  const growthRate = (((totalCurrent - totalPrevious) / totalPrevious) * 100).toFixed(1);
+  const growthRate = (totalPrevious > 0 ? ((totalCurrent - totalPrevious) / totalPrevious) * 100 : totalCurrent > 0 ? 100 : 0).toFixed(1);
 
   const hoveredPoint = hoveredIndex !== null ? pointsCurrent[hoveredIndex] : null;
   const hoveredPrev = hoveredIndex !== null ? pointsPrevious[hoveredIndex] : null;

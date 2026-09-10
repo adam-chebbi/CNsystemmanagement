@@ -16,8 +16,7 @@ import {
   Layers,
   Sparkles,
 } from 'lucide-react';
-import { CatalogArticle, VariantOption } from '../data/manualSalesCatalog';
-import { CATALOG_EXTRAS } from '../data/manualSalesCatalog';
+import { CatalogArticle, CatalogExtra, VariantOption } from '../data/manualSalesCatalog';
 import { StockProduct, StockUnit } from '../data/stockModel';
 import {
   ProductCategory,
@@ -40,6 +39,7 @@ import {
 
 interface ProductFormPageProps {
   articles: CatalogArticle[];
+  extras: CatalogExtra[];
   categories: ProductCategory[];
   subCategories: ProductSubCategory[];
   ingredients: StockProduct[];
@@ -68,6 +68,7 @@ const cardClass = 'p-5 rounded-2xl bg-white dark:bg-[#151D2A] border border-gray
 
 export const ProductFormPage: React.FC<ProductFormPageProps> = ({
   articles,
+  extras,
   categories,
   subCategories,
   ingredients,
@@ -97,8 +98,8 @@ export const ProductFormPage: React.FC<ProductFormPageProps> = ({
   );
 
   const issues = useMemo(
-    () => validateDraftProduct(draft, categories, subCategories, ingredients, subRecipes),
-    [draft, categories, subCategories, ingredients, subRecipes]
+    () => validateDraftProduct(draft, categories, subCategories, ingredients, subRecipes, extras),
+    [draft, categories, subCategories, ingredients, subRecipes, extras]
   );
   const issuesByField = useMemo(() => {
     const map = new Map<string, string>();
@@ -343,7 +344,7 @@ export const ProductFormPage: React.FC<ProductFormPageProps> = ({
               {draft.extraIds.length > 0 ? (
                 <div className="flex flex-wrap gap-1.5">
                   {draft.extraIds.map((id) => {
-                    const extra = CATALOG_EXTRAS.find((e) => e.id === id);
+                    const extra = extras.find((e) => e.id === id);
                     return extra ? (
                       <span key={id} className="px-2 py-0.5 rounded-md bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 text-[11px] font-medium">
                         {extra.name}
@@ -593,7 +594,7 @@ export const ProductFormPage: React.FC<ProductFormPageProps> = ({
             </h2>
             <p className="text-[11px] text-gray-400 -mt-2">Un extra représente un ajout optionnel au produit. Optionnel.</p>
             <div className="flex flex-wrap gap-1.5">
-              {CATALOG_EXTRAS.map((extra) => {
+              {extras.map((extra) => {
                 const selected = draft.extraIds.includes(extra.id);
                 return (
                   <button

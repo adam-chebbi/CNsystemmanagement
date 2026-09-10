@@ -17,7 +17,6 @@ import {
   Ban,
   History,
 } from 'lucide-react';
-import { EMPLOYEES } from '../data/manualSalesCatalog';
 import {
   StockProduct,
   StockLot,
@@ -33,6 +32,7 @@ interface StockMovementsPageProps {
   products: StockProduct[];
   lots: StockLot[];
   ledger: StockLedgerEntry[];
+  employees: string[];
   onNavigateToDashboard: () => void;
   onNavigateToStock: () => void;
   onPostEntries: (entries: StockLedgerEntry[], lotChanges?: { upsert?: StockLot[] }) => void;
@@ -92,6 +92,7 @@ export const StockMovementsPage: React.FC<StockMovementsPageProps> = ({
   products,
   lots,
   ledger,
+  employees,
   onNavigateToDashboard,
   onNavigateToStock,
   onPostEntries,
@@ -676,7 +677,7 @@ export const StockMovementsPage: React.FC<StockMovementsPageProps> = ({
                     className={`${inputBaseClass} appearance-none cursor-pointer ${showErrors && issuesByField.has('performedBy') ? inputErrorClass : inputValidClass}`}
                   >
                     <option value="">Sélectionner un employé</option>
-                    {EMPLOYEES.map((e) => (
+                    {employees.map((e) => (
                       <option key={e} value={e}>{e}</option>
                     ))}
                   </select>
@@ -978,7 +979,7 @@ export const StockMovementsPage: React.FC<StockMovementsPageProps> = ({
                   className={`${inputBaseClass} appearance-none cursor-pointer ${inputValidClass}`}
                 >
                   <option value="">Sélectionner un employé</option>
-                  {EMPLOYEES.map((e) => (
+                  {employees.map((e) => (
                     <option key={e} value={e}>{e}</option>
                   ))}
                 </select>

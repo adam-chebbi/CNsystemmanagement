@@ -23,16 +23,14 @@ import {
 } from 'lucide-react';
 import { SaleTransaction, ServiceType, PaymentMethod } from '../data/salesTransactions';
 import {
-  initialCatalogArticles,
-  CATALOG_EXTRAS,
+  CatalogArticle,
+  CatalogExtra,
   ARTICLE_CATEGORIES_ORDER,
-  EMPLOYEES,
-  SHIFTS,
   getArticleById,
   getExtraById,
   getVariantGroupForCategory,
 } from '../data/manualSalesCatalog';
-import { DraftTicket, DraftTicketItem, createEmptyItem, computeTicketTotal, persistSalesTickets } from '../data/salesEntryModel';
+import { DraftTicket, DraftTicketItem, SalesCatalogContext, createEmptyItem, computeTicketTotal } from '../data/salesEntryModel';
 import {
   IMPORT_COLUMNS,
   MAX_IMPORT_FILE_SIZE_BYTES,
@@ -45,6 +43,10 @@ import {
 } from '../data/importSalesParser';
 
 interface ImportSalesPageProps {
+  articles: CatalogArticle[];
+  extras: CatalogExtra[];
+  employees: string[];
+  shifts: string[];
   onNavigateToDashboard: () => void;
   onNavigateToSalesList: () => void;
   onSaveTickets: (transactions: SaleTransaction[]) => void;
@@ -66,10 +68,15 @@ const secondaryButtonClass =
 const ROWS_PER_PAGE = 5;
 
 export const ImportSalesPage: React.FC<ImportSalesPageProps> = ({
+  articles,
+  extras,
+  employees,
+  shifts,
   onNavigateToDashboard,
   onNavigateToSalesList,
   onSaveTickets,
 }) => {
+  const catalog: SalesCatalogContext = { articles, extras, employees, shifts };
   const [step, setStep] = useState<Step>('upload');
   const [file, setFile] = useState<File | null>(null);
   const [isDragOver, setIsDragOver] = useState(false);
@@ -91,7 +98,7 @@ export const ImportSalesPage: React.FC<ImportSalesPageProps> = ({
     () => rows.reduce((sum, r) => sum + r.ticket.items.reduce((s, it) => s + (it.articleId ? it.qty : 0), 0), 0),
     [rows]
   );
-  const grandTotal = useMemo(() => rows.reduce((sum, r) => sum + computeTicketTotal(r.ticket), 0), [rows]);
+  const grandTotal = useMemo(() => rows.reduce((sum, r) => sum + computeTicketTotal(r.ticket, catalog), 0), [rows, catalog]);
   const canConfirm = rows.length > 0 && totalErrors === 0;
   const totalPages = Math.max(1, Math.ceil(rows.length / ROWS_PER_PAGE));
   const paginatedRows = useMemo(
@@ -111,7 +118,7 @@ export const ImportSalesPage: React.FC<ImportSalesPageProps> = ({
     setIsParsing(true);
     setFileError(null);
     try {
-      const result = await parseImportFile(candidate);
+      const result = await parseImportFile(candidate, catalog);
       setFile(candidate);
       setRows(result.rows);
       setUnknownColumns(result.unknownColumns);
@@ -229,9 +236,8 @@ export const ImportSalesPage: React.FC<ImportSalesPageProps> = ({
     setIsSaving(true);
     setSaveError(null);
     try {
-      const transactions = buildSaleTransactionsFromImportRows(rows);
-      await persistSalesTickets(transactions);
-      onSaveTickets(transactions);
+      const transactions = buildSaleTransactionsFromImportRows(rows, catalog);
+      await onSaveTickets(transactions);
       setSavedCount(transactions.length);
       setStep('success');
     } catch (err) {
@@ -423,7 +429,7 @@ export const ImportSalesPage: React.FC<ImportSalesPageProps> = ({
                       Ligne {row.rowNumber}
                     </h3>
                     <span className="text-sm font-bold text-gray-900 dark:text-white">
-                      {computeTicketTotal(row.ticket).toFixed(2)} <span className="text-[11px] text-gray-500">DT</span>
+                      {computeTicketTotal(row.ticket, catalog).toFixed(2)} <span className="text-[11px] text-gray-500">DT</span>
                     </span>
                   </div>
 
@@ -454,7 +460,7 @@ export const ImportSalesPage: React.FC<ImportSalesPageProps> = ({
                         className={`${inputBaseClass} appearance-none cursor-pointer ${fieldsWithError.has('shift') ? inputErrorClass : inputValidClass}`}
                       >
                         <option value="">Sélectionner un shift</option>
-                        {SHIFTS.map((s) => (
+                        {shifts.map((s) => (
                           <option key={s} value={s}>
                             {s}
                           </option>
@@ -469,7 +475,7 @@ export const ImportSalesPage: React.FC<ImportSalesPageProps> = ({
                         className={`${inputBaseClass} appearance-none cursor-pointer ${fieldsWithError.has('employee') ? inputErrorClass : inputValidClass}`}
                       >
                         <option value="">Sélectionner un employé</option>
-                        {EMPLOYEES.map((emp) => (
+                        {employees.map((emp) => (
                           <option key={emp} value={emp}>
                             {emp}
                           </option>
@@ -483,7 +489,7 @@ export const ImportSalesPage: React.FC<ImportSalesPageProps> = ({
                     <span className="text-xs font-semibold text-gray-600 dark:text-gray-300">Consommations & Articles</span>
                     <div className="space-y-2.5">
                       {row.ticket.items.map((item) => {
-                        const article = getArticleById(item.articleId);
+                        const article = getArticleById(item.articleId, articles);
                         const variantGroup = article ? getVariantGroupForCategory(article.category) : undefined;
                         const hint = row.itemHints[item.rowId];
                         const extrasOpen = expandedExtras.has(item.rowId);
@@ -505,7 +511,7 @@ export const ImportSalesPage: React.FC<ImportSalesPageProps> = ({
                                   <option value="">Choisir une consommation / un article</option>
                                   {ARTICLE_CATEGORIES_ORDER.map((cat) => (
                                     <optgroup key={cat} label={cat}>
-                                      {initialCatalogArticles.filter((a) => a.category === cat).map((a) => (
+                                      {articles.filter((a) => a.category === cat).map((a) => (
                                         <option key={a.id} value={a.id}>
                                           {a.name} — {a.price.toFixed(2)} DT
                                         </option>
@@ -589,7 +595,7 @@ export const ImportSalesPage: React.FC<ImportSalesPageProps> = ({
                                     Extras {item.extraIds.length > 0 ? `(${item.extraIds.length})` : '(optionnel)'}
                                   </button>
                                   {item.extraIds.map((exId) => {
-                                    const extra = getExtraById(exId);
+                                    const extra = getExtraById(exId, extras);
                                     if (!extra) return null;
                                     return (
                                       <span
@@ -615,7 +621,7 @@ export const ImportSalesPage: React.FC<ImportSalesPageProps> = ({
 
                                 {extrasOpen && (
                                   <div className="flex flex-wrap gap-1.5 p-2 rounded-lg bg-white dark:bg-gray-900/40 border border-gray-100 dark:border-gray-800">
-                                    {CATALOG_EXTRAS.map((extra) => {
+                                    {extras.map((extra) => {
                                       const selected = item.extraIds.includes(extra.id);
                                       return (
                                         <button
@@ -850,7 +856,7 @@ export const ImportSalesPage: React.FC<ImportSalesPageProps> = ({
                 Téléchargez le template pour structurer votre fichier correctement. Chaque ligne du fichier représente
                 un ticket complet, exactement comme dans « Ajout manuel des ventes ».
               </p>
-              <button onClick={downloadImportTemplateCsv} className={primaryButtonClass}>
+              <button onClick={() => downloadImportTemplateCsv(catalog)} className={primaryButtonClass}>
                 <Download size={14} />
                 <span>Télécharger le template CSV</span>
               </button>

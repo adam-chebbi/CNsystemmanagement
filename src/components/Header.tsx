@@ -3,6 +3,7 @@ import {
   ChevronDown,
   PanelLeft,
 } from 'lucide-react';
+import { useAuth } from '../auth/AuthContext';
 
 interface HeaderProps {
   onToggleSidebar: () => void;
@@ -24,6 +25,7 @@ export const Header: React.FC<HeaderProps> = ({
   onNavigate,
 }) => {
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const { user, logout } = useAuth();
 
   const handleToggleSidebar = () => {
     if (typeof window !== 'undefined' && window.innerWidth < 1024) {
@@ -95,10 +97,10 @@ export const Header: React.FC<HeaderProps> = ({
               </div>
               <div className="hidden md:block text-left pr-1">
                 <div className="text-xs font-semibold text-gray-800 dark:text-gray-200 leading-tight">
-                  Company
+                  {user?.fullName ?? 'Utilisateur'}
                 </div>
                 <div className="text-[10px] text-gray-400 dark:text-gray-500 leading-tight">
-                  company@example.com
+                  CIN {user?.cin ?? '—'}
                 </div>
               </div>
               <ChevronDown size={13} className="text-gray-400 hidden sm:inline" />
@@ -110,8 +112,8 @@ export const Header: React.FC<HeaderProps> = ({
                 className="absolute right-0 mt-1.5 w-52 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg p-2 z-50 animate-in fade-in"
               >
                 <div className="px-2 py-1.5 border-b border-gray-100 dark:border-gray-700 mb-1">
-                  <p className="text-xs font-semibold text-gray-800 dark:text-white">Company</p>
-                  <p className="text-[11px] text-gray-400 truncate">company@example.com</p>
+                  <p className="text-xs font-semibold text-gray-800 dark:text-white">{user?.fullName ?? 'Utilisateur'}</p>
+                  <p className="text-[11px] text-gray-400 truncate">CIN {user?.cin ?? '—'}</p>
                 </div>
                 <button
                   onClick={() => setShowUserMenu(false)}
@@ -127,7 +129,10 @@ export const Header: React.FC<HeaderProps> = ({
                 </button>
                 <div className="border-t border-gray-100 dark:border-gray-700 my-1"></div>
                 <button
-                  onClick={() => setShowUserMenu(false)}
+                  onClick={() => {
+                    setShowUserMenu(false);
+                    logout();
+                  }}
                   className="w-full text-left px-2 py-1.5 text-xs text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-lg cursor-pointer"
                 >
                   Déconnexion

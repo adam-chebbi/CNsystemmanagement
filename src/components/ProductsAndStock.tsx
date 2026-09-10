@@ -16,22 +16,26 @@ import {
   Wrench,
   ShieldAlert,
 } from 'lucide-react';
-import {
-  TOP_PRODUCTS,
-  LEAST_SELLING_PRODUCTS,
-  TOP_REVENUE_PRODUCTS,
-  TOP_MARGIN_PRODUCTS,
-  LOW_STOCK_PRODUCTS,
-  COFFEE_ALERTS,
-} from '../data/mockData';
 import { TopProduct, LowStockProduct, CoffeeAlert } from '../types';
 
 interface ProductsAndStockProps {
+  topProducts: TopProduct[];
+  leastProducts: TopProduct[];
+  topRevenueProducts: TopProduct[];
+  topMarginProducts: TopProduct[];
+  lowStockProducts: LowStockProduct[];
+  alerts: CoffeeAlert[];
   onViewAllProducts?: () => void;
   onRestockClick?: () => void;
 }
 
 export const ProductsAndStock: React.FC<ProductsAndStockProps> = ({
+  topProducts,
+  leastProducts,
+  topRevenueProducts,
+  topMarginProducts,
+  lowStockProducts,
+  alerts,
   onViewAllProducts,
   onRestockClick,
 }) => {
@@ -39,12 +43,12 @@ export const ProductsAndStock: React.FC<ProductsAndStockProps> = ({
   const [financeTab, setFinanceTab] = useState<'revenue' | 'margin'>('revenue');
   const [dismissedAlerts, setDismissedAlerts] = useState<string[]>([]);
 
-  const topSoldList = TOP_PRODUCTS.slice(0, 5);
-  const leastSoldList = LEAST_SELLING_PRODUCTS.slice(0, 5);
-  const topRevenueList = TOP_REVENUE_PRODUCTS.slice(0, 5);
-  const topMarginList = TOP_MARGIN_PRODUCTS.slice(0, 5);
-  const lowStockList = LOW_STOCK_PRODUCTS.slice(0, 5);
-  const activeAlerts = COFFEE_ALERTS.filter((a) => !dismissedAlerts.includes(a.id));
+  const topSoldList = topProducts;
+  const leastSoldList = leastProducts;
+  const topRevenueList = topRevenueProducts;
+  const topMarginList = topMarginProducts;
+  const lowStockList = lowStockProducts;
+  const activeAlerts = alerts.filter((a) => !dismissedAlerts.includes(a.id));
 
   const getCoffeeIcon = (sku: string, category?: string) => {
     if (sku.startsWith('CF-') || category?.includes('Café')) {

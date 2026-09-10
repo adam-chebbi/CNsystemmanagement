@@ -1,14 +1,17 @@
-import React, { useState, useMemo } from 'react';
-import { generateDailyContributionData } from '../data/mockData';
+import React, { useState } from 'react';
 import { DailyContributionDay } from '../types';
+import { DailyHeatmapData } from '../data/dashboardModel';
 import { Calendar, Receipt, TrendingUp } from 'lucide-react';
 
-export const ActivityHeatmap: React.FC = () => {
+interface ActivityHeatmapProps {
+  data: DailyHeatmapData;
+}
+
+export const ActivityHeatmap: React.FC<ActivityHeatmapProps> = ({ data }) => {
   const [hoveredDay, setHoveredDay] = useState<DailyContributionDay | null>(null);
   const [selectedDay, setSelectedDay] = useState<DailyContributionDay | null>(null);
 
-  const { weeks, monthLabels, totalSales, totalTickets, averageSales, maxDay } =
-    useMemo(() => generateDailyContributionData(), []);
+  const { weeks, monthLabels, totalSales, totalTickets, averageSales, maxDay } = data;
 
   const dayLabels = ['Lun', '', 'Mer', '', 'Ven', '', 'Dim'];
 

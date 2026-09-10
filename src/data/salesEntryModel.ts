@@ -1,9 +1,5 @@
 import { SaleItem, SaleTransaction, ServiceType, PaymentMethod, MONTHS_LIST } from './salesTransactions';
 import {
-  initialCatalogArticles,
-  CATALOG_EXTRAS,
-  EMPLOYEES,
-  SHIFTS,
   CatalogArticle,
   CatalogExtra,
   ArticleCategory,
@@ -16,6 +12,15 @@ import {
 import { normalizeKey, parseDateFlexible } from './textUtils';
 
 export { normalizeKey, parseDateFlexible };
+
+// The real, live catalog data every function below needs — supplied by the caller (App.tsx state,
+// threaded through ManualSalesEntryPage/ImportSalesPage) instead of a hardcoded module constant.
+export interface SalesCatalogContext {
+  articles: CatalogArticle[];
+  extras: CatalogExtra[];
+  employees: string[]; // real employees' full names
+  shifts: string[]; // real shift names
+}
 
 // Shared draft model used by both "Ajout manuel des ventes" and "Import Excel/CSV" so the two
 // features apply identical validation, resolution and sale-building rules (single source of truth).
@@ -82,23 +87,24 @@ export const createEmptyForm = (): ManualSalesFormState => ({
 
 // --- Pricing ---
 
-export const computeItemUnitPrice = (item: DraftTicketItem): number => {
-  const article = getArticleById(item.articleId);
+export const computeItemUnitPrice = (item: DraftTicketItem, catalog: Pick<SalesCatalogContext, 'articles' | 'extras'>): number => {
+  const article = getArticleById(item.articleId, catalog.articles);
   if (!article) return 0;
   const variantDelta = item.variantOptionId
     ? getVariantOption(article.category, item.variantOptionId)?.priceDelta ?? 0
     : 0;
-  const extrasTotal = item.extraIds.reduce((sum, id) => sum + (getExtraById(id)?.price ?? 0), 0);
+  const extrasTotal = item.extraIds.reduce((sum, id) => sum + (getExtraById(id, catalog.extras)?.price ?? 0), 0);
   return article.price + variantDelta + extrasTotal;
 };
 
-export const computeItemLineTotal = (item: DraftTicketItem): number => computeItemUnitPrice(item) * item.qty;
+export const computeItemLineTotal = (item: DraftTicketItem, catalog: Pick<SalesCatalogContext, 'articles' | 'extras'>): number =>
+  computeItemUnitPrice(item, catalog) * item.qty;
 
-export const computeTicketTotal = (ticket: DraftTicket): number =>
-  ticket.items.reduce((sum, it) => sum + (it.articleId ? computeItemLineTotal(it) : 0), 0);
+export const computeTicketTotal = (ticket: DraftTicket, catalog: Pick<SalesCatalogContext, 'articles' | 'extras'>): number =>
+  ticket.items.reduce((sum, it) => sum + (it.articleId ? computeItemLineTotal(it, catalog) : 0), 0);
 
-export const computeGrandTotal = (form: ManualSalesFormState): number =>
-  form.tickets.reduce((sum, t) => sum + computeTicketTotal(t), 0);
+export const computeGrandTotal = (form: ManualSalesFormState, catalog: Pick<SalesCatalogContext, 'articles' | 'extras'>): number =>
+  form.tickets.reduce((sum, t) => sum + computeTicketTotal(t, catalog), 0);
 
 // --- Validation (shared between Manual Add and Import correction) ---
 
@@ -197,16 +203,16 @@ export const validateManualSalesForm = (form: ManualSalesFormState): ValidationI
 
 // --- Sale-building (shared) ---
 
-const buildSaleItemFromDraft = (item: DraftTicketItem): SaleItem | null => {
-  const article = getArticleById(item.articleId);
+const buildSaleItemFromDraft = (item: DraftTicketItem, catalog: Pick<SalesCatalogContext, 'articles' | 'extras'>): SaleItem | null => {
+  const article = getArticleById(item.articleId, catalog.articles);
   if (!article) return null;
   const variant = item.variantOptionId ? getVariantOption(article.category, item.variantOptionId) : undefined;
-  const extraNames = item.extraIds.map((id) => getExtraById(id)?.name).filter((n): n is string => Boolean(n));
+  const extraNames = item.extraIds.map((id) => getExtraById(id, catalog.extras)?.name).filter((n): n is string => Boolean(n));
   const nameSuffix = [variant?.label, ...extraNames].filter(Boolean).join(', ');
   return {
     name: nameSuffix ? `${article.name} (${nameSuffix})` : article.name,
     qty: item.qty,
-    price: computeItemUnitPrice(item),
+    price: computeItemUnitPrice(item, catalog),
     category: article.category,
   };
 };
@@ -214,10 +220,11 @@ const buildSaleItemFromDraft = (item: DraftTicketItem): SaleItem | null => {
 export const buildSaleTransactionFromTicket = (
   ticket: DraftTicket,
   context: { date: string; shift: string; employee: string },
-  meta: { id: number; saleNumber: string }
+  meta: { id: number; saleNumber: string },
+  catalog: Pick<SalesCatalogContext, 'articles' | 'extras'>
 ): SaleTransaction | null => {
   if (!ticket.serviceType || !ticket.paymentMethod) return null;
-  const items = ticket.items.map(buildSaleItemFromDraft).filter((it): it is SaleItem => it !== null);
+  const items = ticket.items.map((it) => buildSaleItemFromDraft(it, catalog)).filter((it): it is SaleItem => it !== null);
   if (items.length === 0) return null;
 
   const dateObj = new Date(`${context.date}T00:00:00`);
@@ -251,23 +258,20 @@ export const buildSaleTransactionFromTicket = (
   };
 };
 
-export const buildSaleTransactionsFromForm = (form: ManualSalesFormState): SaleTransaction[] => {
+export const buildSaleTransactionsFromForm = (form: ManualSalesFormState, catalog: Pick<SalesCatalogContext, 'articles' | 'extras'>): SaleTransaction[] => {
   const datePrefix = form.date.replace(/-/g, '');
   const baseId = Date.now();
   const context = { date: form.date, shift: form.shift, employee: form.employee };
   return form.tickets
     .map((ticket, idx) =>
-      buildSaleTransactionFromTicket(ticket, context, {
-        id: baseId + idx,
-        saleNumber: `TKT-MAN-${datePrefix}-${(idx + 1).toString().padStart(3, '0')}`,
-      })
+      buildSaleTransactionFromTicket(
+        ticket,
+        context,
+        { id: baseId + idx, saleNumber: `TKT-MAN-${datePrefix}-${(idx + 1).toString().padStart(3, '0')}` },
+        catalog
+      )
     )
     .filter((tx): tx is SaleTransaction => tx !== null);
-};
-
-// Placeholder persistence call — swap this for a real API request once a sales backend endpoint exists.
-export const persistSalesTickets = async (_transactions: SaleTransaction[]): Promise<void> => {
-  await new Promise<void>((resolve) => setTimeout(resolve, 900));
 };
 
 // --- Case / accent / whitespace tolerant resolution (shared by Manual Add + Import) ---
@@ -276,19 +280,16 @@ export const persistSalesTickets = async (_transactions: SaleTransaction[]): Pro
 // stored in the catalog, so "COCA COLA" resolves to the real "Coca Cola" product without ever
 // creating a duplicate or renaming anything.
 
-export const resolveArticleByName = (
-  raw: string,
-  articles: CatalogArticle[] = initialCatalogArticles
-): CatalogArticle | undefined => {
+export const resolveArticleByName = (raw: string, articles: CatalogArticle[]): CatalogArticle | undefined => {
   const key = normalizeKey(raw);
   if (!key) return undefined;
   return articles.find((a) => normalizeKey(a.name) === key);
 };
 
-export const resolveExtraByName = (raw: string): CatalogExtra | undefined => {
+export const resolveExtraByName = (raw: string, extras: CatalogExtra[]): CatalogExtra | undefined => {
   const key = normalizeKey(raw);
   if (!key) return undefined;
-  return CATALOG_EXTRAS.find((e) => normalizeKey(e.name) === key);
+  return extras.find((e) => normalizeKey(e.name) === key);
 };
 
 export const resolveVariantOptionByName = (category: ArticleCategory, raw: string): VariantOption | undefined => {
@@ -298,16 +299,16 @@ export const resolveVariantOptionByName = (category: ArticleCategory, raw: strin
   return group?.options.find((o) => normalizeKey(o.label) === key);
 };
 
-export const resolveEmployeeByName = (raw: string): string | undefined => {
+export const resolveEmployeeByName = (raw: string, employees: string[]): string | undefined => {
   const key = normalizeKey(raw);
   if (!key) return undefined;
-  return EMPLOYEES.find((e) => normalizeKey(e) === key);
+  return employees.find((e) => normalizeKey(e) === key);
 };
 
-export const resolveShiftByName = (raw: string): string | undefined => {
+export const resolveShiftByName = (raw: string, shifts: string[]): string | undefined => {
   const key = normalizeKey(raw);
   if (!key) return undefined;
-  return SHIFTS.find((s) => normalizeKey(s) === key);
+  return shifts.find((s) => normalizeKey(s) === key);
 };
 
 const SERVICE_TYPE_CANONICAL: ServiceType[] = ['Sur place', 'À emporter'];

@@ -15,7 +15,6 @@ import {
   RotateCcw,
   History,
 } from 'lucide-react';
-import { EMPLOYEES } from '../data/manualSalesCatalog';
 import { StockProduct, StockUnit, StockLot, StockLedgerEntry, STOCK_CATEGORIES, STOCK_ZONES } from '../data/stockModel';
 import {
   STOCK_IMPORT_COLUMNS,
@@ -31,6 +30,7 @@ import {
 interface StockImportPageProps {
   products: StockProduct[];
   units: StockUnit[];
+  employees: string[];
   onNavigateToDashboard: () => void;
   onNavigateToStock: () => void;
   onPostImportedStock: (entries: StockLedgerEntry[], lotUpserts: StockLot[], productUpdates: Array<{ id: string; minThreshold?: number; targetStock?: number }>) => void;
@@ -54,6 +54,7 @@ const ROWS_PER_PAGE = 6;
 export const StockImportPage: React.FC<StockImportPageProps> = ({
   products,
   units,
+  employees,
   onNavigateToDashboard,
   onNavigateToStock,
   onPostImportedStock,
@@ -289,7 +290,7 @@ export const StockImportPage: React.FC<StockImportPageProps> = ({
               className={`${inputBaseClass} appearance-none cursor-pointer ${!performedBy ? inputValidClass : inputValidClass}`}
             >
               <option value="">Sélectionner un employé</option>
-              {EMPLOYEES.map((e) => (
+              {employees.map((e) => (
                 <option key={e} value={e}>{e}</option>
               ))}
             </select>

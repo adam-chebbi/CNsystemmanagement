@@ -21,7 +21,7 @@ import {
   ImageOff,
 } from 'lucide-react';
 import { useQueryParam } from '../hooks/useQueryParam';
-import { CatalogArticle } from '../data/manualSalesCatalog';
+import { CatalogArticle, CatalogExtra } from '../data/manualSalesCatalog';
 import { StockProduct } from '../data/stockModel';
 import { SaleTransaction } from '../data/salesTransactions';
 import {
@@ -38,6 +38,7 @@ import {
 
 interface ProductsPageProps {
   articles: CatalogArticle[];
+  extras: CatalogExtra[];
   categories: ProductCategory[];
   subCategories: ProductSubCategory[];
   ingredients: StockProduct[];
@@ -60,6 +61,7 @@ const secondaryButtonClass =
 
 export const ProductsPage: React.FC<ProductsPageProps> = ({
   articles,
+  extras,
   categories,
   subCategories,
   ingredients,
@@ -468,6 +470,7 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({
           article={viewingArticle}
           ingredients={ingredients}
           subRecipes={subRecipes}
+          extras={extras}
           onClose={() => setViewingArticle(null)}
         />
       )}
@@ -513,14 +516,15 @@ const ProductDetailModal: React.FC<{
   article: CatalogArticle;
   ingredients: StockProduct[];
   subRecipes: SubRecipe[];
+  extras: CatalogExtra[];
   onClose: () => void;
-}> = ({ article, ingredients, subRecipes, onClose }) => {
+}> = ({ article, ingredients, subRecipes, extras: catalogExtras, onClose }) => {
   const recipeResult = article.recipe && article.recipe.length > 0 ? computeRecipeCost(article.recipe, ingredients, subRecipes) : null;
   const cost = recipeResult?.cost ?? 0;
   const { grossMargin, marginRate } = computeMargin(article.price, cost);
   const targetRate = article.targetMarginRate ?? DEFAULT_TARGET_MARGIN_RATE;
   const comparison = compareToTargetMargin(marginRate, targetRate);
-  const extras = getExtrasForArticle(article);
+  const extras = getExtrasForArticle(article, catalogExtras);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200" onClick={onClose}>

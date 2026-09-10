@@ -1,16 +1,17 @@
 import React, { useState } from 'react';
-import { PURCHASES_BY_PERIOD } from '../data/mockData';
+import { PurchaseSeriesPoint } from '../data/dashboardModel';
 import { ShoppingCart, ArrowDownRight, ArrowUpRight } from 'lucide-react';
 
 interface PurchasesChartProps {
+  data: { days: PurchaseSeriesPoint[]; months: PurchaseSeriesPoint[]; years: PurchaseSeriesPoint[] };
   compareWithPrevious?: boolean;
 }
 
-export const PurchasesChart: React.FC<PurchasesChartProps> = ({ compareWithPrevious = true }) => {
+export const PurchasesChart: React.FC<PurchasesChartProps> = ({ data: purchasesByPeriod, compareWithPrevious = true }) => {
   const [activeTab, setActiveTab] = useState<'days' | 'months' | 'years'>('days');
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
 
-  const data = PURCHASES_BY_PERIOD[activeTab];
+  const data = purchasesByPeriod[activeTab];
 
   const width = 800;
   const height = 270;
@@ -25,7 +26,7 @@ export const PurchasesChart: React.FC<PurchasesChartProps> = ({ compareWithPrevi
   const maxVal = Math.max(
     ...data.map((d) => Math.max(d.current, d.previous || 0))
   );
-  const roundMax = Math.ceil((maxVal * 1.15) / 100) * 100;
+  const roundMax = Math.max(100, Math.ceil((maxVal * 1.15) / 100) * 100);
 
   const yTicks = [
     { label: `${roundMax.toLocaleString()} DT`, value: roundMax },
@@ -41,7 +42,7 @@ export const PurchasesChart: React.FC<PurchasesChartProps> = ({ compareWithPrevi
 
   const totalCurrent = data.reduce((acc, d) => acc + d.current, 0);
   const totalPrevious = data.reduce((acc, d) => acc + (d.previous || 0), 0);
-  const diffPercent = (((totalCurrent - totalPrevious) / totalPrevious) * 100).toFixed(1);
+  const diffPercent = (totalPrevious > 0 ? ((totalCurrent - totalPrevious) / totalPrevious) * 100 : totalCurrent > 0 ? 100 : 0).toFixed(1);
 
   return (
     <div

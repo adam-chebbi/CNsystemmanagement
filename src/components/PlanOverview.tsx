@@ -1,57 +1,21 @@
 import React, { useState } from 'react';
-import { Target, CheckCircle2, TrendingUp, Coffee } from 'lucide-react';
-import { TimeFilterPeriod } from '../types';
+import { Target, CheckCircle2, TrendingUp } from 'lucide-react';
+import { CategoryShare } from '../data/dashboardModel';
 
 interface PlanOverviewProps {
-  activePeriod?: TimeFilterPeriod;
+  categories: CategoryShare[];
+  monthlyTarget: number;
+  achievedToDate: number;
 }
 
-export const PlanOverview: React.FC<PlanOverviewProps> = ({ activePeriod = 'today' }) => {
-  const [hoveredCategory, setHoveredCategory] = useState<string | null>(null);
+const formatDT = (v: number): string => `${v.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} DT`;
 
-  // Coffee shop product category distribution according to the exploitation plan
-  const categories = [
-    {
-      id: 'coffee',
-      label: 'Cafés & Espressos',
-      percent: 48,
-      amount: '11,880.00 DT',
-      color: '#10B981', // emerald-500
-      strokeOffset: 0,
-      strokeLength: 48,
-    },
-    {
-      id: 'pastry',
-      label: 'Pâtisseries & En-cas',
-      percent: 26,
-      amount: '6,435.00 DT',
-      color: '#F59E0B', // amber-500
-      strokeOffset: 48,
-      strokeLength: 26,
-    },
-    {
-      id: 'cold_drinks',
-      label: 'Boissons fraîches & Thés',
-      percent: 16,
-      amount: '3,960.00 DT',
-      color: '#0EA5E9', // sky-500
-      strokeOffset: 74,
-      strokeLength: 16,
-    },
-    {
-      id: 'beans',
-      label: 'Grains torréfiés & Vrac',
-      percent: 10,
-      amount: '2,475.00 DT',
-      color: '#8B5CF6', // purple-500
-      strokeOffset: 90,
-      strokeLength: 10,
-    },
-  ];
+export const PlanOverview: React.FC<PlanOverviewProps> = ({ categories, monthlyTarget, achievedToDate }) => {
+  const [hoveredCategory, setHoveredCategory] = useState<string | null>(null);
 
   // Circle geometry for SVG donut (r=40 -> circumference = 2 * PI * 40 ≈ 251.32)
   const circumference = 251.32;
-  const targetPercent = 82.5;
+  const targetPercent = monthlyTarget > 0 ? Math.round((achievedToDate / monthlyTarget) * 1000) / 10 : 0;
 
   return (
     <div
@@ -82,7 +46,7 @@ export const PlanOverview: React.FC<PlanOverviewProps> = ({ activePeriod = 'toda
           </div>
           <div className="min-w-0">
             <p className="text-[9px] text-gray-400 uppercase tracking-wider">Objectif mois</p>
-            <p className="text-xs font-bold text-gray-900 dark:text-white">30,000.00 DT</p>
+            <p className="text-xs font-bold text-gray-900 dark:text-white">{formatDT(monthlyTarget)}</p>
           </div>
         </div>
 
@@ -93,7 +57,7 @@ export const PlanOverview: React.FC<PlanOverviewProps> = ({ activePeriod = 'toda
           </div>
           <div className="min-w-0">
             <p className="text-[9px] text-gray-400 uppercase tracking-wider">Réalisé</p>
-            <p className="text-xs font-bold text-emerald-700 dark:text-emerald-400">24,750.00 DT</p>
+            <p className="text-xs font-bold text-emerald-700 dark:text-emerald-400">{formatDT(achievedToDate)}</p>
           </div>
         </div>
 

@@ -1,4 +1,4 @@
-import React, { useState, Suspense, lazy } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, Suspense, lazy } from 'react';
 import { Sidebar } from './components/Sidebar';
 import { Header } from './components/Header';
 import { HeroBanner } from './components/HeroBanner';
@@ -14,64 +14,36 @@ import { SalesPage } from './components/SalesPage';
 import { ManualSalesEntryPage } from './components/ManualSalesEntryPage';
 import { TimeFilterPeriod } from './types';
 import { useUrlNavigation } from './hooks/useUrlNavigation';
-import { initialSalesTransactions, SaleTransaction } from './data/salesTransactions';
-import {
-  initialStockProducts,
-  initialStockLots,
-  initialStockLedger,
-  initialStockUnits,
-  StockProduct,
-  StockLot,
-  StockLedgerEntry,
-  StockUnit,
-  applyLedgerEntries,
-  reverseLedgerEntry,
-  renameStockUnitAcrossProducts,
-} from './data/stockModel';
-import { initialCatalogArticles, CatalogArticle } from './data/manualSalesCatalog';
-import {
-  initialProductCategories,
-  initialProductSubCategories,
-  initialSubRecipes,
-  ProductCategory,
-  ProductSubCategory,
-  SubRecipe,
-} from './data/productsModel';
-import { initialActivityLog, ActivityLogEntry, generateActivityId } from './data/activityLog';
-import { initialExpenseCategories, initialExpenses, Expense, ExpenseCategory, ExpenseStatus } from './data/expensesModel';
-import {
-  initialSuppliers,
-  initialPurchaseOrders,
-  initialPurchaseReceptions,
-  initialSupplierInvoices,
-  Supplier,
-  PurchaseOrder,
-  PurchaseOrderStatus,
-  PurchaseReception,
-  SupplierInvoice,
-  buildReceptionLedgerEntries,
-  applyReceptionToOrder,
-} from './data/purchasesModel';
+import { useAuth } from './auth/AuthContext';
+import { ApiError } from './api/client';
+import { SaleTransaction } from './data/salesTransactions';
+import { StockProduct, StockLot, StockLedgerEntry, StockUnit } from './data/stockModel';
+import { CatalogArticle, CatalogExtra } from './data/manualSalesCatalog';
+import { ProductCategory, ProductSubCategory, SubRecipe } from './data/productsModel';
+import { ActivityLogEntry } from './data/activityLog';
+import { Expense, ExpenseCategory, ExpenseStatus } from './data/expensesModel';
+import { Supplier, PurchaseOrder, PurchaseOrderStatus, PurchaseReception, SupplierInvoice } from './data/purchasesModel';
 import { OperationalAlert } from './data/alertsModel';
+import { Employee, Shift, DayRecord, RecurringPlan, FinancialRecord, AttendanceStatus, WeeklyPattern, getEmployeeFullName } from './data/hrModel';
 import {
-  initialEmployees,
-  initialShifts,
-  initialDayRecords,
-  initialRecurringPlans,
-  initialFinancialRecords,
-  Employee,
-  Shift,
-  DayRecord,
-  RecurringPlan,
-  FinancialRecord,
-  AttendanceStatus,
-  WeeklyPattern,
-  generateHrId,
-  buildDayRecordsFromPattern,
-  buildManualDayRecord,
-  findDayRecord,
-  getEmployeeFullName,
-} from './data/hrModel';
+  resolveDashboardRange,
+  computeDashboardPeriodData,
+  buildProductRankings,
+  buildLowStockList,
+  buildDashboardAlerts,
+  buildDailyHeatmap,
+  buildSalesByPeriod,
+  buildPurchasesByPeriod,
+  buildCategoryShares,
+} from './data/dashboardModel';
+import * as productCatalogApi from './api/productCatalog';
+import * as stockApi from './api/stock';
+import * as salesApi from './api/sales';
+import * as expensesApi from './api/expenses';
+import * as purchasesApi from './api/purchases';
+import * as hrApi from './api/hr';
+import * as notificationsApi from './api/notifications';
+import * as activityLogApi from './api/activityLog';
 import { RotateCw, CheckCircle2, Loader2 } from 'lucide-react';
 
 // Lazy-loaded: pulls in the xlsx/papaparse parsing libraries only when the user
@@ -163,493 +135,423 @@ export default function App() {
   const [modalType, setModalType] = useState<
     'upgrade' | 'restock' | 'sales_returns' | 'purchase_returns' | 'products' | 'clients' | 'vendors' | null
   >(null);
-  const [salesTransactions, setSalesTransactions] = useState<SaleTransaction[]>(initialSalesTransactions);
-  const [stockProducts, setStockProducts] = useState<StockProduct[]>(initialStockProducts);
-  const [stockLots, setStockLots] = useState<StockLot[]>(initialStockLots);
-  const [stockLedger, setStockLedger] = useState<StockLedgerEntry[]>(initialStockLedger);
-  const [stockUnits, setStockUnits] = useState<StockUnit[]>(initialStockUnits);
-  const [catalogArticles, setCatalogArticles] = useState<CatalogArticle[]>(initialCatalogArticles);
-  const [productCategories, setProductCategories] = useState<ProductCategory[]>(initialProductCategories);
-  const [productSubCategories, setProductSubCategories] = useState<ProductSubCategory[]>(initialProductSubCategories);
-  const [subRecipes, setSubRecipes] = useState<SubRecipe[]>(initialSubRecipes);
+  const { user } = useAuth();
+  const performedBy = user?.fullName ?? 'Utilisateur';
+
+  const [salesTransactions, setSalesTransactions] = useState<SaleTransaction[]>([]);
+  const [stockProducts, setStockProducts] = useState<StockProduct[]>([]);
+  const [stockLots, setStockLots] = useState<StockLot[]>([]);
+  const [stockLedger, setStockLedger] = useState<StockLedgerEntry[]>([]);
+  const [stockUnits, setStockUnits] = useState<StockUnit[]>([]);
+  const [catalogArticles, setCatalogArticles] = useState<CatalogArticle[]>([]);
+  const [catalogExtras, setCatalogExtras] = useState<CatalogExtra[]>([]);
+  const [productCategories, setProductCategories] = useState<ProductCategory[]>([]);
+  const [productSubCategories, setProductSubCategories] = useState<ProductSubCategory[]>([]);
+  const [subRecipes, setSubRecipes] = useState<SubRecipe[]>([]);
   const [editingProductId, setEditingProductId] = useState<string | null>(null);
-  const [activityLog, setActivityLog] = useState<ActivityLogEntry[]>(initialActivityLog);
-  const [expenses, setExpenses] = useState<Expense[]>(initialExpenses);
-  const [expenseCategories, setExpenseCategories] = useState<ExpenseCategory[]>(initialExpenseCategories);
-  const [suppliers, setSuppliers] = useState<Supplier[]>(initialSuppliers);
-  const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>(initialPurchaseOrders);
-  const [purchaseReceptions, setPurchaseReceptions] = useState<PurchaseReception[]>(initialPurchaseReceptions);
-  const [supplierInvoices, setSupplierInvoices] = useState<SupplierInvoice[]>(initialSupplierInvoices);
-  const [hrEmployees, setHrEmployees] = useState<Employee[]>(initialEmployees);
-  const [hrShifts, setHrShifts] = useState<Shift[]>(initialShifts);
-  const [hrDayRecords, setHrDayRecords] = useState<DayRecord[]>(initialDayRecords);
-  const [hrRecurringPlans, setHrRecurringPlans] = useState<RecurringPlan[]>(initialRecurringPlans);
-  const [hrFinancialRecords, setHrFinancialRecords] = useState<FinancialRecord[]>(initialFinancialRecords);
+  const [activityLog, setActivityLog] = useState<ActivityLogEntry[]>([]);
+  const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [expenseCategories, setExpenseCategories] = useState<ExpenseCategory[]>([]);
+  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+  const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>([]);
+  const [purchaseReceptions, setPurchaseReceptions] = useState<PurchaseReception[]>([]);
+  const [supplierInvoices, setSupplierInvoices] = useState<SupplierInvoice[]>([]);
+  const [hrEmployees, setHrEmployees] = useState<Employee[]>([]);
+  const [hrShifts, setHrShifts] = useState<Shift[]>([]);
+  const [hrDayRecords, setHrDayRecords] = useState<DayRecord[]>([]);
+  const [hrRecurringPlans, setHrRecurringPlans] = useState<RecurringPlan[]>([]);
+  const [hrFinancialRecords, setHrFinancialRecords] = useState<FinancialRecord[]>([]);
   const [treatedAlerts, setTreatedAlerts] = useState<Record<string, { treatedAt: string; treatedBy: string }>>({});
+  const [isDataLoaded, setIsDataLoaded] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  // Fetches every domain slice from the API in parallel. Called once on mount, and again after
+  // every mutation — the backend owns all cascade/derivation logic (rename cascades, stock
+  // ledger application, purchase order receiving, HR cascading deletes...), so re-fetching is the
+  // simplest way to guarantee the client never has to reimplement that logic a second time.
+  const loadAllData = useCallback(async () => {
+    const [
+      categories, subCategories, extras, articles, subRecipesRes,
+      units, products, lots, ledger,
+      transactions,
+      expenseCats, expensesRes,
+      suppliersRes, orders, receptions, invoices,
+      employees, shifts, dayRecords, recurringPlans, financialRecords,
+      treated, log,
+    ] = await Promise.all([
+      productCatalogApi.getProductCategories(),
+      productCatalogApi.getProductSubCategories(),
+      productCatalogApi.getCatalogExtras(),
+      productCatalogApi.getCatalogArticles(),
+      productCatalogApi.getSubRecipes(),
+      stockApi.getStockUnits(),
+      stockApi.getStockProducts(),
+      stockApi.getStockLots(),
+      stockApi.getStockLedger(),
+      salesApi.getSalesTransactions(),
+      expensesApi.getExpenseCategories(),
+      expensesApi.getExpenses(),
+      purchasesApi.getSuppliers(),
+      purchasesApi.getPurchaseOrders(),
+      purchasesApi.getPurchaseReceptions(),
+      purchasesApi.getSupplierInvoices(),
+      hrApi.getEmployees(),
+      hrApi.getShifts(),
+      hrApi.getDayRecords(),
+      hrApi.getRecurringPlans(),
+      hrApi.getFinancialRecords(),
+      notificationsApi.getTreatedAlerts(),
+      activityLogApi.getActivityLog(),
+    ]);
+    setCatalogExtras(extras);
+    setProductCategories(categories);
+    setProductSubCategories(subCategories);
+    setCatalogArticles(articles);
+    setSubRecipes(subRecipesRes);
+    setStockUnits(units);
+    setStockProducts(products);
+    setStockLots(lots);
+    setStockLedger(ledger);
+    setSalesTransactions(transactions);
+    setExpenseCategories(expenseCats);
+    setExpenses(expensesRes);
+    setSuppliers(suppliersRes);
+    setPurchaseOrders(orders);
+    setPurchaseReceptions(receptions);
+    setSupplierInvoices(invoices);
+    setHrEmployees(employees);
+    setHrShifts(shifts);
+    setHrDayRecords(dayRecords);
+    setHrRecurringPlans(recurringPlans);
+    setHrFinancialRecords(financialRecords);
+    setTreatedAlerts(treated);
+    setActivityLog(log);
+  }, []);
+
+  useEffect(() => {
+    loadAllData()
+      .then(() => setIsDataLoaded(true))
+      .catch((err) => setLoadError(err instanceof ApiError ? err.message : 'Impossible de charger les données.'));
+  }, [loadAllData]);
+
+  // Every mutation handler below runs its API call through this wrapper: on success the whole
+  // data set is refreshed from the server (so cascades never need reimplementing client-side), on
+  // failure the error is surfaced to the user instead of silently discarded.
+  const runMutation = async (fn: () => Promise<unknown>): Promise<void> => {
+    try {
+      await fn();
+      await loadAllData();
+    } catch (err) {
+      console.error(err);
+      window.alert(err instanceof ApiError ? err.message : 'Une erreur est survenue. Réessayez.');
+    }
+  };
 
   const handleRefresh = () => {
     if (isRefreshing) return;
     setIsRefreshing(true);
-    setTimeout(() => {
-      setIsRefreshing(false);
-      setShowRefreshToast(true);
-      setTimeout(() => setShowRefreshToast(false), 3000);
-    }, 800);
-  };
-
-  // Single append point for the whole app's audit trail — every mutating handler below calls
-  // this once it has applied its change, so "Journal d'activité" never has to reconstruct
-  // history from scattered module state.
-  const logActivity = (module: string, action: string, description: string, user: string) => {
-    setActivityLog((prev) => [
-      { id: generateActivityId(), timestamp: new Date().toISOString(), user, module, action, description },
-      ...prev,
-    ]);
+    loadAllData()
+      .catch((err) => console.error(err))
+      .finally(() => {
+        setIsRefreshing(false);
+        setShowRefreshToast(true);
+        setTimeout(() => setShowRefreshToast(false), 3000);
+      });
   };
 
   // Every manual stock operation (movement, transfer, loss, adjustment, inventory) funnels
-  // through this single function, keeping StockProduct quantities and the audit ledger in sync.
-  const handlePostStockEntries = (entries: StockLedgerEntry[], lotChanges?: { upsert?: StockLot[] }) => {
-    setStockProducts((prev) => applyLedgerEntries(prev, entries));
-    setStockLedger((prev) => [...entries, ...prev]);
-    if (lotChanges?.upsert) {
-      setStockLots((prev) => {
-        const map = new Map(prev.map((l) => [l.id, l]));
-        lotChanges.upsert!.forEach((l) => map.set(l.id, l));
-        return Array.from(map.values());
-      });
-    }
-    entries.forEach((entry) => {
-      const product = stockProducts.find((p) => p.id === entry.productId);
-      const zoneLabel = entry.relatedZone ? `${entry.zone} → ${entry.relatedZone}` : entry.zone;
-      logActivity(
-        'Stock',
-        entry.type,
-        `${entry.type} — ${product?.name ?? entry.productId} (${entry.quantityDelta > 0 ? '+' : ''}${entry.quantityDelta}, ${zoneLabel})`,
-        entry.performedBy
-      );
-    });
+  // through this single function; the child page already computes the full StockLedgerEntry
+  // objects, only the input fields are sent — the server recomputes quantityBefore/After/
+  // valueImpact itself from live stock state and applies them transactionally.
+  const handlePostStockEntries = (entries: StockLedgerEntry[]) => {
+    runMutation(() =>
+      stockApi.postStockLedgerEntries(
+        entries.map((e) => ({
+          type: e.type, productId: e.productId, zone: e.zone, relatedZone: e.relatedZone, quantityDelta: e.quantityDelta,
+          reason: e.reason, comment: e.comment, lotNumber: e.lotNumber, expiryDate: e.expiryDate, performedBy: e.performedBy,
+          groupId: e.groupId, theoreticalQty: e.theoreticalQty, realQty: e.realQty, discrepancyQty: e.discrepancyQty,
+          discrepancyValue: e.discrepancyValue, inventoryChoice: e.inventoryChoice, inventoryScope: e.inventoryScope,
+        }))
+      )
+    );
   };
 
   // Cancelling never deletes history: the entry is kept and flagged "Annulé", and its effect on
   // the product quantity is reversed.
   const handleCancelStockEntry = (entryId: string, cancelledBy: string) => {
-    setStockLedger((prevLedger) => {
-      const entry = prevLedger.find((e) => e.id === entryId);
-      if (!entry || entry.status === 'Annulé') return prevLedger;
-      setStockProducts((prevProducts) => reverseLedgerEntry(prevProducts, entry));
-      const product = stockProducts.find((p) => p.id === entry.productId);
-      logActivity('Stock', 'Annulation', `Annulation d'un mouvement — ${product?.name ?? entry.productId} (${entry.type})`, cancelledBy);
-      return prevLedger.map((e) =>
-        e.id === entryId ? { ...e, status: 'Annulé' as const, cancelledAt: new Date().toISOString(), cancelledBy } : e
-      );
-    });
+    runMutation(() => stockApi.cancelStockLedgerEntry(entryId, cancelledBy));
   };
 
   const handleCreateStockUnit = (unit: StockUnit) => {
-    setStockUnits((prev) => [...prev, unit]);
-    logActivity('Stock', 'Création', `Nouvelle unité : ${unit.name}`, 'Company');
+    runMutation(() => stockApi.createStockUnit(unit.name));
   };
 
-  // Renaming a unit cascades to every product referencing its old name, so the catalog and
-  // products never fall out of sync — never touches quantities, only the descriptive label.
+  // Renaming a unit cascades to every product referencing its old name — handled server-side.
   const handleRenameStockUnit = (unitId: string, newName: string) => {
-    setStockUnits((prevUnits) => {
-      const unit = prevUnits.find((u) => u.id === unitId);
-      if (!unit) return prevUnits;
-      setStockProducts((prevProducts) => renameStockUnitAcrossProducts(prevProducts, unit.name, newName));
-      logActivity('Stock', 'Modification', `Unité renommée : « ${unit.name} » → « ${newName} »`, 'Company');
-      return prevUnits.map((u) => (u.id === unitId ? { ...u, name: newName } : u));
-    });
+    runMutation(() => stockApi.renameStockUnit(unitId, newName));
   };
 
   // Stock → Import Excel/CSV posts the same kind of ledger entries as a manual movement, plus
-  // optional direct threshold/target updates — both funnel through the existing stock state.
+  // optional direct threshold/target updates.
   const handlePostImportedStock = (
     entries: StockLedgerEntry[],
-    lotUpserts: StockLot[],
+    _lotUpserts: StockLot[],
     productUpdates: Array<{ id: string; minThreshold?: number; targetStock?: number }>
   ) => {
-    setStockProducts((prev) => {
-      const withLedger = applyLedgerEntries(prev, entries);
-      if (productUpdates.length === 0) return withLedger;
-      const updateMap = new Map(productUpdates.map((u) => [u.id, u]));
-      return withLedger.map((p) => {
-        const u = updateMap.get(p.id);
-        if (!u) return p;
-        return {
-          ...p,
-          minThreshold: u.minThreshold !== undefined ? u.minThreshold : p.minThreshold,
-          targetStock: u.targetStock !== undefined ? u.targetStock : p.targetStock,
-        };
-      });
-    });
-    setStockLedger((prev) => [...entries, ...prev]);
-    if (lotUpserts.length > 0) {
-      setStockLots((prev) => {
-        const map = new Map(prev.map((l) => [l.id, l]));
-        lotUpserts.forEach((l) => map.set(l.id, l));
-        return Array.from(map.values());
-      });
-    }
-    logActivity(
-      'Stock',
-      'Import',
-      `Import Excel/CSV — ${entries.length} mouvement(s), ${productUpdates.length} mise(s) à jour de seuil/cible`,
-      entries[0]?.performedBy ?? 'Company'
+    void _lotUpserts; // lots are derived server-side from each entry's lotNumber/expiryDate
+    runMutation(() =>
+      stockApi.postImportedStock(
+        entries.map((e) => ({
+          type: e.type, productId: e.productId, zone: e.zone, relatedZone: e.relatedZone, quantityDelta: e.quantityDelta,
+          reason: e.reason, comment: e.comment, lotNumber: e.lotNumber, expiryDate: e.expiryDate, performedBy: e.performedBy,
+        })),
+        productUpdates
+      )
     );
   };
 
+  const toArticleInput = (article: CatalogArticle) => ({
+    name: article.name, category: article.category, subCategory: article.subCategory, price: article.price,
+    description: article.description, imageUrl: article.imageUrl, isAvailable: article.isAvailable,
+    extraIds: article.extraIds, variants: article.variants, recipe: article.recipe, targetMarginRate: article.targetMarginRate,
+  });
+
   const handleCreateProduct = (article: CatalogArticle) => {
-    setCatalogArticles((prev) => [...prev, article]);
-    logActivity('Produits', 'Création', `Produit créé : ${article.name}`, 'Company');
+    runMutation(() => productCatalogApi.createCatalogArticle(toArticleInput(article)));
   };
 
   const handleUpdateProduct = (article: CatalogArticle) => {
-    setCatalogArticles((prev) => prev.map((a) => (a.id === article.id ? article : a)));
-    logActivity('Produits', 'Modification', `Produit modifié : ${article.name}`, 'Company');
+    runMutation(() => productCatalogApi.updateCatalogArticle(article.id, toArticleInput(article)));
   };
 
   const handleDeleteProduct = (articleId: string) => {
-    const article = catalogArticles.find((a) => a.id === articleId);
-    setCatalogArticles((prev) => prev.filter((a) => a.id !== articleId));
-    logActivity('Produits', 'Suppression', `Produit supprimé : ${article?.name ?? articleId}`, 'Company');
+    runMutation(() => productCatalogApi.deleteCatalogArticle(articleId));
   };
 
   const handleToggleProductAvailability = (articleId: string, isAvailable: boolean) => {
-    const article = catalogArticles.find((a) => a.id === articleId);
-    setCatalogArticles((prev) => prev.map((a) => (a.id === articleId ? { ...a, isAvailable } : a)));
-    logActivity(
-      'Produits',
-      'Modification',
-      `Disponibilité modifiée : ${article?.name ?? articleId} → ${isAvailable ? 'Disponible' : 'Indisponible'}`,
-      'Company'
-    );
+    runMutation(() => productCatalogApi.setArticleAvailability(articleId, isAvailable));
   };
 
   const handleImportProducts = (newArticles: CatalogArticle[]) => {
-    setCatalogArticles((prev) => [...prev, ...newArticles]);
-    logActivity('Produits', 'Import', `Import Excel/CSV — ${newArticles.length} produit(s) ajoutés`, 'Company');
+    runMutation(() => Promise.all(newArticles.map((a) => productCatalogApi.createCatalogArticle(toArticleInput(a)))));
   };
 
   const handleCreateSubRecipe = (subRecipe: SubRecipe) => {
-    setSubRecipes((prev) => [...prev, subRecipe]);
-    logActivity('Produits', 'Création', `Sous-recette créée : ${subRecipe.name}`, 'Company');
+    runMutation(() => productCatalogApi.createSubRecipe({ name: subRecipe.name, description: subRecipe.description, yieldQuantity: subRecipe.yieldQuantity, yieldUnit: subRecipe.yieldUnit, ingredients: subRecipe.ingredients }));
   };
 
   const handleUpdateSubRecipe = (subRecipe: SubRecipe) => {
-    setSubRecipes((prev) => prev.map((sr) => (sr.id === subRecipe.id ? subRecipe : sr)));
-    logActivity('Produits', 'Modification', `Sous-recette modifiée : ${subRecipe.name}`, 'Company');
+    runMutation(() => productCatalogApi.updateSubRecipe(subRecipe.id, { name: subRecipe.name, description: subRecipe.description, yieldQuantity: subRecipe.yieldQuantity, yieldUnit: subRecipe.yieldUnit, ingredients: subRecipe.ingredients }));
   };
 
   const handleDeleteSubRecipe = (subRecipeId: string) => {
-    const subRecipe = subRecipes.find((sr) => sr.id === subRecipeId);
-    setSubRecipes((prev) => prev.filter((sr) => sr.id !== subRecipeId));
-    logActivity('Produits', 'Suppression', `Sous-recette supprimée : ${subRecipe?.name ?? subRecipeId}`, 'Company');
+    runMutation(() => productCatalogApi.deleteSubRecipe(subRecipeId));
   };
 
   const handleCreateProductCategory = (category: ProductCategory) => {
-    setProductCategories((prev) => [...prev, category]);
-    logActivity('Catalogue', 'Création', `Catégorie créée : ${category.name}`, 'Company');
+    runMutation(() => productCatalogApi.createProductCategory(category.name));
   };
 
   const handleRenameProductCategory = (categoryId: string, newName: string) => {
-    setProductCategories((prevCategories) => {
-      const category = prevCategories.find((c) => c.id === categoryId);
-      if (!category) return prevCategories;
-      setCatalogArticles((prevArticles) =>
-        prevArticles.map((a) => (a.category === category.name ? { ...a, category: newName as CatalogArticle['category'] } : a))
-      );
-      logActivity('Catalogue', 'Modification', `Catégorie renommée : « ${category.name} » → « ${newName} »`, 'Company');
-      return prevCategories.map((c) => (c.id === categoryId ? { ...c, name: newName } : c));
-    });
+    runMutation(() => productCatalogApi.renameProductCategory(categoryId, newName));
   };
 
   const handleDeleteProductCategory = (categoryId: string) => {
-    const category = productCategories.find((c) => c.id === categoryId);
-    setProductCategories((prev) => prev.filter((c) => c.id !== categoryId));
-    logActivity('Catalogue', 'Suppression', `Catégorie supprimée : ${category?.name ?? categoryId}`, 'Company');
+    runMutation(() => productCatalogApi.deleteProductCategory(categoryId));
   };
 
   const handleCreateProductSubCategory = (subCategory: ProductSubCategory) => {
-    setProductSubCategories((prev) => [...prev, subCategory]);
-    logActivity('Catalogue', 'Création', `Sous-catégorie créée : ${subCategory.name}`, 'Company');
+    runMutation(() => productCatalogApi.createProductSubCategory(subCategory.categoryId, subCategory.name));
   };
 
   const handleRenameProductSubCategory = (subCategoryId: string, newName: string, newCategoryId: string) => {
-    setProductSubCategories((prevSubCategories) => {
-      const subCategory = prevSubCategories.find((s) => s.id === subCategoryId);
-      if (!subCategory) return prevSubCategories;
-      setCatalogArticles((prevArticles) =>
-        prevArticles.map((a) => (a.subCategory === subCategory.name ? { ...a, subCategory: newName } : a))
-      );
-      logActivity('Catalogue', 'Modification', `Sous-catégorie renommée : « ${subCategory.name} » → « ${newName} »`, 'Company');
-      return prevSubCategories.map((s) => (s.id === subCategoryId ? { ...s, name: newName, categoryId: newCategoryId } : s));
-    });
+    runMutation(() => productCatalogApi.renameProductSubCategory(subCategoryId, newCategoryId, newName));
   };
 
   const handleDeleteProductSubCategory = (subCategoryId: string) => {
-    const subCategory = productSubCategories.find((s) => s.id === subCategoryId);
-    setProductSubCategories((prev) => prev.filter((s) => s.id !== subCategoryId));
-    logActivity('Catalogue', 'Suppression', `Sous-catégorie supprimée : ${subCategory?.name ?? subCategoryId}`, 'Company');
+    runMutation(() => productCatalogApi.deleteProductSubCategory(subCategoryId));
   };
 
+  const toExpenseInput = (expense: Expense) => ({
+    title: expense.title, amount: expense.amount, date: expense.date, categoryId: expense.categoryId,
+    nature: expense.nature, recurrence: expense.recurrence, paymentMethod: expense.paymentMethod,
+    comment: expense.comment, attachment: expense.attachment,
+  });
+
   const handleCreateExpense = (expense: Expense) => {
-    setExpenses((prev) => [...prev, expense]);
-    logActivity('Dépenses', 'Création', `Dépense enregistrée : ${expense.amount.toFixed(2)} DT (${expense.date})`, 'Company');
+    runMutation(() => expensesApi.createExpense(toExpenseInput(expense)));
   };
 
   const handleUpdateExpense = (expense: Expense) => {
-    setExpenses((prev) => prev.map((e) => (e.id === expense.id ? expense : e)));
-    logActivity('Dépenses', 'Modification', `Dépense modifiée : ${expense.amount.toFixed(2)} DT (${expense.date})`, 'Company');
+    runMutation(() => expensesApi.updateExpense(expense.id, toExpenseInput(expense)));
   };
 
   const handleDeleteExpense = (expenseId: string) => {
-    const expense = expenses.find((e) => e.id === expenseId);
-    setExpenses((prev) => prev.filter((e) => e.id !== expenseId));
-    logActivity('Dépenses', 'Suppression', `Dépense supprimée : ${expense ? `${expense.amount.toFixed(2)} DT (${expense.date})` : expenseId}`, 'Company');
+    runMutation(() => expensesApi.deleteExpense(expenseId));
   };
 
   const handleUpdateExpenseStatus = (expenseId: string, status: ExpenseStatus) => {
-    setExpenses((prev) => {
-      const expense = prev.find((e) => e.id === expenseId);
-      if (!expense || expense.status === status) return prev;
-      logActivity('Dépenses', 'Modification', `Statut de « ${expense.title} » changé : ${expense.status} → ${status}`, 'Company');
-      return prev.map((e) => (e.id === expenseId ? { ...e, status } : e));
-    });
+    runMutation(() => expensesApi.updateExpenseStatus(expenseId, status));
   };
 
   const handleCreateExpenseCategory = (category: ExpenseCategory) => {
-    setExpenseCategories((prev) => [...prev, category]);
-    logActivity('Dépenses', 'Création', `Catégorie de dépense créée : ${category.name}`, 'Company');
+    runMutation(() => expensesApi.createExpenseCategory(category.name));
   };
 
   const handleRenameExpenseCategory = (categoryId: string, newName: string) => {
-    setExpenseCategories((prev) => {
-      const category = prev.find((c) => c.id === categoryId);
-      if (!category) return prev;
-      logActivity('Dépenses', 'Modification', `Catégorie de dépense renommée : « ${category.name} » → « ${newName} »`, 'Company');
-      return prev.map((c) => (c.id === categoryId ? { ...c, name: newName } : c));
-    });
+    runMutation(() => expensesApi.renameExpenseCategory(categoryId, newName));
   };
 
   const handleDeleteExpenseCategory = (categoryId: string) => {
-    const category = expenseCategories.find((c) => c.id === categoryId);
-    setExpenseCategories((prev) => prev.filter((c) => c.id !== categoryId));
-    logActivity('Dépenses', 'Suppression', `Catégorie de dépense supprimée : ${category?.name ?? categoryId}`, 'Company');
+    runMutation(() => expensesApi.deleteExpenseCategory(categoryId));
   };
 
+  const toOrderInput = (order: PurchaseOrder) => ({
+    supplierId: order.supplierId, orderDate: order.orderDate, expectedDate: order.expectedDate, notes: order.notes,
+    createdBy: order.createdBy, lines: order.lines.map((l) => ({ id: l.id, productId: l.productId, quantity: l.quantity, unit: l.unit, unitPrice: l.unitPrice })),
+  });
+
   const handleCreatePurchaseOrder = (order: PurchaseOrder) => {
-    setPurchaseOrders((prev) => [...prev, order]);
-    logActivity('Achats', 'Création', `Achat créé : ${order.orderNumber}`, order.createdBy);
+    runMutation(() => purchasesApi.createPurchaseOrder(toOrderInput(order)));
   };
 
   const handleUpdatePurchaseOrder = (order: PurchaseOrder) => {
-    setPurchaseOrders((prev) => prev.map((o) => (o.id === order.id ? order : o)));
-    logActivity('Achats', 'Modification', `Achat modifié : ${order.orderNumber}`, order.createdBy);
+    runMutation(() => purchasesApi.updatePurchaseOrder(order.id, toOrderInput(order)));
   };
 
   const handleDeletePurchaseOrder = (orderId: string) => {
-    const order = purchaseOrders.find((o) => o.id === orderId);
-    setPurchaseOrders((prev) => prev.filter((o) => o.id !== orderId));
-    logActivity('Achats', 'Suppression', `Achat supprimé : ${order?.orderNumber ?? orderId}`, 'Company');
+    runMutation(() => purchasesApi.deletePurchaseOrder(orderId));
   };
 
   const handleUpdatePurchaseOrderStatus = (orderId: string, status: PurchaseOrderStatus) => {
-    setPurchaseOrders((prev) => {
-      const order = prev.find((o) => o.id === orderId);
-      if (!order || order.status === status) return prev;
-      logActivity('Achats', 'Modification', `Statut de « ${order.orderNumber} » changé : ${order.status} → ${status}`, 'Company');
-      return prev.map((o) => (o.id === orderId ? { ...o, status } : o));
-    });
+    runMutation(() => purchasesApi.updatePurchaseOrderStatus(orderId, status));
   };
 
   const handleCreateSupplier = (supplier: Supplier) => {
-    setSuppliers((prev) => [...prev, supplier]);
-    logActivity('Achats', 'Création', `Fournisseur créé : ${supplier.name}`, 'Company');
+    runMutation(() => purchasesApi.createSupplier({ name: supplier.name, taxId: supplier.taxId, phone: supplier.phone, whatsapp: supplier.whatsapp, email: supplier.email, address: supplier.address, mainContact: supplier.mainContact, notes: supplier.notes }));
   };
 
   const handleUpdateSupplier = (supplier: Supplier) => {
-    setSuppliers((prev) => prev.map((s) => (s.id === supplier.id ? supplier : s)));
-    logActivity('Achats', 'Modification', `Fournisseur modifié : ${supplier.name}`, 'Company');
+    runMutation(() => purchasesApi.updateSupplier(supplier.id, { name: supplier.name, taxId: supplier.taxId, phone: supplier.phone, whatsapp: supplier.whatsapp, email: supplier.email, address: supplier.address, mainContact: supplier.mainContact, notes: supplier.notes }));
   };
 
   const handleDeleteSupplier = (supplierId: string) => {
-    const supplier = suppliers.find((s) => s.id === supplierId);
-    setSuppliers((prev) => prev.filter((s) => s.id !== supplierId));
-    logActivity('Achats', 'Suppression', `Fournisseur supprimé : ${supplier?.name ?? supplierId}`, 'Company');
+    runMutation(() => purchasesApi.deleteSupplier(supplierId));
   };
 
   // A validated reception posts stock entries through the SAME ledger pipeline as every manual
-  // stock movement (handlePostStockEntries), so a purchase reception is not a second way to
-  // change stock quantities — just another source feeding the one existing mechanism.
+  // stock movement, and updates the order's status — all transactionally, server-side.
   const handleReceivePurchaseOrder = (order: PurchaseOrder, reception: PurchaseReception) => {
-    const entries = buildReceptionLedgerEntries(order, reception, stockProducts);
-    if (entries.length > 0) handlePostStockEntries(entries);
-    setPurchaseReceptions((prev) => [reception, ...prev]);
-    setPurchaseOrders((prev) => prev.map((o) => (o.id === order.id ? applyReceptionToOrder(o, reception) : o)));
-    logActivity('Achats', 'Réception', `Réception enregistrée pour ${order.orderNumber} (${entries.length} article(s))`, reception.performedBy);
-  };
-
-  const handleCreateInvoice = (invoice: SupplierInvoice) => {
-    setSupplierInvoices((prev) => [...prev, invoice]);
-    logActivity('Achats', 'Création', `Facture fournisseur créée : ${invoice.invoiceNumber}`, 'Company');
-  };
-
-  const handleUpdateInvoice = (invoice: SupplierInvoice) => {
-    setSupplierInvoices((prev) => prev.map((i) => (i.id === invoice.id ? invoice : i)));
-    logActivity('Achats', 'Modification', `Facture fournisseur modifiée : ${invoice.invoiceNumber}`, 'Company');
-  };
-
-  const handleDeleteInvoice = (invoiceId: string) => {
-    const invoice = supplierInvoices.find((i) => i.id === invoiceId);
-    setSupplierInvoices((prev) => prev.filter((i) => i.id !== invoiceId));
-    logActivity('Achats', 'Suppression', `Facture fournisseur supprimée : ${invoice?.invoiceNumber ?? invoiceId}`, 'Company');
-  };
-
-  const handleRecordInvoicePayment = (invoiceId: string, amountAdded: number) => {
-    setSupplierInvoices((prev) => {
-      const invoice = prev.find((i) => i.id === invoiceId);
-      if (!invoice) return prev;
-      logActivity('Achats', 'Paiement', `Paiement enregistré sur la facture ${invoice.invoiceNumber} : +${amountAdded.toFixed(2)} DT`, 'Company');
-      return prev.map((i) => (i.id === invoiceId ? { ...i, amountPaid: i.amountPaid + amountAdded } : i));
-    });
-  };
-
-  // --- Gestion du personnel: Employés ---
-  const handleCreateEmployee = (employee: Employee) => {
-    setHrEmployees((prev) => [...prev, employee]);
-    logActivity('RH', 'Création', `Employé ajouté : ${getEmployeeFullName(employee)}`, 'Company');
-  };
-
-  const handleUpdateEmployee = (employee: Employee) => {
-    setHrEmployees((prev) => prev.map((e) => (e.id === employee.id ? employee : e)));
-    logActivity('RH', 'Modification', `Employé modifié : ${getEmployeeFullName(employee)}`, 'Company');
-  };
-
-  // Deleting an employee also removes their planning/attendance and financial history so no
-  // orphaned record can reference a nonexistent employee elsewhere in the module.
-  const handleDeleteEmployee = (employeeId: string) => {
-    const employee = hrEmployees.find((e) => e.id === employeeId);
-    setHrEmployees((prev) => prev.filter((e) => e.id !== employeeId));
-    setHrDayRecords((prev) => prev.filter((r) => r.employeeId !== employeeId));
-    setHrRecurringPlans((prev) => prev.filter((p) => p.employeeId !== employeeId));
-    setHrFinancialRecords((prev) => prev.filter((r) => r.employeeId !== employeeId));
-    logActivity('RH', 'Suppression', `Employé supprimé : ${employee ? getEmployeeFullName(employee) : employeeId}`, 'Company');
-  };
-
-  // --- Gestion du personnel: Shifts (exactly 2, enforced in hrModel's validation) ---
-  const handleCreateShift = (shift: Shift) => {
-    setHrShifts((prev) => [...prev, shift]);
-    logActivity('RH', 'Création', `Shift créé : ${shift.name}`, 'Company');
-  };
-
-  const handleUpdateShift = (shift: Shift) => {
-    setHrShifts((prev) => prev.map((s) => (s.id === shift.id ? shift : s)));
-    logActivity('RH', 'Modification', `Shift modifié : ${shift.name}`, 'Company');
-  };
-
-  const handleDeleteShift = (shiftId: string) => {
-    const shift = hrShifts.find((s) => s.id === shiftId);
-    setHrShifts((prev) => prev.filter((s) => s.id !== shiftId));
-    logActivity('RH', 'Suppression', `Shift supprimé : ${shift?.name ?? shiftId}`, 'Company');
-  };
-
-  // --- Gestion du personnel: Planning & Présence ---
-  // Applies a weekly pattern over a period (one-time or recurring) as an upsert onto the existing
-  // day records — buildDayRecordsFromPattern preserves the id of any day already recorded so this
-  // never creates duplicate rows for the same employee/date.
-  const handleSavePlanning = (params: { employeeId: string; startDate: string; endDate: string; weeklyPattern: WeeklyPattern; isRecurring: boolean }) => {
-    let recurringPlanId: string | undefined;
-    if (params.isRecurring) {
-      const plan: RecurringPlan = {
-        id: generateHrId('rp'),
-        employeeId: params.employeeId,
-        startDate: params.startDate,
-        endDate: params.endDate,
-        weeklyPattern: params.weeklyPattern,
-        createdAt: new Date().toISOString(),
-        createdBy: 'Company',
-      };
-      setHrRecurringPlans((prev) => [...prev, plan]);
-      recurringPlanId = plan.id;
-    }
-    setHrDayRecords((prev) => {
-      const generated = buildDayRecordsFromPattern(params.employeeId, params.weeklyPattern, params.startDate, params.endDate, 'Company', recurringPlanId, prev);
-      const map = new Map(prev.map((r) => [r.id, r]));
-      generated.forEach((r) => map.set(r.id, r));
-      return Array.from(map.values());
-    });
-    const employee = hrEmployees.find((e) => e.id === params.employeeId);
-    logActivity(
-      'RH',
-      'Planning',
-      `Planning ${params.isRecurring ? 'récurrent' : 'ponctuel'} enregistré pour ${employee ? getEmployeeFullName(employee) : params.employeeId} (${params.startDate} → ${params.endDate})`,
-      'Company'
+    runMutation(() =>
+      purchasesApi.receivePurchaseOrder(order.id, {
+        receptionDate: reception.receptionDate, zone: reception.zone, performedBy: reception.performedBy, lines: reception.lines,
+      })
     );
   };
 
+  const handleCreateInvoice = (invoice: SupplierInvoice) => {
+    runMutation(() =>
+      purchasesApi.createSupplierInvoice({
+        invoiceNumber: invoice.invoiceNumber, supplierId: invoice.supplierId, purchaseOrderId: invoice.purchaseOrderId,
+        invoiceDate: invoice.invoiceDate, dueDate: invoice.dueDate, amountHT: invoice.amountHT, vatAmount: invoice.vatAmount,
+        amountTTC: invoice.amountTTC, amountPaid: invoice.amountPaid, paymentMethod: invoice.paymentMethod,
+      })
+    );
+  };
+
+  const handleUpdateInvoice = (invoice: SupplierInvoice) => {
+    runMutation(() =>
+      purchasesApi.updateSupplierInvoice(invoice.id, {
+        invoiceNumber: invoice.invoiceNumber, supplierId: invoice.supplierId, purchaseOrderId: invoice.purchaseOrderId,
+        invoiceDate: invoice.invoiceDate, dueDate: invoice.dueDate, amountHT: invoice.amountHT, vatAmount: invoice.vatAmount,
+        amountTTC: invoice.amountTTC, amountPaid: invoice.amountPaid, paymentMethod: invoice.paymentMethod,
+      })
+    );
+  };
+
+  const handleDeleteInvoice = (invoiceId: string) => {
+    runMutation(() => purchasesApi.deleteSupplierInvoice(invoiceId));
+  };
+
+  const handleRecordInvoicePayment = (invoiceId: string, amountAdded: number) => {
+    runMutation(() => purchasesApi.recordInvoicePayment(invoiceId, amountAdded));
+  };
+
+  const toEmployeeInput = (employee: Employee) => ({
+    firstName: employee.firstName, lastName: employee.lastName, phone: employee.phone, photoUrl: employee.photoUrl,
+    poste: employee.poste, entryDate: employee.entryDate, status: employee.status, salary: employee.salary,
+    cinNumber: employee.cinNumber, cinIssueDate: employee.cinIssueDate, cinDocument: employee.cinDocument,
+  });
+
+  // --- Gestion du personnel: Employés ---
+  const handleCreateEmployee = (employee: Employee) => {
+    runMutation(() => hrApi.createEmployee(toEmployeeInput(employee)));
+  };
+
+  const handleUpdateEmployee = (employee: Employee) => {
+    runMutation(() => hrApi.updateEmployee(employee.id, toEmployeeInput(employee)));
+  };
+
+  // Deleting an employee also removes their planning/attendance and financial history — the
+  // server cascades this deletion transactionally.
+  const handleDeleteEmployee = (employeeId: string) => {
+    runMutation(() => hrApi.deleteEmployee(employeeId));
+  };
+
+  // --- Gestion du personnel: Shifts (exactly 2, enforced) ---
+  const handleCreateShift = (shift: Shift) => {
+    runMutation(() => hrApi.createShift({ name: shift.name, startTime: shift.startTime, endTime: shift.endTime, description: shift.description }));
+  };
+
+  const handleUpdateShift = (shift: Shift) => {
+    runMutation(() => hrApi.updateShift(shift.id, { name: shift.name, startTime: shift.startTime, endTime: shift.endTime, description: shift.description }));
+  };
+
+  const handleDeleteShift = (shiftId: string) => {
+    runMutation(() => hrApi.deleteShift(shiftId));
+  };
+
+  // --- Gestion du personnel: Planning & Présence ---
+  const handleSavePlanning = (params: { employeeId: string; startDate: string; endDate: string; weeklyPattern: WeeklyPattern; isRecurring: boolean }) => {
+    runMutation(() => hrApi.saveRecurringPlanning({ ...params, performedBy }));
+  };
+
   const handleSetAttendance = (params: { employeeId: string; date: string; status: AttendanceStatus; shiftIds: string[] }) => {
-    setHrDayRecords((prev) => {
-      const existing = findDayRecord(params.employeeId, params.date, prev);
-      const record = buildManualDayRecord(existing, params.employeeId, params.date, params.status, params.shiftIds, 'Company');
-      const map = new Map(prev.map((r) => [r.id, r]));
-      map.set(record.id, record);
-      return Array.from(map.values());
-    });
-    const employee = hrEmployees.find((e) => e.id === params.employeeId);
-    logActivity('RH', 'Présence', `Présence mise à jour : ${employee ? getEmployeeFullName(employee) : params.employeeId} — ${params.date} → ${params.status}`, 'Company');
+    runMutation(() => hrApi.setDayRecord({ ...params, performedBy }));
   };
 
   const handleDeleteDayRecord = (record: DayRecord, scope: 'day' | 'recurrence') => {
-    const employee = hrEmployees.find((e) => e.id === record.employeeId);
-    if (scope === 'recurrence' && record.recurringPlanId) {
-      const planId = record.recurringPlanId;
-      setHrRecurringPlans((prev) => prev.filter((p) => p.id !== planId));
-      setHrDayRecords((prev) => prev.filter((r) => r.recurringPlanId !== planId));
-      logActivity('RH', 'Suppression', `Récurrence de planning supprimée pour ${employee ? getEmployeeFullName(employee) : record.employeeId}`, 'Company');
-    } else {
-      setHrDayRecords((prev) => prev.filter((r) => r.id !== record.id));
-      logActivity('RH', 'Suppression', `Jour de planning supprimé : ${employee ? getEmployeeFullName(employee) : record.employeeId} — ${record.date}`, 'Company');
-    }
+    runMutation(() => hrApi.deleteDayRecord(record.id, scope));
   };
 
   // --- Gestion du personnel: Suivi financier ---
+  const toFinancialInput = (record: FinancialRecord) => ({
+    employeeId: record.employeeId, periodMonthIndex: record.periodMonthIndex, periodYear: record.periodYear,
+    baseSalary: record.baseSalary, advances: record.advances, bonuses: record.bonuses, deductions: record.deductions,
+    amountPaid: record.amountPaid, paymentDate: record.paymentDate,
+  });
+
   const handleCreateFinancialRecord = (record: FinancialRecord) => {
-    setHrFinancialRecords((prev) => [...prev, record]);
-    const employee = hrEmployees.find((e) => e.id === record.employeeId);
-    logActivity('RH', 'Création', `Suivi financier ajouté : ${employee ? getEmployeeFullName(employee) : record.employeeId}`, 'Company');
+    runMutation(() => hrApi.createFinancialRecord(toFinancialInput(record)));
   };
 
   const handleUpdateFinancialRecord = (record: FinancialRecord) => {
-    setHrFinancialRecords((prev) => prev.map((r) => (r.id === record.id ? record : r)));
-    const employee = hrEmployees.find((e) => e.id === record.employeeId);
-    logActivity('RH', 'Modification', `Suivi financier modifié : ${employee ? getEmployeeFullName(employee) : record.employeeId}`, 'Company');
+    runMutation(() => hrApi.updateFinancialRecord(record.id, toFinancialInput(record)));
   };
 
   const handleDeleteFinancialRecord = (recordId: string) => {
-    const record = hrFinancialRecords.find((r) => r.id === recordId);
-    setHrFinancialRecords((prev) => prev.filter((r) => r.id !== recordId));
-    const employee = record ? hrEmployees.find((e) => e.id === record.employeeId) : undefined;
-    logActivity('RH', 'Suppression', `Suivi financier supprimé : ${employee ? getEmployeeFullName(employee) : recordId}`, 'Company');
+    runMutation(() => hrApi.deleteFinancialRecord(recordId));
   };
 
   // --- Notifications & Alertes ---
   // Alerts are always recomputed live from real state (see alertsModel.ts); only the "Traité"
   // flag needs its own persisted store, keyed by each alert's deterministic id.
   const handleMarkAlertTreated = (alert: OperationalAlert) => {
-    setTreatedAlerts((prev) => ({ ...prev, [alert.id]: { treatedAt: new Date().toISOString(), treatedBy: 'Company' } }));
-    logActivity('Alertes', 'Traitement', `Alerte marquée comme traitée : ${alert.title}`, 'Company');
+    runMutation(() => notificationsApi.markAlertTreated(alert.id, performedBy));
   };
 
   const handleMarkAlertUnread = (alertId: string) => {
-    setTreatedAlerts((prev) => {
-      if (!(alertId in prev)) return prev;
-      const next = { ...prev };
-      delete next[alertId];
-      return next;
-    });
-    logActivity('Alertes', 'Modification', `Alerte remise en non traité : ${alertId}`, 'Company');
+    runMutation(() => notificationsApi.markAlertUnread(alertId));
   };
 
   const handleNavigateFromAlert = (tab: string, subItem?: string) => {
@@ -657,17 +559,18 @@ export default function App() {
     setActiveSubItem(subItem ?? '');
   };
 
+  const toTicketInput = (t: SaleTransaction) => ({
+    saleNumber: t.saleNumber, serviceType: t.serviceType, tableOrArea: t.tableOrArea, items: t.items,
+    itemsCount: t.itemsCount, itemsSummary: t.itemsSummary, paymentMethod: t.paymentMethod, barista: t.barista,
+    totalAmount: t.totalAmount, date: t.date, time: t.time, month: t.month, year: t.year, status: t.status,
+  });
+
   const handleSaveManualSalesTickets = (newTransactions: SaleTransaction[]) => {
-    setSalesTransactions((prev) => [...newTransactions, ...prev]);
-    const user = newTransactions[0]?.barista ?? 'Company';
-    logActivity('Ventes', 'Ajout manuel', `${newTransactions.length} ticket(s) enregistrés manuellement`, user);
+    runMutation(() => salesApi.createSalesTransactions(newTransactions.map(toTicketInput)));
   };
 
   const handleSaveImportedSalesTickets = (newTransactions: SaleTransaction[]) => {
-    setSalesTransactions((prev) => [...newTransactions, ...prev]);
-    const distinctBaristas = Array.from(new Set(newTransactions.map((t) => t.barista)));
-    const user = distinctBaristas.length === 1 ? distinctBaristas[0] : distinctBaristas.join(', ') || 'Company';
-    logActivity('Ventes', 'Import', `Import Excel/CSV — ${newTransactions.length} ticket(s) importés`, user);
+    runMutation(() => salesApi.createSalesTransactions(newTransactions.map(toTicketInput)));
   };
 
   const handleQuickAction = (action: string) => {
@@ -691,6 +594,70 @@ export default function App() {
         break;
     }
   };
+
+  const dashboardRange = useMemo(() => resolveDashboardRange(activePeriod, customRange), [activePeriod, customRange]);
+
+  const dashboardPeriodData = useMemo(
+    () =>
+      computeDashboardPeriodData(dashboardRange, {
+        transactions: salesTransactions,
+        orders: purchaseOrders,
+        expenses,
+        stockProducts,
+        financialRecords: hrFinancialRecords,
+        articles: catalogArticles,
+        subRecipes,
+      }),
+    [dashboardRange, salesTransactions, purchaseOrders, expenses, stockProducts, hrFinancialRecords, catalogArticles, subRecipes]
+  );
+
+  const productRankings = useMemo(
+    () => buildProductRankings(salesTransactions, catalogArticles, stockProducts, subRecipes),
+    [salesTransactions, catalogArticles, stockProducts, subRecipes]
+  );
+
+  const lowStockDashboardList = useMemo(() => buildLowStockList(stockProducts), [stockProducts]);
+
+  const dashboardAlerts = useMemo(
+    () =>
+      buildDashboardAlerts({
+        stockProducts,
+        stockLots,
+        stockLedger,
+        articles: catalogArticles,
+        subRecipes,
+        suppliers,
+        invoices: supplierInvoices,
+      }),
+    [stockProducts, stockLots, stockLedger, catalogArticles, subRecipes, suppliers, supplierInvoices]
+  );
+
+  const employeeFullNames = useMemo(() => hrEmployees.map(getEmployeeFullName), [hrEmployees]);
+  const shiftNames = useMemo(() => hrShifts.map((s) => s.name), [hrShifts]);
+
+  const dailyHeatmapData = useMemo(() => buildDailyHeatmap(salesTransactions), [salesTransactions]);
+  const salesByPeriodData = useMemo(() => buildSalesByPeriod(salesTransactions), [salesTransactions]);
+  const purchasesByPeriodData = useMemo(() => buildPurchasesByPeriod(purchaseOrders), [purchaseOrders]);
+  const categoryShareData = useMemo(() => buildCategoryShares(salesTransactions, dashboardRange), [salesTransactions, dashboardRange]);
+
+  if (loadError) {
+    return (
+      <div className="min-h-screen w-full flex items-center justify-center bg-gray-50 px-4">
+        <div className="text-center">
+          <p className="text-sm font-semibold text-rose-600 mb-1">Impossible de charger l'application</p>
+          <p className="text-xs text-gray-500">{loadError}</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isDataLoaded) {
+    return (
+      <div className="min-h-screen w-full flex items-center justify-center bg-gray-50">
+        <Loader2 size={22} className="text-emerald-600 animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <div className={`min-h-screen ${isDarkMode ? 'dark bg-[#0E1524] text-gray-100' : 'bg-[#F9FAFB] text-gray-800'}`}>
@@ -756,6 +723,10 @@ export default function App() {
             ) : activeTab === 'sales_mgmt' && activeSubItem === 'sales_manual_add' ? (
               <ManualSalesEntryPage
                 isDarkMode={isDarkMode}
+                articles={catalogArticles}
+                extras={catalogExtras}
+                employees={employeeFullNames}
+                shifts={shiftNames}
                 onNavigateToDashboard={() => {
                   setActiveTab('dashboard');
                   setActiveSubItem('');
@@ -777,6 +748,10 @@ export default function App() {
               >
                 <ImportSalesPage
                   isDarkMode={isDarkMode}
+                  articles={catalogArticles}
+                  extras={catalogExtras}
+                  employees={employeeFullNames}
+                  shifts={shiftNames}
                   onNavigateToDashboard={() => {
                     setActiveTab('dashboard');
                     setActiveSubItem('');
@@ -810,6 +785,7 @@ export default function App() {
                   isDarkMode={isDarkMode}
                   products={stockProducts}
                   lots={stockLots}
+                  employees={employeeFullNames}
                   ledger={stockLedger}
                   onNavigateToDashboard={() => {
                     setActiveTab('dashboard');
@@ -826,6 +802,7 @@ export default function App() {
                   isDarkMode={isDarkMode}
                   products={stockProducts}
                   ledger={stockLedger}
+                  employees={employeeFullNames}
                   onNavigateToDashboard={() => {
                     setActiveTab('dashboard');
                     setActiveSubItem('');
@@ -840,6 +817,7 @@ export default function App() {
                   isDarkMode={isDarkMode}
                   products={stockProducts}
                   lots={stockLots}
+                  employees={employeeFullNames}
                   ledger={stockLedger}
                   onNavigateToDashboard={() => {
                     setActiveTab('dashboard');
@@ -884,6 +862,7 @@ export default function App() {
                   isDarkMode={isDarkMode}
                   products={stockProducts}
                   units={stockUnits}
+                  employees={employeeFullNames}
                   onNavigateToDashboard={() => {
                     setActiveTab('dashboard');
                     setActiveSubItem('');
@@ -897,6 +876,7 @@ export default function App() {
                 <ProductsPage
                   isDarkMode={isDarkMode}
                   articles={catalogArticles}
+                  extras={catalogExtras}
                   categories={productCategories}
                   subCategories={productSubCategories}
                   ingredients={stockProducts}
@@ -925,6 +905,7 @@ export default function App() {
                 <ProductFormPage
                   isDarkMode={isDarkMode}
                   articles={catalogArticles}
+                  extras={catalogExtras}
                   categories={productCategories}
                   subCategories={productSubCategories}
                   ingredients={stockProducts}
@@ -987,6 +968,7 @@ export default function App() {
                   isDarkMode={isDarkMode}
                   categories={productCategories}
                   subCategories={productSubCategories}
+                  extras={catalogExtras}
                   ingredients={stockProducts}
                   units={stockUnits}
                   subRecipes={subRecipes}
@@ -1037,6 +1019,7 @@ export default function App() {
                   isDarkMode={isDarkMode}
                   orders={purchaseOrders}
                   suppliers={suppliers}
+                  employees={employeeFullNames}
                   receptions={purchaseReceptions}
                   invoices={supplierInvoices}
                   products={stockProducts}
@@ -1341,28 +1324,38 @@ export default function App() {
 
                 {/* KPI Cards Section: 5 Classic Cards + "Voir plus d'indicateurs" button for Coût du personnel, Valeur du stock, Nombre de tickets, Marge estimée */}
                 <MetricCards
-                  activePeriod={activePeriod}
+                  data={dashboardPeriodData}
                   compareWithPrevious={compareWithPrevious}
                 />
 
                 {/* Heatmap (Ventes par jour - Responsive Calendar Heatmap) & Plan Overview (Objectifs & Répartition) Row */}
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
                   <div className="lg:col-span-8">
-                    <ActivityHeatmap />
+                    <ActivityHeatmap data={dailyHeatmapData} />
                   </div>
                   <div className="lg:col-span-4">
-                    <PlanOverview activePeriod={activePeriod} />
+                    <PlanOverview
+                      categories={categoryShareData.categories}
+                      monthlyTarget={categoryShareData.monthlyTarget}
+                      achievedToDate={categoryShareData.achievedToDate}
+                    />
                   </div>
                 </div>
 
                 {/* Sales Chart: Ventes par jours with Jours/Mois/Année filters & period comparison */}
-                <SalesChart compareWithPrevious={compareWithPrevious} />
+                <SalesChart data={salesByPeriodData} compareWithPrevious={compareWithPrevious} />
 
                 {/* Purchases Chart: Achats par jours with Jours/Mois/Année filters & period comparison */}
-                <PurchasesChart compareWithPrevious={compareWithPrevious} />
+                <PurchasesChart data={purchasesByPeriodData} compareWithPrevious={compareWithPrevious} />
 
                 {/* Top/Least Products, Top CA/Margin Products, Low Stock (Top 5) & Primary Alerts */}
                 <ProductsAndStock
+                  topProducts={productRankings.top}
+                  leastProducts={productRankings.least}
+                  topRevenueProducts={productRankings.topRevenue}
+                  topMarginProducts={productRankings.topMargin}
+                  lowStockProducts={lowStockDashboardList}
+                  alerts={dashboardAlerts}
                   onViewAllProducts={() => setModalType('products')}
                   onRestockClick={() => setModalType('restock')}
                 />

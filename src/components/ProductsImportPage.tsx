@@ -16,7 +16,7 @@ import {
   RotateCcw,
   History,
 } from 'lucide-react';
-import { CatalogArticle } from '../data/manualSalesCatalog';
+import { CatalogArticle, CatalogExtra } from '../data/manualSalesCatalog';
 import { StockProduct, StockUnit } from '../data/stockModel';
 import { ProductCategory, ProductSubCategory, SubRecipe } from '../data/productsModel';
 import {
@@ -36,6 +36,7 @@ interface ProductsImportPageProps {
   ingredients: StockProduct[];
   units: StockUnit[];
   subRecipes: SubRecipe[];
+  extras: CatalogExtra[];
   onNavigateToDashboard: () => void;
   onNavigateToProducts: () => void;
   onImportProducts: (articles: CatalogArticle[]) => void;
@@ -62,6 +63,7 @@ export const ProductsImportPage: React.FC<ProductsImportPageProps> = ({
   ingredients,
   units,
   subRecipes,
+  extras,
   onNavigateToDashboard,
   onNavigateToProducts,
   onImportProducts,
@@ -98,7 +100,7 @@ export const ProductsImportPage: React.FC<ProductsImportPageProps> = ({
     setIsParsing(true);
     setFileError(null);
     try {
-      const result = await parseProductImportFile(candidate, categories, subCategories, ingredients, units, subRecipes);
+      const result = await parseProductImportFile(candidate, categories, subCategories, ingredients, units, subRecipes, extras);
       setFile(candidate);
       setRows(result.rows);
       setUnknownColumns(result.unknownColumns);

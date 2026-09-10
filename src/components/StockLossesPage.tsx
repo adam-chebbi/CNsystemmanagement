@@ -16,7 +16,6 @@ import {
   TrendingDown,
   Wallet,
 } from 'lucide-react';
-import { EMPLOYEES } from '../data/manualSalesCatalog';
 import {
   StockProduct,
   StockLot,
@@ -35,6 +34,7 @@ interface StockLossesPageProps {
   products: StockProduct[];
   lots: StockLot[];
   ledger: StockLedgerEntry[];
+  employees: string[];
   onNavigateToDashboard: () => void;
   onNavigateToStock: () => void;
   onPostEntries: (entries: StockLedgerEntry[], lotChanges?: { upsert?: StockLot[] }) => void;
@@ -89,6 +89,7 @@ export const StockLossesPage: React.FC<StockLossesPageProps> = ({
   products,
   lots,
   ledger,
+  employees,
   onNavigateToDashboard,
   onNavigateToStock,
   onPostEntries,
@@ -460,7 +461,7 @@ export const StockLossesPage: React.FC<StockLossesPageProps> = ({
                     className={`${inputBaseClass} appearance-none cursor-pointer ${showErrors && issuesByField.has('performedBy') ? inputErrorClass : inputValidClass}`}
                   >
                     <option value="">Sélectionner un employé</option>
-                    {EMPLOYEES.map((e) => (
+                    {employees.map((e) => (
                       <option key={e} value={e}>{e}</option>
                     ))}
                   </select>

@@ -1,6 +1,6 @@
 import { normalizeKey } from './textUtils';
 import { StockProduct, resolveStockUnitByName, StockUnit, areUnitsCompatible } from './stockModel';
-import { CatalogArticle, RecipeLine, VariantOption, CATALOG_EXTRAS, ArticleCategory } from './manualSalesCatalog';
+import { CatalogArticle, CatalogExtra, RecipeLine, VariantOption, ArticleCategory } from './manualSalesCatalog';
 import {
   ProductCategory,
   ProductSubCategory,
@@ -102,7 +102,8 @@ const parseProductImportRow = (
   subCategories: ProductSubCategory[],
   ingredients: StockProduct[],
   units: StockUnit[],
-  subRecipes: SubRecipe[]
+  subRecipes: SubRecipe[],
+  extras: CatalogExtra[]
 ): ImportedProductRowDraft => {
   const issues: ProductImportRowIssue[] = [];
   const rawName = get('nom');
@@ -172,7 +173,7 @@ const parseProductImportRow = (
   const extraIds: string[] = [];
   parsePipeCell(rawExtras).forEach((entry) => {
     const key = normalizeKey(entry);
-    const extra = CATALOG_EXTRAS.find((e) => normalizeKey(e.name) === key);
+    const extra = extras.find((e) => normalizeKey(e.name) === key);
     if (!extra) issues.push({ field: 'extras', value: entry, message: `Extra introuvable : « ${entry} ».` });
     else extraIds.push(extra.id);
   });
@@ -263,7 +264,8 @@ export const parseProductImportFile = async (
   subCategories: ProductSubCategory[],
   ingredients: StockProduct[],
   units: StockUnit[],
-  subRecipes: SubRecipe[]
+  subRecipes: SubRecipe[],
+  extras: CatalogExtra[]
 ): Promise<ProductImportParseResult> => {
   const sheet = await readSheetFromFile(file);
   const { indexMap, missingColumns, unknownColumns } = resolveColumns(sheet.headers, REQUIRED_COLUMN_KEYS, KNOWN_COLUMN_KEYS);
@@ -274,7 +276,7 @@ export const parseProductImportFile = async (
   if (sheet.rows.length > MAX_IMPORT_ROWS) throw new ImportFileError(`Le fichier contient trop de lignes (${sheet.rows.length}). Maximum autorisé : ${MAX_IMPORT_ROWS}.`);
 
   const rows = sheet.rows.map((rawCells, i) =>
-    parseProductImportRow(buildRowGetter(indexMap, rawCells), i + 2, categories, subCategories, ingredients, units, subRecipes)
+    parseProductImportRow(buildRowGetter(indexMap, rawCells), i + 2, categories, subCategories, ingredients, units, subRecipes, extras)
   );
 
   return { rows, unknownColumns };

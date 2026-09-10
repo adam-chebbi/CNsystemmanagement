@@ -24,11 +24,9 @@ import {
 } from 'lucide-react';
 import { SaleTransaction, ServiceType, PaymentMethod } from '../data/salesTransactions';
 import {
-  initialCatalogArticles,
-  CATALOG_EXTRAS,
+  CatalogArticle,
+  CatalogExtra,
   ARTICLE_CATEGORIES_ORDER,
-  EMPLOYEES,
-  SHIFTS,
   getArticleById,
   getExtraById,
   getVariantGroupForCategory,
@@ -38,6 +36,7 @@ import {
   DraftTicket,
   DraftTicketItem,
   ManualSalesFormState,
+  SalesCatalogContext,
   createEmptyItem,
   createEmptyTicket,
   createEmptyForm,
@@ -46,10 +45,13 @@ import {
   computeGrandTotal,
   validateManualSalesForm,
   buildSaleTransactionsFromForm,
-  persistSalesTickets,
 } from '../data/salesEntryModel';
 
 interface ManualSalesEntryPageProps {
+  articles: CatalogArticle[];
+  extras: CatalogExtra[];
+  employees: string[];
+  shifts: string[];
   onNavigateToDashboard: () => void;
   onNavigateToSalesList: () => void;
   onSaveTickets: (transactions: SaleTransaction[]) => void;
@@ -69,10 +71,15 @@ const secondaryButtonClass =
   'inline-flex items-center justify-center gap-2 px-3.5 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700/80 text-xs font-semibold text-gray-700 dark:text-gray-200 shadow-2xs transition active:scale-98 cursor-pointer';
 
 export const ManualSalesEntryPage: React.FC<ManualSalesEntryPageProps> = ({
+  articles,
+  extras,
+  employees,
+  shifts,
   onNavigateToDashboard,
   onNavigateToSalesList,
   onSaveTickets,
 }) => {
+  const catalog: SalesCatalogContext = { articles, extras, employees, shifts };
   const [form, setForm] = useState<ManualSalesFormState>(() => createEmptyForm());
   const [step, setStep] = useState<Step>('form');
   const [hasAttemptedVerify, setHasAttemptedVerify] = useState(false);
@@ -91,7 +98,7 @@ export const ManualSalesEntryPage: React.FC<ManualSalesEntryPageProps> = ({
   }, [issues]);
 
   const showErrors = hasAttemptedVerify;
-  const grandTotal = useMemo(() => computeGrandTotal(form), [form]);
+  const grandTotal = useMemo(() => computeGrandTotal(form, catalog), [form, catalog]);
   const totalArticlesCount = useMemo(
     () => form.tickets.reduce((sum, t) => sum + t.items.reduce((s, it) => s + (it.articleId ? it.qty : 0), 0), 0),
     [form]
@@ -204,9 +211,8 @@ export const ManualSalesEntryPage: React.FC<ManualSalesEntryPageProps> = ({
     setIsSaving(true);
     setSaveError(null);
     try {
-      const newTransactions = buildSaleTransactionsFromForm(form);
-      await persistSalesTickets(newTransactions);
-      onSaveTickets(newTransactions);
+      const newTransactions = buildSaleTransactionsFromForm(form, catalog);
+      await onSaveTickets(newTransactions);
       setSavedCount(newTransactions.length);
       setStep('success');
     } catch (err) {
@@ -357,30 +363,30 @@ export const ManualSalesEntryPage: React.FC<ManualSalesEntryPageProps> = ({
                     Ticket {idx + 1}
                   </h3>
                   <span className="text-sm font-bold text-gray-900 dark:text-white">
-                    {computeTicketTotal(ticket).toFixed(2)} <span className="text-[11px] text-gray-500">DT</span>
+                    {computeTicketTotal(ticket, catalog).toFixed(2)} <span className="text-[11px] text-gray-500">DT</span>
                   </span>
                 </div>
 
                 <div className="space-y-1.5">
                   {ticket.items.filter((it) => it.articleId).map((it) => {
-                    const article = getArticleById(it.articleId);
+                    const article = getArticleById(it.articleId, articles);
                     if (!article) return null;
                     const variant = it.variantOptionId ? getVariantOption(article.category, it.variantOptionId) : undefined;
-                    const extras = it.extraIds.map((id) => getExtraById(id)?.name).filter(Boolean);
+                    const itemExtraNames = it.extraIds.map((id) => getExtraById(id, extras)?.name).filter(Boolean);
                     return (
                       <div key={it.rowId} className="flex justify-between items-start text-xs border-b border-dashed border-gray-100 dark:border-gray-800 pb-1.5 last:border-0 last:pb-0">
                         <div>
                           <p className="font-semibold text-gray-800 dark:text-gray-200">
                             {it.qty}x {article.name}
                           </p>
-                          {(variant || extras.length > 0) && (
+                          {(variant || itemExtraNames.length > 0) && (
                             <p className="text-[11px] text-gray-400">
-                              {[variant?.label, ...extras].filter(Boolean).join(' • ')}
+                              {[variant?.label, ...itemExtraNames].filter(Boolean).join(' • ')}
                             </p>
                           )}
                         </div>
                         <span className="font-semibold text-gray-700 dark:text-gray-300">
-                          {computeItemLineTotal(it).toFixed(2)} DT
+                          {computeItemLineTotal(it, catalog).toFixed(2)} DT
                         </span>
                       </div>
                     );
@@ -488,7 +494,7 @@ export const ManualSalesEntryPage: React.FC<ManualSalesEntryPageProps> = ({
                     className={`${inputBaseClass} appearance-none pr-8 cursor-pointer ${showErrors && issuesByKey.has('general:shift') ? inputErrorClass : inputValidClass}`}
                   >
                     <option value="">Sélectionner un shift</option>
-                    {SHIFTS.map((s) => (
+                    {shifts.map((s) => (
                       <option key={s} value={s}>
                         {s}
                       </option>
@@ -513,7 +519,7 @@ export const ManualSalesEntryPage: React.FC<ManualSalesEntryPageProps> = ({
                     className={`${inputBaseClass} appearance-none pl-8 pr-8 cursor-pointer ${showErrors && issuesByKey.has('general:employee') ? inputErrorClass : inputValidClass}`}
                   >
                     <option value="">Sélectionner un employé</option>
-                    {EMPLOYEES.map((e) => (
+                    {employees.map((e) => (
                       <option key={e} value={e}>
                         {e}
                       </option>
@@ -571,7 +577,7 @@ export const ManualSalesEntryPage: React.FC<ManualSalesEntryPageProps> = ({
             ) : (
               <div className="space-y-4 max-h-[900px] overflow-y-auto custom-scrollbar pr-0.5">
                 {form.tickets.map((ticket, ticketIdx) => {
-                  const ticketTotal = computeTicketTotal(ticket);
+                  const ticketTotal = computeTicketTotal(ticket, catalog);
                   return (
                     <div
                       key={ticket.rowId}
@@ -615,7 +621,7 @@ export const ManualSalesEntryPage: React.FC<ManualSalesEntryPageProps> = ({
 
                         <div className="space-y-2.5">
                           {ticket.items.map((item) => {
-                            const article = getArticleById(item.articleId);
+                            const article = getArticleById(item.articleId, articles);
                             const variantGroup = article ? getVariantGroupForCategory(article.category) : undefined;
                             const extrasOpen = expandedExtras.has(item.rowId);
                             const articleErrorKey = `item:${item.rowId}:article`;
@@ -638,7 +644,7 @@ export const ManualSalesEntryPage: React.FC<ManualSalesEntryPageProps> = ({
                                         <option value="">Choisir une consommation / un article</option>
                                         {ARTICLE_CATEGORIES_ORDER.map((cat) => (
                                           <optgroup key={cat} label={cat}>
-                                            {initialCatalogArticles.filter((a) => a.category === cat).map((a) => (
+                                            {articles.filter((a) => a.category === cat).map((a) => (
                                               <option key={a.id} value={a.id}>
                                                 {a.name} — {a.price.toFixed(2)} DT
                                               </option>
@@ -725,7 +731,7 @@ export const ManualSalesEntryPage: React.FC<ManualSalesEntryPageProps> = ({
                                         Extras {item.extraIds.length > 0 ? `(${item.extraIds.length})` : '(optionnel)'}
                                       </button>
                                       {item.extraIds.map((exId) => {
-                                        const extra = getExtraById(exId);
+                                        const extra = getExtraById(exId, extras);
                                         if (!extra) return null;
                                         return (
                                           <span
@@ -746,7 +752,7 @@ export const ManualSalesEntryPage: React.FC<ManualSalesEntryPageProps> = ({
 
                                     {extrasOpen && (
                                       <div className="flex flex-wrap gap-1.5 p-2 rounded-lg bg-white dark:bg-gray-900/40 border border-gray-100 dark:border-gray-800">
-                                        {CATALOG_EXTRAS.map((extra) => {
+                                        {extras.map((extra) => {
                                           const selected = item.extraIds.includes(extra.id);
                                           return (
                                             <button

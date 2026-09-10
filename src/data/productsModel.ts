@@ -5,7 +5,7 @@
 
 import { normalizeKey } from './textUtils';
 import { StockProduct, convertQuantity, areUnitsCompatible } from './stockModel';
-import { CatalogArticle, CatalogExtra, RecipeLine, VariantOption, ArticleCategory, ARTICLE_CATEGORIES_ORDER, CATALOG_EXTRAS } from './manualSalesCatalog';
+import { CatalogArticle, CatalogExtra, RecipeLine, VariantOption, ArticleCategory } from './manualSalesCatalog';
 import { SaleTransaction } from './salesTransactions';
 
 export { areUnitsCompatible, convertQuantity };
@@ -30,33 +30,6 @@ export interface ProductSubCategory {
   name: string;
   createdAt: string;
 }
-
-// Seeded from the exact category names Ventes already uses (ARTICLE_CATEGORIES_ORDER) — the
-// Catalogue page manages these as real entities, but starts perfectly in sync, no duplicates.
-export const initialProductCategories: ProductCategory[] = ARTICLE_CATEGORIES_ORDER.map((name, i) => ({
-  id: `pcat-${i + 1}`,
-  name,
-  createdAt: '2025-09-01',
-}));
-
-const catIdByName = (name: ArticleCategory): string => {
-  const found = initialProductCategories.find((c) => c.name === name);
-  return found ? found.id : initialProductCategories[0].id;
-};
-
-export const initialProductSubCategories: ProductSubCategory[] = [
-  { id: 'psub-1', categoryId: catIdByName('Café chaud'), name: 'Espresso & Ristretto', createdAt: '2025-09-01' },
-  { id: 'psub-2', categoryId: catIdByName('Café chaud'), name: 'Café filtre & Slow coffee', createdAt: '2025-09-01' },
-  { id: 'psub-3', categoryId: catIdByName('Boisson lactée'), name: 'Boissons lactées chaudes', createdAt: '2025-09-01' },
-  { id: 'psub-4', categoryId: catIdByName('Boisson lactée'), name: 'Boissons lactées gourmandes', createdAt: '2025-09-01' },
-  { id: 'psub-5', categoryId: catIdByName('Boisson glacée'), name: 'Jus & Sodas', createdAt: '2025-09-01' },
-  { id: 'psub-6', categoryId: catIdByName('Boisson glacée'), name: 'Cold Brew & Glacés', createdAt: '2025-09-01' },
-  { id: 'psub-7', categoryId: catIdByName('Pâtisserie'), name: 'Viennoiserie', createdAt: '2025-09-01' },
-  { id: 'psub-8', categoryId: catIdByName('Pâtisserie'), name: 'Pâtisserie sucrée', createdAt: '2025-09-01' },
-  { id: 'psub-9', categoryId: catIdByName('Snack'), name: 'Salé', createdAt: '2025-09-01' },
-  { id: 'psub-10', categoryId: catIdByName('Snack'), name: 'Brunch', createdAt: '2025-09-01' },
-  { id: 'psub-11', categoryId: catIdByName('Épicerie Café'), name: 'Grains & Moulu', createdAt: '2025-09-01' },
-];
 
 export const resolveProductCategoryByName = (raw: string, categories: ProductCategory[]): ProductCategory | undefined => {
   const key = normalizeKey(raw);
@@ -348,7 +321,8 @@ export const validateDraftProduct = (
   categories: ProductCategory[],
   subCategories: ProductSubCategory[],
   ingredients: StockProduct[],
-  subRecipes: SubRecipe[]
+  subRecipes: SubRecipe[],
+  extras: CatalogExtra[]
 ): ProductValidationIssue[] => {
   const issues: ProductValidationIssue[] = [];
 
@@ -411,7 +385,7 @@ export const validateDraftProduct = (
   });
 
   draft.extraIds.forEach((exId) => {
-    if (!CATALOG_EXTRAS.some((e) => e.id === exId)) {
+    if (!extras.some((e) => e.id === exId)) {
       issues.push({ field: 'extras', message: 'Un extra sélectionné est invalide.' });
     }
   });
@@ -450,8 +424,8 @@ export const buildCatalogArticleFromDraft = (
   };
 };
 
-export const getExtrasForArticle = (article: CatalogArticle): CatalogExtra[] =>
-  (article.extraIds ?? []).map((id) => CATALOG_EXTRAS.find((e) => e.id === id)).filter((e): e is CatalogExtra => Boolean(e));
+export const getExtrasForArticle = (article: CatalogArticle, extras: CatalogExtra[]): CatalogExtra[] =>
+  (article.extraIds ?? []).map((id) => extras.find((e) => e.id === id)).filter((e): e is CatalogExtra => Boolean(e));
 
 // --- Draft sub-recipe (Sous-recettes CRUD workflow) -----------------------------------------
 
@@ -564,22 +538,3 @@ export const buildSubRecipeFromDraft = (draft: DraftSubRecipe): SubRecipe => ({
   ingredients: draft.ingredients,
   createdAt: new Date().toISOString().slice(0, 10),
 });
-
-// Seeded to match the exact "pâte à crêpe shared by every crêpe" example this feature exists
-// for — real StockProduct ingredients, no invented entities.
-export const initialSubRecipes: SubRecipe[] = [
-  {
-    id: 'subrec-1',
-    name: 'Pâte à Crêpe Maison',
-    description: 'Base commune à toutes les crêpes de la carte.',
-    yieldQuantity: 1000,
-    yieldUnit: 'g',
-    ingredients: [
-      { id: 'subrec-1-l1', kind: 'ingredient', ingredientId: 'sp-10', quantity: 250, unit: 'g' },
-      { id: 'subrec-1-l2', kind: 'ingredient', ingredientId: 'sp-6', quantity: 500, unit: 'ml' },
-      { id: 'subrec-1-l3', kind: 'ingredient', ingredientId: 'sp-11', quantity: 50, unit: 'g' },
-      { id: 'subrec-1-l4', kind: 'ingredient', ingredientId: 'sp-8', quantity: 50, unit: 'g' },
-    ],
-    createdAt: '2025-09-01',
-  },
-];

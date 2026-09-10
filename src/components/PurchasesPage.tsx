@@ -32,7 +32,6 @@ import {
   PackagePlus,
   Info,
 } from 'lucide-react';
-import { EMPLOYEES } from '../data/manualSalesCatalog';
 import { StockProduct, StockZone, STOCK_ZONES } from '../data/stockModel';
 import {
   Supplier,
@@ -70,6 +69,7 @@ interface PurchasesPageProps {
   receptions: PurchaseReception[];
   invoices: SupplierInvoice[];
   products: StockProduct[];
+  employees: string[];
   onNavigateToDashboard: () => void;
   onCreateOrder: (order: PurchaseOrder) => void;
   onUpdateOrder: (order: PurchaseOrder) => void;
@@ -142,6 +142,7 @@ export const PurchasesPage: React.FC<PurchasesPageProps> = ({
   receptions,
   invoices,
   products,
+  employees,
   onNavigateToDashboard,
   onCreateOrder,
   onUpdateOrder,
@@ -733,7 +734,7 @@ export const PurchasesPage: React.FC<PurchasesPageProps> = ({
                         className={`${inputBaseClass} appearance-none pr-8 cursor-pointer ${showErrors && issuesByField.has('createdBy') ? inputErrorClass : inputValidClass}`}
                       >
                         <option value="">Sélectionner un employé</option>
-                        {EMPLOYEES.map((e) => (<option key={e} value={e}>{e}</option>))}
+                        {employees.map((e) => (<option key={e} value={e}>{e}</option>))}
                       </select>
                       <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
                     </div>
@@ -877,6 +878,7 @@ export const PurchasesPage: React.FC<PurchasesPageProps> = ({
           products={products}
           receptions={receptions.filter((r) => r.purchaseOrderId === viewingOrder.id)}
           invoice={invoices.find((i) => i.purchaseOrderId === viewingOrder.id) ?? null}
+          employees={employees}
           onClose={() => setViewingOrderId(null)}
           onUpdateStatus={(status) => onUpdateOrderStatus(viewingOrder.id, status)}
           onReceive={(reception) => onReceivePurchaseOrder(viewingOrder, reception)}
@@ -917,12 +919,13 @@ const PurchaseDetailModal: React.FC<{
   products: StockProduct[];
   receptions: PurchaseReception[];
   invoice: SupplierInvoice | null;
+  employees: string[];
   onClose: () => void;
   onUpdateStatus: (status: PurchaseOrderStatus) => void;
   onReceive: (reception: PurchaseReception) => void;
   onCreateInvoice: (invoice: SupplierInvoice) => void;
   onRecordInvoicePayment: (invoiceId: string, amountAdded: number) => void;
-}> = ({ order, suppliers, products, receptions, invoice, onClose, onUpdateStatus, onReceive, onCreateInvoice, onRecordInvoicePayment }) => {
+}> = ({ order, suppliers, products, receptions, invoice, employees, onClose, onUpdateStatus, onReceive, onCreateInvoice, onRecordInvoicePayment }) => {
   const supplier = suppliers.find((s) => s.id === order.supplierId) ?? null;
   const total = computeOrderTotal(order);
   const remainingLines = order.lines.filter((l) => l.receivedQuantity < l.quantity);
@@ -1241,7 +1244,7 @@ const PurchaseDetailModal: React.FC<{
                     <label className={labelClass}>Réceptionné par *</label>
                     <select value={receptionPerformedBy} onChange={(e) => setReceptionPerformedBy(e.target.value)} className={`${inputBaseClass} appearance-none cursor-pointer ${inputValidClass}`}>
                       <option value="">Sélectionner un employé</option>
-                      {EMPLOYEES.map((e) => (<option key={e} value={e}>{e}</option>))}
+                      {employees.map((e) => (<option key={e} value={e}>{e}</option>))}
                     </select>
                   </div>
                 </div>

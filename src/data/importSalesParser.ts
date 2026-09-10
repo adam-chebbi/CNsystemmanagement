@@ -1,8 +1,8 @@
 import { SaleTransaction } from './salesTransactions';
-import { getArticleById } from './manualSalesCatalog';
 import {
   DraftTicket,
   DraftTicketItem,
+  SalesCatalogContext,
   generateId,
   createEmptyItem,
   validateGeneralFields,
@@ -129,7 +129,7 @@ const parseArticleSegment = (segment: string): { qty: number; name: string } => 
   return { qty: 1, name: segment.trim() };
 };
 
-const parseImportRow = (get: (key: string) => string, rowNumber: number): ImportedTicketDraft => {
+const parseImportRow = (get: (key: string) => string, rowNumber: number, catalog: SalesCatalogContext): ImportedTicketDraft => {
   const issues: ImportRowIssue[] = [];
 
   const rawDate = get('date');
@@ -150,14 +150,14 @@ const parseImportRow = (get: (key: string) => string, rowNumber: number): Import
     issues.push({ field: 'date', value: rawDate, message: `Date invalide : « ${rawDate} ». Utilisez AAAA-MM-JJ ou JJ/MM/AAAA.` });
   }
 
-  const shift = rawShift ? resolveShiftByName(rawShift) : undefined;
+  const shift = rawShift ? resolveShiftByName(rawShift, catalog.shifts) : undefined;
   if (!rawShift) {
     issues.push({ field: 'shift', value: rawShift, message: 'Le shift est obligatoire.' });
   } else if (!shift) {
     issues.push({ field: 'shift', value: rawShift, message: `Shift introuvable : « ${rawShift} ».` });
   }
 
-  const employee = rawEmployee ? resolveEmployeeByName(rawEmployee) : undefined;
+  const employee = rawEmployee ? resolveEmployeeByName(rawEmployee, catalog.employees) : undefined;
   if (!rawEmployee) {
     issues.push({ field: 'employee', value: rawEmployee, message: "L'employé est obligatoire." });
   } else if (!employee) {
@@ -180,7 +180,7 @@ const parseImportRow = (get: (key: string) => string, rowNumber: number): Import
 
   articleSegments.forEach((segment, i) => {
     const { qty, name } = parseArticleSegment(segment);
-    const article = resolveArticleByName(name);
+    const article = resolveArticleByName(name, catalog.articles);
     const itemRowId = generateId('impitem');
 
     if (!article) {
@@ -217,7 +217,7 @@ const parseImportRow = (get: (key: string) => string, rowNumber: number): Import
         .map((s) => s.trim())
         .filter(Boolean)
         .forEach((exName) => {
-          const extra = resolveExtraByName(exName);
+          const extra = resolveExtraByName(exName, catalog.extras);
           if (!extra) {
             issues.push({
               field: 'extras',
@@ -291,7 +291,7 @@ const parseImportRow = (get: (key: string) => string, rowNumber: number): Import
 // Public entry point: parse a File (csv/xlsx/xls) into ImportedTicketDraft[]
 // ---------------------------------------------------------------------------
 
-export const parseImportFile = async (file: File): Promise<ImportParseResult> => {
+export const parseImportFile = async (file: File, catalog: SalesCatalogContext): Promise<ImportParseResult> => {
   const sheet = await readSheetFromFile(file);
 
   const { indexMap, missingColumns, unknownColumns } = resolveColumns(sheet.headers, REQUIRED_COLUMN_KEYS, KNOWN_COLUMN_KEYS);
@@ -308,7 +308,7 @@ export const parseImportFile = async (file: File): Promise<ImportParseResult> =>
     throw new ImportFileError(`Le fichier contient trop de lignes (${sheet.rows.length}). Maximum autorisé : ${MAX_IMPORT_ROWS}.`);
   }
 
-  const rows = sheet.rows.map((rawCells, i) => parseImportRow(buildRowGetter(indexMap, rawCells), i + 2));
+  const rows = sheet.rows.map((rawCells, i) => parseImportRow(buildRowGetter(indexMap, rawCells), i + 2, catalog));
 
   return { rows, unknownColumns };
 };
@@ -346,7 +346,7 @@ export const recomputeRowIssues = (row: ImportedTicketDraft): ImportRowIssue[] =
 // Building the final SaleTransaction batch from a fully valid import
 // ---------------------------------------------------------------------------
 
-export const buildSaleTransactionsFromImportRows = (rows: ImportedTicketDraft[]): SaleTransaction[] => {
+export const buildSaleTransactionsFromImportRows = (rows: ImportedTicketDraft[], catalog: Pick<SalesCatalogContext, 'articles' | 'extras'>): SaleTransaction[] => {
   const baseId = Date.now();
   return rows
     .map((row, idx) =>
@@ -356,7 +356,8 @@ export const buildSaleTransactionsFromImportRows = (rows: ImportedTicketDraft[])
         {
           id: baseId + idx,
           saleNumber: `TKT-IMP-${row.date.replace(/-/g, '')}-${(idx + 1).toString().padStart(3, '0')}`,
-        }
+        },
+        catalog
       )
     )
     .filter((tx): tx is SaleTransaction => tx !== null);
@@ -373,57 +374,29 @@ const csvEscape = (value: string): string => {
   return value;
 };
 
-export const buildImportTemplateCsv = (): string => {
+export const buildImportTemplateCsv = (catalog: SalesCatalogContext): string => {
   const headerRow = IMPORT_COLUMNS.map((c) => c.key);
 
-  const sampleArticle1 = getArticleById('esp-double');
-  const sampleArticle2 = getArticleById('croissant');
-  const sampleArticle3 = getArticleById('latte-vanille');
-  const sampleArticle4 = getArticleById('cold-brew-sig');
-  const sampleArticle5 = getArticleById('cheesecake');
+  const article1 = catalog.articles[0]?.name ?? 'Nom du produit 1';
+  const article2 = catalog.articles[1]?.name ?? 'Nom du produit 2';
+  const article3 = catalog.articles[2]?.name ?? article1;
+  const shift1 = catalog.shifts[0] ?? 'Matin';
+  const shift2 = catalog.shifts[1] ?? catalog.shifts[0] ?? 'Après-midi';
+  const shift3 = catalog.shifts[2] ?? catalog.shifts[0] ?? 'Soir';
+  const employee1 = catalog.employees[0] ?? 'Employé 1';
+  const employee2 = catalog.employees[1] ?? catalog.employees[0] ?? 'Employé 2';
+  const employee3 = catalog.employees[2] ?? catalog.employees[0] ?? 'Employé 3';
+  const extra1 = catalog.extras[0]?.name ?? '';
 
   const exampleRows: string[][] = [
-    [
-      '2026-09-08',
-      'Matin (07h - 14h)',
-      'Karim',
-      `2x ${sampleArticle1?.name}|1x ${sampleArticle2?.name}`,
-      '|',
-      '|',
-      'Sur place',
-      '',
-      '04',
-      'Espèces',
-    ],
-    [
-      '2026-09-08',
-      'Après-midi (14h - 19h)',
-      'Leila',
-      `1x ${sampleArticle3?.name}`,
-      'Shot espresso supplémentaire',
-      "Lait d'avoine",
-      'À emporter',
-      'Comptoir Express',
-      '',
-      'Carte bancaire',
-    ],
-    [
-      '2026-09-08',
-      'Soir (19h - 23h)',
-      'Samira',
-      `1x ${sampleArticle4?.name}|1x ${sampleArticle5?.name}`,
-      '|',
-      'Grand|',
-      'Sur place',
-      '',
-      '08',
-      'Ticket resto',
-    ],
+    ['2026-09-08', shift1, employee1, `2x ${article1}|1x ${article2}`, '|', '|', 'Sur place', '', '04', 'Espèces'],
+    ['2026-09-08', shift2, employee2, `1x ${article3}`, extra1, '', 'À emporter', 'Comptoir Express', '', 'Carte bancaire'],
+    ['2026-09-08', shift3, employee3, `1x ${article1}|1x ${article2}`, '|', '', 'Sur place', '', '08', 'Ticket resto'],
   ];
 
   return buildCsvDocument([headerRow, ...exampleRows]);
 };
 
-export const downloadImportTemplateCsv = (): void => {
-  downloadCsvDocument('template_import_ventes_cafe_noir.csv', buildImportTemplateCsv());
+export const downloadImportTemplateCsv = (catalog: SalesCatalogContext): void => {
+  downloadCsvDocument('template_import_ventes_cafe_noir.csv', buildImportTemplateCsv(catalog));
 };

@@ -11,7 +11,6 @@ import {
   Info,
   Plus,
 } from 'lucide-react';
-import { EMPLOYEES } from '../data/manualSalesCatalog';
 import {
   StockProduct,
   StockZone,
@@ -28,6 +27,7 @@ import {
 interface StockInventoryPageProps {
   products: StockProduct[];
   ledger: StockLedgerEntry[];
+  employees: string[];
   onNavigateToDashboard: () => void;
   onNavigateToStock: () => void;
   onPostEntries: (entries: StockLedgerEntry[]) => void;
@@ -65,6 +65,7 @@ const secondaryButtonClass =
 export const StockInventoryPage: React.FC<StockInventoryPageProps> = ({
   products,
   ledger,
+  employees,
   onNavigateToDashboard,
   onNavigateToStock,
   onPostEntries,
@@ -352,7 +353,7 @@ export const StockInventoryPage: React.FC<StockInventoryPageProps> = ({
                 className={`${inputBaseClass} appearance-none cursor-pointer ${hasAttemptedVerify && !form.performedBy ? inputErrorClass : inputValidClass}`}
               >
                 <option value="">Sélectionner un employé</option>
-                {EMPLOYEES.map((e) => (
+                {employees.map((e) => (
                   <option key={e} value={e}>{e}</option>
                 ))}
               </select>

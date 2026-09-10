@@ -131,42 +131,6 @@ export const getSupplierPurchaseHistory = (supplierId: string, orders: PurchaseO
     .flatMap((o) => o.lines.map((l) => ({ productId: l.productId, orderId: o.id, orderNumber: o.orderNumber, date: o.orderDate, unitPrice: l.unitPrice })))
     .sort((a, b) => (a.date < b.date ? 1 : -1));
 
-export const initialSuppliers: Supplier[] = [
-  {
-    id: 'sup-1',
-    name: 'Torrefaction Atlas',
-    taxId: '1356420/F',
-    phone: '+216 71 234 567',
-    whatsapp: '+216 98 234 567',
-    email: 'contact@torrefaction-atlas.tn',
-    address: 'Zone Industrielle, Ben Arous',
-    mainContact: 'Sami Bouazizi',
-    notes: 'Fournisseur principal des grains de café.',
-    createdAt: '2025-08-01',
-  },
-  {
-    id: 'sup-2',
-    name: 'Délice Laitier SA',
-    taxId: '0987651/G',
-    phone: '+216 71 987 654',
-    whatsapp: '+216 22 987 654',
-    email: 'commercial@delice-laitier.tn',
-    address: 'Route de Bizerte, Ariana',
-    mainContact: 'Rania Trabelsi',
-    notes: 'Livraison des produits laitiers 2 fois/semaine.',
-    createdAt: '2025-08-01',
-  },
-  {
-    id: 'sup-3',
-    name: 'Emballex Tunisie',
-    taxId: '1122334/H',
-    phone: '+216 73 456 789',
-    email: 'ventes@emballex.tn',
-    address: 'Zone Industrielle Sfax',
-    mainContact: 'Wassim Gharbi',
-    createdAt: '2025-08-15',
-  },
-];
 
 // --- Purchase order lines / statuses --------------------------------------------------------
 
@@ -254,8 +218,6 @@ export const getLastPriceForSupplierProduct = (supplierId: string, productId: st
   const matches = getProductPriceHistory(productId, orders).filter((e) => e.supplierId === supplierId);
   return matches.length > 0 ? matches[0].unitPrice : null;
 };
-
-export const initialPurchaseOrders: PurchaseOrder[] = [];
 
 // --- Draft / workflow helpers (purchase order) ----------------------------------------------
 
@@ -395,8 +357,6 @@ export interface PurchaseReception {
   createdAt: string;
 }
 
-export const initialPurchaseReceptions: PurchaseReception[] = [];
-
 // Builds the stock ledger entries a reception posts — reuses the SAME StockLedgerEntry shape and
 // the SAME applyLedgerEntries() pipeline as every manual stock movement, so a purchase reception
 // is not a second way to change stock, just another source of "Entrée" entries.
@@ -486,8 +446,6 @@ export const isInvoiceOverdue = (invoice: SupplierInvoice, referenceIso: string 
   if (computeInvoiceStatus(invoice) === 'Payée') return false;
   return new Date(invoice.dueDate).getTime() < new Date(referenceIso).getTime();
 };
-
-export const initialSupplierInvoices: SupplierInvoice[] = [];
 
 // A facture can be linked to a purchase order or stand fully on its own (§5.3) — the draft always
 // carries its own supplierId/purchaseOrderId rather than receiving them from a fixed context, so

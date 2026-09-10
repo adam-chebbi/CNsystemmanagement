@@ -15,21 +15,18 @@ import {
   ReceiptText,
   Percent,
 } from 'lucide-react';
-import { PERIOD_ANALYSIS_DATA } from '../data/mockData';
-import { TimeFilterPeriod } from '../types';
+import { DashboardPeriodData } from '../data/dashboardModel';
 
 interface MetricCardsProps {
-  activePeriod: TimeFilterPeriod;
+  data: DashboardPeriodData;
   compareWithPrevious: boolean;
 }
 
 export const MetricCards: React.FC<MetricCardsProps> = ({
-  activePeriod,
+  data,
   compareWithPrevious,
 }) => {
   const [showMoreKpis, setShowMoreKpis] = useState(false);
-
-  const data = PERIOD_ANALYSIS_DATA[activePeriod] || PERIOD_ANALYSIS_DATA.today;
 
   // 5 core cards as requested - preserved with their exact visual styling and colors
   const coreCards = [
@@ -37,13 +34,7 @@ export const MetricCards: React.FC<MetricCardsProps> = ({
       id: 'total-sales',
       title: 'Ventes totales',
       amount: data.turnover,
-      subtitle: compareWithPrevious
-        ? `${data.turnoverChange} vs période préc.`
-        : activePeriod === 'today'
-        ? 'ventes du jour'
-        : activePeriod === 'yesterday'
-        ? "ventes d'hier"
-        : 'ventes de la période',
+      subtitle: compareWithPrevious ? `${data.turnoverChange} vs période préc.` : 'ventes de la période',
       change: data.turnoverChange,
       accentColor: 'emerald' as const,
       iconType: 'receipt' as const,
@@ -77,8 +68,8 @@ export const MetricCards: React.FC<MetricCardsProps> = ({
       id: 'monthly-sales',
       title: 'Ventes mensuelles',
       amount: data.monthlyTurnover,
-      subtitle: '+89% par rapport au mois précédent',
-      change: '+89%',
+      subtitle: `${data.monthlyTurnoverChange} par rapport au mois précédent`,
+      change: data.monthlyTurnoverChange,
       accentColor: 'purple' as const,
       iconType: 'trending' as const,
       hasTopArrow: false,
@@ -86,9 +77,9 @@ export const MetricCards: React.FC<MetricCardsProps> = ({
     {
       id: 'monthly-purchases',
       title: 'Achats mensuels',
-      amount: activePeriod === 'yesterday' ? '17,380.00 DT' : '18,500.00 DT',
+      amount: data.monthlyPurchases,
       subtitle: 'ce mois-ci',
-      change: '+7.6%',
+      change: data.monthlyPurchasesChange,
       accentColor: 'sky' as const,
       iconType: 'coins' as const,
       hasTopArrow: false,
@@ -112,10 +103,8 @@ export const MetricCards: React.FC<MetricCardsProps> = ({
       id: 'stock-value',
       title: 'Valeur du stock',
       amount: data.stockValue,
-      subtitle: compareWithPrevious
-        ? `${data.stockValueChange} vs période préc.`
-        : 'Grains bio, laits & consommables',
-      change: data.stockValueChange,
+      subtitle: 'Valeur actuelle du stock (instantané)',
+      change: undefined,
       accentColor: 'teal' as const,
       icon: Package,
     },
@@ -292,8 +281,8 @@ export const MetricCards: React.FC<MetricCardsProps> = ({
               <div className="pt-2 text-[11px] text-gray-400 dark:text-gray-400 flex items-center gap-1">
                 {isMonthlySales ? (
                   <span className="flex items-center gap-0.5 text-purple-600 dark:text-purple-400 font-medium">
-                    <ArrowUpRight size={12} />
-                    <span>+89% par rapport au mois précédent</span>
+                    {data.monthlyTurnoverChange.startsWith('+') ? <ArrowUpRight size={12} /> : <ArrowDownRight size={12} />}
+                    <span>{data.monthlyTurnoverChange} par rapport au mois précédent</span>
                   </span>
                 ) : compareWithPrevious && card.change ? (
                   <span
