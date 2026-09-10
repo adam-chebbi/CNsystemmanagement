@@ -22,7 +22,8 @@ import { CatalogArticle, CatalogExtra } from './data/manualSalesCatalog';
 import { ProductCategory, ProductSubCategory, SubRecipe } from './data/productsModel';
 import { ActivityLogEntry } from './data/activityLog';
 import { Expense, ExpenseCategory, ExpenseStatus } from './data/expensesModel';
-import { Supplier, PurchaseOrder, PurchaseOrderStatus, PurchaseReception, SupplierInvoice } from './data/purchasesModel';
+import { Supplier, PurchaseOrder, PurchaseOrderStatus, PurchaseReception, SupplierInvoice, PurchasePaymentMethod } from './data/purchasesModel';
+import { ProductAlias } from './data/productAliases';
 import { OperationalAlert } from './data/alertsModel';
 import { Employee, Shift, DayRecord, RecurringPlan, FinancialRecord, AttendanceStatus, WeeklyPattern, getEmployeeFullName } from './data/hrModel';
 import {
@@ -86,6 +87,9 @@ const ExpenseCategoriesPage = lazy(() =>
 const PurchasesPage = lazy(() => import('./components/PurchasesPage').then((m) => ({ default: m.PurchasesPage })));
 const SuppliersPage = lazy(() => import('./components/SuppliersPage').then((m) => ({ default: m.SuppliersPage })));
 const InvoicesPage = lazy(() => import('./components/InvoicesPage').then((m) => ({ default: m.InvoicesPage })));
+// Lazy-loaded: the OCR page itself, and the tesseract.js/pdfjs-dist/mammoth libraries it dynamically
+// imports internally, are only ever fetched when the user opens "OCR des factures".
+const InvoiceOcrPage = lazy(() => import('./components/InvoiceOcrPage').then((m) => ({ default: m.InvoiceOcrPage })));
 
 // Lazy-loaded: "Gestion du personnel" module (3 pages).
 const EmployeesPage = lazy(() => import('./components/EmployeesPage').then((m) => ({ default: m.EmployeesPage })));
@@ -155,6 +159,7 @@ export default function App() {
   const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>([]);
   const [purchaseReceptions, setPurchaseReceptions] = useState<PurchaseReception[]>([]);
   const [supplierInvoices, setSupplierInvoices] = useState<SupplierInvoice[]>([]);
+  const [productAliases, setProductAliases] = useState<ProductAlias[]>([]);
   const [hrEmployees, setHrEmployees] = useState<Employee[]>([]);
   const [hrShifts, setHrShifts] = useState<Shift[]>([]);
   const [hrDayRecords, setHrDayRecords] = useState<DayRecord[]>([]);
@@ -174,7 +179,7 @@ export default function App() {
       units, products, lots, ledger,
       transactions,
       expenseCats, expensesRes,
-      suppliersRes, orders, receptions, invoices,
+      suppliersRes, orders, receptions, invoices, productAliasesRes,
       employees, shifts, dayRecords, recurringPlans, financialRecords,
       treated, log,
     ] = await Promise.all([
@@ -194,6 +199,7 @@ export default function App() {
       purchasesApi.getPurchaseOrders(),
       purchasesApi.getPurchaseReceptions(),
       purchasesApi.getSupplierInvoices(),
+      purchasesApi.getProductAliases(),
       hrApi.getEmployees(),
       hrApi.getShifts(),
       hrApi.getDayRecords(),
@@ -218,6 +224,7 @@ export default function App() {
     setPurchaseOrders(orders);
     setPurchaseReceptions(receptions);
     setSupplierInvoices(invoices);
+    setProductAliases(productAliasesRes);
     setHrEmployees(employees);
     setHrShifts(shifts);
     setHrDayRecords(dayRecords);
@@ -474,6 +481,56 @@ export default function App() {
 
   const handleRecordInvoicePayment = (invoiceId: string, amountAdded: number) => {
     runMutation(() => purchasesApi.recordInvoicePayment(invoiceId, amountAdded));
+  };
+
+  // Reusable OCR-label -> stock-product correspondence: saved immediately (so the current review
+  // screen can use it right away) and also merged into local state without waiting for a full reload.
+  const handleCreateProductAlias = async (rawLabel: string, productId: string): Promise<ProductAlias> => {
+    const alias = await purchasesApi.createProductAlias({ rawLabel, productId });
+    setProductAliases((prev) => [...prev.filter((a) => a.normalizedLabel !== alias.normalizedLabel), alias]);
+    return alias;
+  };
+
+  // The OCR review screen's single "Valider et intégrer" action: creates the supplier if new, then
+  // chains the SAME order -> reception -> invoice calls the manual Achats pages already use, so an
+  // OCR-imported invoice updates stock and financials through the exact same backend logic — never
+  // a second, parallel way to record a purchase. Throws on failure so the page shows its own error
+  // state, instead of the generic runMutation alert.
+  const handleIntegrateOcrInvoice = async (payload: {
+    supplierId: string;
+    newSupplierName: string;
+    orderDate: string;
+    createdBy: string;
+    lines: { productId: string; quantity: number; unit: string; unitPrice: number }[];
+    receptionDate: string;
+    zone: 'Réserve principale' | 'Dépôt';
+    invoiceNumber: string;
+    invoiceDate: string;
+    dueDate: string;
+    amountHT: number;
+    vatAmount: number;
+    amountTTC: number;
+    paymentMethod: PurchasePaymentMethod;
+  }): Promise<void> => {
+    let supplierId = payload.supplierId;
+    if (!supplierId) {
+      const supplier = await purchasesApi.createSupplier({ name: payload.newSupplierName });
+      supplierId = supplier.id;
+    }
+    const order = await purchasesApi.createPurchaseOrder({
+      supplierId, orderDate: payload.orderDate, createdBy: payload.createdBy,
+      lines: payload.lines.map((l) => ({ id: `ocr-${Math.random().toString(36).slice(2)}`, ...l })),
+    });
+    await purchasesApi.receivePurchaseOrder(order.id, {
+      receptionDate: payload.receptionDate, zone: payload.zone, performedBy: payload.createdBy,
+      lines: order.lines.map((l) => ({ lineId: l.id, quantityReceived: l.quantity })),
+    });
+    await purchasesApi.createSupplierInvoice({
+      invoiceNumber: payload.invoiceNumber, supplierId, purchaseOrderId: order.id,
+      invoiceDate: payload.invoiceDate, dueDate: payload.dueDate, amountHT: payload.amountHT,
+      vatAmount: payload.vatAmount, amountTTC: payload.amountTTC, amountPaid: 0, paymentMethod: payload.paymentMethod,
+    });
+    await loadAllData();
   };
 
   const toEmployeeInput = (employee: Employee) => ({
@@ -1068,6 +1125,23 @@ export default function App() {
                   onUpdateInvoice={handleUpdateInvoice}
                   onDeleteInvoice={handleDeleteInvoice}
                   onRecordInvoicePayment={handleRecordInvoicePayment}
+                />
+              </Suspense>
+            ) : activeTab === 'purchases_mgmt' && activeSubItem === 'purchases_ocr' ? (
+              <Suspense fallback={<StockPageLoadingFallback />}>
+                <InvoiceOcrPage
+                  suppliers={suppliers}
+                  products={stockProducts}
+                  aliases={productAliases}
+                  employees={employeeFullNames}
+                  defaultPerformedBy={performedBy}
+                  onNavigateToDashboard={() => {
+                    setActiveTab('dashboard');
+                    setActiveSubItem('');
+                  }}
+                  onNavigateToPurchases={() => setActiveSubItem('purchases_acquisitions')}
+                  onCreateProductAlias={handleCreateProductAlias}
+                  onIntegrateInvoice={handleIntegrateOcrInvoice}
                 />
               </Suspense>
             ) : activeTab === 'staff_mgmt' && activeSubItem === 'staff_employees' ? (

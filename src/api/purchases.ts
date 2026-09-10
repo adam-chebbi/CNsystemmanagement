@@ -1,6 +1,7 @@
 import { apiGet, apiPost, apiPut, apiPatch, apiDelete } from './client';
 import type { Supplier, PurchaseOrder, PurchaseOrderStatus, PurchaseReception, SupplierInvoice } from '../data/purchasesModel';
 import type { StockProduct } from '../data/stockModel';
+import type { ProductAlias } from '../data/productAliases';
 
 export const getSuppliers = () => apiGet<Supplier[]>('/purchases/suppliers');
 export const createSupplier = (supplier: Omit<Supplier, 'id' | 'createdAt'>) => apiPost<Supplier>('/purchases/suppliers', supplier);
@@ -31,3 +32,6 @@ export const createSupplierInvoice = (invoice: Omit<SupplierInvoice, 'id' | 'cre
 export const updateSupplierInvoice = (id: string, invoice: Omit<SupplierInvoice, 'id' | 'createdAt'>) => apiPut<SupplierInvoice>(`/purchases/invoices/${id}`, invoice);
 export const recordInvoicePayment = (id: string, amount: number) => apiPost<SupplierInvoice>(`/purchases/invoices/${id}/payment`, { amount });
 export const deleteSupplierInvoice = (id: string) => apiDelete<void>(`/purchases/invoices/${id}`);
+
+export const getProductAliases = () => apiGet<ProductAlias[]>('/purchases/product-aliases');
+export const createProductAlias = (alias: { rawLabel: string; productId: string }) => apiPost<ProductAlias>('/purchases/product-aliases', alias);

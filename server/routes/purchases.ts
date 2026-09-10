@@ -20,6 +20,8 @@ import {
   type PurchaseReceptionLine,
   type SupplierInvoice,
 } from '../../src/data/purchasesModel.js';
+import { normalizeKey } from '../../src/data/textUtils.js';
+import type { ProductAlias } from '../../src/data/productAliases.js';
 
 const nowIso = () => new Date().toISOString();
 
@@ -291,4 +293,33 @@ purchasesRouter.delete('/invoices/:id', asyncHandler((req, res) => {
   db.prepare('DELETE FROM supplier_invoices WHERE id = ?').run(req.params.id);
   recordActivity('Achats', 'Suppression', `Facture fournisseur supprimée — ${existing.invoice_number}`, req.user!.fullName);
   res.status(204).end();
+}));
+
+// --- OCR invoice-line -> product aliases (reusable across future imports) ------------------------
+
+interface AliasRow { id: string; normalized_label: string; raw_label: string; product_id: string; created_at: string }
+const rowToAlias = (r: AliasRow): ProductAlias => ({
+  id: r.id, rawLabel: r.raw_label, normalizedLabel: r.normalized_label, productId: r.product_id, createdAt: r.created_at,
+});
+
+purchasesRouter.get('/product-aliases', asyncHandler((_req, res) => {
+  res.json((db.prepare('SELECT * FROM invoice_product_aliases ORDER BY created_at ASC').all() as AliasRow[]).map(rowToAlias));
+}));
+
+const aliasSchema = z.object({ rawLabel: z.string().trim().min(1), productId: z.string().min(1) });
+
+purchasesRouter.post('/product-aliases', asyncHandler((req, res) => {
+  const body = aliasSchema.parse(req.body);
+  const product = db.prepare('SELECT id FROM stock_products WHERE id = ?').get(body.productId);
+  if (!product) throw new ApiError(400, 'Produit invalide.');
+  const normalizedLabel = normalizeKey(body.rawLabel);
+  const createdAt = nowIso();
+  const existing = db.prepare('SELECT id FROM invoice_product_aliases WHERE normalized_label = ?').get(normalizedLabel) as { id: string } | undefined;
+  const id = existing?.id ?? randomUUID();
+  db.prepare(
+    `INSERT INTO invoice_product_aliases (id, normalized_label, raw_label, product_id, created_at) VALUES (?, ?, ?, ?, ?)
+     ON CONFLICT(normalized_label) DO UPDATE SET raw_label = excluded.raw_label, product_id = excluded.product_id`
+  ).run(id, normalizedLabel, body.rawLabel, body.productId, createdAt);
+  recordActivity('Achats', 'Création', `Correspondance OCR enregistrée — « ${body.rawLabel} »`, req.user!.fullName);
+  res.status(201).json(rowToAlias({ id, normalized_label: normalizedLabel, raw_label: body.rawLabel, product_id: body.productId, created_at: createdAt }));
 }));

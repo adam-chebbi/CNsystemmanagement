@@ -210,6 +210,16 @@ CREATE TABLE IF NOT EXISTS supplier_invoices (
   created_at TEXT NOT NULL
 );
 
+-- Reusable "OCR label -> stock product" correspondences: once an admin resolves an invoice line
+-- whose wording doesn't match a product name exactly, future OCR imports auto-match it again.
+CREATE TABLE IF NOT EXISTS invoice_product_aliases (
+  id TEXT PRIMARY KEY,
+  normalized_label TEXT NOT NULL UNIQUE,
+  raw_label TEXT NOT NULL,
+  product_id TEXT NOT NULL REFERENCES stock_products(id),
+  created_at TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS employees (
   id TEXT PRIMARY KEY,
   first_name TEXT NOT NULL,
