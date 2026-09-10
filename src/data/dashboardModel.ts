@@ -328,9 +328,9 @@ export interface SeriesPoint {
   tickets: number;
 }
 
-export interface PurchasesDayPoint {
-  label: string; // e.g. '05/09'
-  dateIso: string;
+export interface PurchasesPeriodPoint {
+  label: string;
+  dateKey: string;
   amount: number;
 }
 
@@ -419,20 +419,43 @@ export const buildHourlySalesHeatmap = (transactions: SaleTransaction[], dayCoun
   return { days, maxValue };
 };
 
-// Purchase orders only carry a date (no time-of-day field), so — unlike sales — an hourly
-// breakdown isn't real data we have; a day-by-day bar series over a selectable window (7/14/30
-// days) is the finest granularity purchases actually support.
-export const buildPurchasesDailySeries = (orders: PurchaseOrder[], dayCount: number): PurchasesDayPoint[] => {
+// Purchase orders only carry a date (no time-of-day field), so — unlike sales — there's no real
+// hourly data for purchases; day/month/year buckets (matching the Sales chart's Jours/Mois/Année
+// filter) are the finest granularity purchases actually support.
+export const buildPurchasesByPeriod = (orders: PurchaseOrder[]): { days: PurchasesPeriodPoint[]; months: PurchasesPeriodPoint[]; years: PurchasesPeriodPoint[] } => {
   const today = new Date();
-  today.setHours(0, 0, 0, 0);
 
-  return Array.from({ length: dayCount }, (_, i) => {
+  const days: PurchasesPeriodPoint[] = Array.from({ length: 7 }, (_, i) => {
     const d = new Date(today);
-    d.setDate(d.getDate() - (dayCount - 1 - i));
+    d.setDate(d.getDate() - (6 - i));
     const iso = d.toISOString().slice(0, 10);
-    const amount = orders.filter((o) => o.orderDate === iso).reduce((s, o) => s + computeOrderTotal(o), 0);
-    return { label: `${d.getDate().toString().padStart(2, '0')}/${(d.getMonth() + 1).toString().padStart(2, '0')}`, dateIso: iso, amount };
+    return {
+      label: `${d.getDate().toString().padStart(2, '0')}/${(d.getMonth() + 1).toString().padStart(2, '0')}`,
+      dateKey: iso,
+      amount: orders.filter((o) => o.orderDate === iso).reduce((s, o) => s + computeOrderTotal(o), 0),
+    };
   });
+
+  const months: PurchasesPeriodPoint[] = Array.from({ length: 9 }, (_, i) => {
+    const d = new Date(today.getFullYear(), today.getMonth() - (8 - i), 1);
+    const key = d.toISOString().slice(0, 7);
+    return {
+      label: MONTH_LABELS_FR[d.getMonth()].replace('.', ''),
+      dateKey: key,
+      amount: orders.filter((o) => o.orderDate.slice(0, 7) === key).reduce((s, o) => s + computeOrderTotal(o), 0),
+    };
+  });
+
+  const years: PurchasesPeriodPoint[] = Array.from({ length: 4 }, (_, i) => {
+    const y = today.getFullYear() - (3 - i);
+    return {
+      label: String(y),
+      dateKey: String(y),
+      amount: orders.filter((o) => o.orderDate.startsWith(String(y))).reduce((s, o) => s + computeOrderTotal(o), 0),
+    };
+  });
+
+  return { days, months, years };
 };
 
 // --- Category breakdown for PlanOverview's donut (replaces its hardcoded categories) ------------

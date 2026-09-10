@@ -1349,7 +1349,7 @@ export default function App() {
                 {/* Sales Chart: Ventes par jours with Jours/Mois/Année filters & period comparison */}
                 <SalesChart data={salesByPeriodData} compareWithPrevious={compareWithPrevious} />
 
-                {/* Purchases Chart: Vue d'ensemble des achats — daily bar chart over a 7j/14j/30j window */}
+                {/* Purchases Chart: Vue d'ensemble des achats — bar chart with Jours/Mois/Année filters */}
                 <PurchasesChart orders={purchaseOrders} />
 
                 {/* Top/Least Products, Top CA/Margin Products, Low Stock (Top 5) & Primary Alerts */}
