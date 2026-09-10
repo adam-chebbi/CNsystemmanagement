@@ -328,11 +328,10 @@ export interface SeriesPoint {
   tickets: number;
 }
 
-export interface PurchaseSeriesPoint {
-  label: string;
-  current: number;
-  previous: number;
-  labelDetail: string;
+export interface PurchasesDayPoint {
+  label: string; // e.g. '05/09'
+  dateIso: string;
+  amount: number;
 }
 
 const WEEKDAY_SHORT_FR = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
@@ -420,48 +419,20 @@ export const buildHourlySalesHeatmap = (transactions: SaleTransaction[], dayCoun
   return { days, maxValue };
 };
 
-export const buildPurchasesByPeriod = (orders: PurchaseOrder[]): { days: PurchaseSeriesPoint[]; months: PurchaseSeriesPoint[]; years: PurchaseSeriesPoint[] } => {
+// Purchase orders only carry a date (no time-of-day field), so — unlike sales — an hourly
+// breakdown isn't real data we have; a day-by-day bar series over a selectable window (7/14/30
+// days) is the finest granularity purchases actually support.
+export const buildPurchasesDailySeries = (orders: PurchaseOrder[], dayCount: number): PurchasesDayPoint[] => {
   const today = new Date();
+  today.setHours(0, 0, 0, 0);
 
-  const days: PurchaseSeriesPoint[] = Array.from({ length: 7 }, (_, i) => {
+  return Array.from({ length: dayCount }, (_, i) => {
     const d = new Date(today);
-    d.setDate(d.getDate() - (6 - i));
+    d.setDate(d.getDate() - (dayCount - 1 - i));
     const iso = d.toISOString().slice(0, 10);
-    const prevIso = new Date(d.getTime() - 7 * 86400000).toISOString().slice(0, 10);
-    const label = `${WEEKDAY_SHORT_FR[(d.getDay() + 6) % 7]} ${d.getDate().toString().padStart(2, '0')}/${(d.getMonth() + 1).toString().padStart(2, '0')}`;
-    return {
-      label,
-      current: orders.filter((o) => o.orderDate === iso).reduce((s, o) => s + computeOrderTotal(o), 0),
-      previous: orders.filter((o) => o.orderDate === prevIso).reduce((s, o) => s + computeOrderTotal(o), 0),
-      labelDetail: label,
-    };
+    const amount = orders.filter((o) => o.orderDate === iso).reduce((s, o) => s + computeOrderTotal(o), 0);
+    return { label: `${d.getDate().toString().padStart(2, '0')}/${(d.getMonth() + 1).toString().padStart(2, '0')}`, dateIso: iso, amount };
   });
-
-  const months: PurchaseSeriesPoint[] = Array.from({ length: 9 }, (_, i) => {
-    const d = new Date(today.getFullYear(), today.getMonth() - (8 - i), 1);
-    const prevD = new Date(d.getFullYear(), d.getMonth() - 1, 1);
-    const monthKey = d.toISOString().slice(0, 7);
-    const prevKey = prevD.toISOString().slice(0, 7);
-    const label = MONTH_LABELS_FR[d.getMonth()].replace('.', '');
-    return {
-      label,
-      current: orders.filter((o) => o.orderDate.slice(0, 7) === monthKey).reduce((s, o) => s + computeOrderTotal(o), 0),
-      previous: orders.filter((o) => o.orderDate.slice(0, 7) === prevKey).reduce((s, o) => s + computeOrderTotal(o), 0),
-      labelDetail: `Achats ${label}`,
-    };
-  });
-
-  const years: PurchaseSeriesPoint[] = Array.from({ length: 4 }, (_, i) => {
-    const y = today.getFullYear() - (3 - i);
-    return {
-      label: String(y),
-      current: orders.filter((o) => o.orderDate.startsWith(String(y))).reduce((s, o) => s + computeOrderTotal(o), 0),
-      previous: orders.filter((o) => o.orderDate.startsWith(String(y - 1))).reduce((s, o) => s + computeOrderTotal(o), 0),
-      labelDetail: String(y),
-    };
-  });
-
-  return { days, months, years };
 };
 
 // --- Category breakdown for PlanOverview's donut (replaces its hardcoded categories) ------------

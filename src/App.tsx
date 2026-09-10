@@ -33,7 +33,6 @@ import {
   buildDashboardAlerts,
   buildHourlySalesHeatmap,
   buildSalesByPeriod,
-  buildPurchasesByPeriod,
   buildCategoryShares,
 } from './data/dashboardModel';
 import * as productCatalogApi from './api/productCatalog';
@@ -631,7 +630,6 @@ export default function App() {
 
   const hourlySalesHeatmapData = useMemo(() => buildHourlySalesHeatmap(salesTransactions), [salesTransactions]);
   const salesByPeriodData = useMemo(() => buildSalesByPeriod(salesTransactions), [salesTransactions]);
-  const purchasesByPeriodData = useMemo(() => buildPurchasesByPeriod(purchaseOrders), [purchaseOrders]);
   const categoryShareData = useMemo(() => buildCategoryShares(salesTransactions, dashboardRange), [salesTransactions, dashboardRange]);
 
   if (loadError) {
@@ -1351,8 +1349,8 @@ export default function App() {
                 {/* Sales Chart: Ventes par jours with Jours/Mois/Année filters & period comparison */}
                 <SalesChart data={salesByPeriodData} compareWithPrevious={compareWithPrevious} />
 
-                {/* Purchases Chart: Achats par jours with Jours/Mois/Année filters & period comparison */}
-                <PurchasesChart data={purchasesByPeriodData} compareWithPrevious={compareWithPrevious} />
+                {/* Purchases Chart: Vue d'ensemble des achats — daily bar chart over a 7j/14j/30j window */}
+                <PurchasesChart orders={purchaseOrders} />
 
                 {/* Top/Least Products, Top CA/Margin Products, Low Stock (Top 5) & Primary Alerts */}
                 <ProductsAndStock
