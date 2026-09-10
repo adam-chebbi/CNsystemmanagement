@@ -652,7 +652,7 @@ export default function App() {
   }
 
   return (
-    <div className={`h-screen overflow-hidden ${isDarkMode ? 'dark bg-[#0E1524] text-gray-100' : 'bg-[#F9FAFB] text-gray-800'}`}>
+    <div className={`h-screen overflow-hidden ${isDarkMode ? 'dark bg-[#151D2A] text-gray-100' : 'bg-white text-gray-800'}`}>
       <div className="flex h-full">
         {/* Sidebar — flush to the viewport edges, forms one side of the app shell */}
         <Sidebar

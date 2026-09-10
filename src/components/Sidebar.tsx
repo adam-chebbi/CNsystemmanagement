@@ -288,8 +288,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
         className={`fixed lg:sticky top-0 left-0 h-screen ${
           isCollapsed ? 'lg:w-16 w-64' : 'w-64'
         } ${
-          isDarkMode ? 'bg-[#151D2A] text-gray-200 border-gray-800' : 'bg-white text-gray-700 border-gray-100'
-        } border-r z-50 flex flex-col transition-all duration-300 ease-in-out ${
+          isDarkMode ? 'bg-[#151D2A] text-gray-200' : 'bg-white text-gray-700'
+        } z-50 flex flex-col transition-all duration-300 ease-in-out ${
           isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
         }`}
       >
