@@ -15,8 +15,10 @@ import {
   Ticket,
   Utensils,
   ShoppingBag,
-  ChevronLeft,
-  ChevronRight,
+  ChevronDown,
+  ChevronUp,
+  ChevronsDownUp,
+  ChevronsUpDown,
   Plus,
   Info,
   RotateCcw,
@@ -41,6 +43,7 @@ import {
   buildSaleTransactionsFromImportRows,
   downloadImportTemplateCsv,
 } from '../data/importSalesParser';
+import { collapseValidRows, toggleInSet } from '../data/importReviewUtils';
 
 interface ImportSalesPageProps {
   articles: CatalogArticle[];
@@ -65,8 +68,6 @@ const primaryButtonClass =
 const secondaryButtonClass =
   'inline-flex items-center justify-center gap-2 px-3.5 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700/80 text-xs font-semibold text-gray-700 dark:text-gray-200 shadow-2xs transition active:scale-98 cursor-pointer';
 
-const ROWS_PER_PAGE = 5;
-
 export const ImportSalesPage: React.FC<ImportSalesPageProps> = ({
   articles,
   extras,
@@ -87,7 +88,7 @@ export const ImportSalesPage: React.FC<ImportSalesPageProps> = ({
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [savedCount, setSavedCount] = useState(0);
-  const [currentPage, setCurrentPage] = useState(1);
+  const [collapsedRows, setCollapsedRows] = useState<Set<string>>(new Set());
   const [expandedExtras, setExpandedExtras] = useState<Set<string>>(new Set());
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -100,18 +101,34 @@ export const ImportSalesPage: React.FC<ImportSalesPageProps> = ({
   );
   const grandTotal = useMemo(() => rows.reduce((sum, r) => sum + computeTicketTotal(r.ticket, catalog), 0), [rows, catalog]);
   const canConfirm = rows.length > 0 && totalErrors === 0;
-  const totalPages = Math.max(1, Math.ceil(rows.length / ROWS_PER_PAGE));
-  const paginatedRows = useMemo(
-    () => rows.slice((currentPage - 1) * ROWS_PER_PAGE, currentPage * ROWS_PER_PAGE),
-    [rows, currentPage]
-  );
+  const allRowsCollapsed = rows.length > 0 && rows.every((r) => collapsedRows.has(r.id));
+  const toggleRowCollapsed = (id: string) => setCollapsedRows((prev) => toggleInSet(prev, id));
+  const toggleCollapseAll = () => setCollapsedRows(allRowsCollapsed ? new Set() : new Set(rows.map((r) => r.id)));
+
+  const buildTicketSummaryLine = (row: ImportedTicketDraft): string => {
+    const itemsLabel = row.ticket.items
+      .filter((it) => it.articleId)
+      .map((it) => {
+        const article = getArticleById(it.articleId, articles);
+        return article ? `${it.qty}x ${article.name}` : null;
+      })
+      .filter(Boolean)
+      .join(', ');
+    const placeLabel =
+      row.ticket.serviceType === 'Sur place'
+        ? row.ticket.tableNumber
+          ? `Table ${row.ticket.tableNumber}`
+          : 'Sur place'
+        : row.ticket.counterLabel || 'À emporter';
+    return `${itemsLabel || 'Aucun article'} — ${placeLabel}${row.ticket.paymentMethod ? ` • ${row.ticket.paymentMethod}` : ''}`;
+  };
 
   const resetImportState = () => {
     setFile(null);
     setFileError(null);
     setUnknownColumns([]);
     setRows([]);
-    setCurrentPage(1);
+    setCollapsedRows(new Set());
   };
 
   const processFile = async (candidate: File) => {
@@ -122,7 +139,7 @@ export const ImportSalesPage: React.FC<ImportSalesPageProps> = ({
       setFile(candidate);
       setRows(result.rows);
       setUnknownColumns(result.unknownColumns);
-      setCurrentPage(1);
+      setCollapsedRows(collapseValidRows(result.rows, (r) => r.id, (r) => r.issues.length > 0));
       setStep('preview');
     } catch (err) {
       setFile(candidate);
@@ -391,6 +408,12 @@ export const ImportSalesPage: React.FC<ImportSalesPageProps> = ({
                 <FileSpreadsheet size={13} className="text-gray-400" />
                 {file?.name}
               </span>
+              {rows.length > 1 && (
+                <button onClick={toggleCollapseAll} className={secondaryButtonClass}>
+                  {allRowsCollapsed ? <ChevronsUpDown size={13} /> : <ChevronsDownUp size={13} />}
+                  <span>{allRowsCollapsed ? 'Tout développer' : 'Tout réduire'}</span>
+                </button>
+              )}
               <button onClick={handleReplaceFile} className={secondaryButtonClass}>
                 <RotateCcw size={13} />
                 <span>Remplacer le fichier</span>
@@ -406,9 +429,10 @@ export const ImportSalesPage: React.FC<ImportSalesPageProps> = ({
           )}
 
           <div className="space-y-3">
-            {paginatedRows.map((row) => {
+            {rows.map((row) => {
               const rowHasError = row.issues.length > 0;
               const fieldsWithError = new Set(row.issues.map((i) => i.field));
+              const isCollapsed = collapsedRows.has(row.id);
 
               return (
                 <div
@@ -419,20 +443,42 @@ export const ImportSalesPage: React.FC<ImportSalesPageProps> = ({
                       : 'bg-white dark:bg-[#151D2A] border-gray-100 dark:border-gray-800'
                   }`}
                 >
-                  <div className="flex items-center justify-between flex-wrap gap-2">
-                    <h3 className="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <button
+                      type="button"
+                      onClick={() => toggleRowCollapsed(row.id)}
+                      className="flex items-center gap-2 text-left flex-1 min-w-0 cursor-pointer"
+                    >
                       {rowHasError ? (
-                        <AlertCircle size={15} className="text-red-500" />
+                        <AlertCircle size={15} className="text-red-500 shrink-0" />
                       ) : (
-                        <CheckCircle2 size={15} className="text-emerald-500" />
+                        <CheckCircle2 size={15} className="text-emerald-500 shrink-0" />
                       )}
-                      Ligne {row.rowNumber}
-                    </h3>
-                    <span className="text-sm font-bold text-gray-900 dark:text-white">
-                      {computeTicketTotal(row.ticket, catalog).toFixed(2)} <span className="text-[11px] text-gray-500">DT</span>
-                    </span>
+                      <div className="min-w-0">
+                        <h3 className="text-sm font-bold text-gray-900 dark:text-white">Ligne {row.rowNumber}</h3>
+                        {isCollapsed && (
+                          <p className="text-[11px] text-gray-400 dark:text-gray-500 truncate" title={buildTicketSummaryLine(row)}>
+                            {buildTicketSummaryLine(row)}
+                          </p>
+                        )}
+                      </div>
+                    </button>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className="text-sm font-bold text-gray-900 dark:text-white">
+                        {computeTicketTotal(row.ticket, catalog).toFixed(2)} <span className="text-[11px] text-gray-500">DT</span>
+                      </span>
+                      <button
+                        onClick={() => toggleRowCollapsed(row.id)}
+                        title={isCollapsed ? 'Développer cette ligne' : 'Réduire cette ligne'}
+                        className="p-1.5 rounded-lg text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition cursor-pointer"
+                      >
+                        {isCollapsed ? <ChevronDown size={15} /> : <ChevronUp size={15} />}
+                      </button>
+                    </div>
                   </div>
 
+                  {!isCollapsed && (
+                    <>
                   {rowHasError && (
                     <ul className="text-[11px] text-red-600 dark:text-red-400 space-y-1 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800/40 rounded-lg p-2.5 list-disc list-inside">
                       {row.issues.map((issue, i) => (
@@ -719,32 +765,12 @@ export const ImportSalesPage: React.FC<ImportSalesPageProps> = ({
                       ))}
                     </div>
                   </div>
+                    </>
+                  )}
                 </div>
               );
             })}
           </div>
-
-          {totalPages > 1 && (
-            <div className="p-3 rounded-2xl bg-white dark:bg-[#151D2A] border border-gray-100 dark:border-gray-800 shadow-2xs flex items-center justify-center gap-1">
-              <button
-                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                disabled={currentPage === 1}
-                className="p-1.5 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-40 disabled:cursor-not-allowed transition cursor-pointer"
-              >
-                <ChevronLeft size={16} />
-              </button>
-              <span className="px-3 py-1 text-xs font-semibold text-gray-700 dark:text-gray-300">
-                Page {currentPage} sur {totalPages}
-              </span>
-              <button
-                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                disabled={currentPage === totalPages}
-                className="p-1.5 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-40 disabled:cursor-not-allowed transition cursor-pointer"
-              >
-                <ChevronRight size={16} />
-              </button>
-            </div>
-          )}
 
           {saveError && (
             <div className="p-4 rounded-2xl bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800/60 flex items-start gap-3">
