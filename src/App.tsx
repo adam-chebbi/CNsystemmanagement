@@ -44,7 +44,7 @@ import * as purchasesApi from './api/purchases';
 import * as hrApi from './api/hr';
 import * as notificationsApi from './api/notifications';
 import * as activityLogApi from './api/activityLog';
-import { RotateCw, CheckCircle2, Loader2 } from 'lucide-react';
+import { RotateCw, CheckCircle2, Loader2, WifiOff } from 'lucide-react';
 
 // Lazy-loaded: pulls in the xlsx/papaparse parsing libraries only when the user
 // actually opens the Import Excel/CSV page, keeping the main bundle lean.
@@ -132,6 +132,21 @@ export default function App() {
   const isDarkMode = false;
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [showRefreshToast, setShowRefreshToast] = useState(false);
+  const [isOnline, setIsOnline] = useState(() => typeof navigator === 'undefined' || navigator.onLine);
+
+  // Business data (sales, stock, purchases...) is never cached for offline use — the app shell
+  // itself works offline (installed PWA), but data actions correctly need connectivity. This
+  // banner gives an honest, app-like signal instead of leaving failed requests unexplained.
+  useEffect(() => {
+    const goOnline = () => setIsOnline(true);
+    const goOffline = () => setIsOnline(false);
+    window.addEventListener('online', goOnline);
+    window.addEventListener('offline', goOffline);
+    return () => {
+      window.removeEventListener('online', goOnline);
+      window.removeEventListener('offline', goOffline);
+    };
+  }, []);
   const [activePeriod, setActivePeriod] = useState<TimeFilterPeriod>('today');
   const [compareWithPrevious, setCompareWithPrevious] = useState(true);
   const [customRange, setCustomRange] = useState({ start: '2026-09-01', end: '2026-09-07' });
@@ -1450,6 +1465,17 @@ export default function App() {
 
       {/* Action Modals */}
       <ActionModals type={modalType} onClose={() => setModalType(null)} />
+
+      {/* Offline indicator — the app shell still loads/works, but data actions need connectivity */}
+      {!isOnline && (
+        <div
+          id="offline-banner"
+          className="fixed bottom-6 left-6 z-50 flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-900 text-white shadow-xl border border-slate-700 text-xs animate-in slide-in-from-bottom-2"
+        >
+          <WifiOff size={16} className="text-amber-400" />
+          <span>Vous êtes hors ligne — les données ne peuvent pas être synchronisées.</span>
+        </div>
+      )}
 
       {/* Toast Notification on Refresh */}
       {showRefreshToast && (

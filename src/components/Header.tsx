@@ -2,8 +2,10 @@ import React, { useState } from 'react';
 import {
   ChevronDown,
   PanelLeft,
+  Download,
 } from 'lucide-react';
 import { useAuth } from '../auth/AuthContext';
+import { useInstallPrompt } from '../hooks/useInstallPrompt';
 
 interface HeaderProps {
   onToggleSidebar: () => void;
@@ -26,6 +28,7 @@ export const Header: React.FC<HeaderProps> = ({
 }) => {
   const [showUserMenu, setShowUserMenu] = useState(false);
   const { user, logout } = useAuth();
+  const { canInstall, promptInstall } = useInstallPrompt();
 
   const handleToggleSidebar = () => {
     if (typeof window !== 'undefined' && window.innerWidth < 1024) {
@@ -38,7 +41,7 @@ export const Header: React.FC<HeaderProps> = ({
   };
 
   return (
-    <header className="sticky top-0 z-30 bg-[#fcfcfc]/90 dark:bg-[#111827]/90 backdrop-blur-md border-b border-gray-100 dark:border-gray-800 px-4 sm:px-6 py-2.5 transition-colors">
+    <header className="sticky top-0 z-30 bg-[#fcfcfc]/90 dark:bg-[#111827]/90 backdrop-blur-md border-b border-gray-100 dark:border-gray-800 px-4 sm:px-6 pb-2.5 pt-[max(0.625rem,env(safe-area-inset-top))] transition-colors">
       <div className="flex items-center justify-between">
         {/* Left: Collapsible Sidebar Icon + Breadcrumbs */}
         <div className="flex items-center gap-3">
@@ -104,6 +107,21 @@ export const Header: React.FC<HeaderProps> = ({
                 <div className="px-2 py-1.5 border-b border-gray-100 dark:border-gray-700 mb-1">
                   <p className="text-xs font-semibold text-gray-800 dark:text-white">{user?.fullName ?? 'Utilisateur'}</p>
                 </div>
+                {canInstall && (
+                  <>
+                    <button
+                      onClick={() => {
+                        setShowUserMenu(false);
+                        promptInstall();
+                      }}
+                      className="w-full text-left px-2 py-1.5 text-xs font-semibold text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 rounded-lg cursor-pointer flex items-center gap-2"
+                    >
+                      <Download size={13} />
+                      Installer l'application
+                    </button>
+                    <div className="border-t border-gray-100 dark:border-gray-700 my-1"></div>
+                  </>
+                )}
                 <button
                   onClick={() => setShowUserMenu(false)}
                   className="w-full text-left px-2 py-1.5 text-xs text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg cursor-pointer"

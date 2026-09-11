@@ -43,6 +43,12 @@
     -webkit-font-smoothing: antialiased;
     background-color: #ffffff;
   }
+  /* Removes the ~300ms tap delay and double-tap-to-zoom on interactive elements without
+     disabling pinch-to-zoom (touch-action: manipulation keeps panning/pinch, drops the rest) —
+     makes the whole app feel instantly responsive to touch on phones/tablets. */
+  button, a, [role="button"], input, select, textarea {
+    touch-action: manipulation;
+  }
 }
 
 .grid-cols-24 {
