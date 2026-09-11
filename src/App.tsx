@@ -483,6 +483,18 @@ export default function App() {
     runMutation(() => purchasesApi.updateSupplier(supplier.id, { name: supplier.name, taxId: supplier.taxId, phone: supplier.phone, whatsapp: supplier.whatsapp, email: supplier.email, address: supplier.address, mainContact: supplier.mainContact, notes: supplier.notes }));
   };
 
+  // Achats → Import Excel/CSV (Fournisseurs) creates every parsed supplier the same way a single
+  // manual supplier would, just in parallel for the whole batch.
+  const handleImportSuppliers = (newSuppliers: Supplier[]) => {
+    runMutation(() =>
+      Promise.all(
+        newSuppliers.map((s) =>
+          purchasesApi.createSupplier({ name: s.name, taxId: s.taxId, phone: s.phone, whatsapp: s.whatsapp, email: s.email, address: s.address, mainContact: s.mainContact, notes: s.notes })
+        )
+      )
+    );
+  };
+
   const handleDeleteSupplier = (supplierId: string) => {
     runMutation(() => purchasesApi.deleteSupplier(supplierId));
   };
@@ -504,6 +516,22 @@ export default function App() {
         invoiceDate: invoice.invoiceDate, dueDate: invoice.dueDate, amountHT: invoice.amountHT, vatAmount: invoice.vatAmount,
         amountTTC: invoice.amountTTC, amountPaid: invoice.amountPaid, paymentMethod: invoice.paymentMethod,
       })
+    );
+  };
+
+  // Achats → Import Excel/CSV (Factures) creates every parsed invoice the same way a single
+  // manual invoice would, just in parallel for the whole batch.
+  const handleImportInvoices = (newInvoices: SupplierInvoice[]) => {
+    runMutation(() =>
+      Promise.all(
+        newInvoices.map((invoice) =>
+          purchasesApi.createSupplierInvoice({
+            invoiceNumber: invoice.invoiceNumber, supplierId: invoice.supplierId, purchaseOrderId: invoice.purchaseOrderId,
+            invoiceDate: invoice.invoiceDate, dueDate: invoice.dueDate, amountHT: invoice.amountHT, vatAmount: invoice.vatAmount,
+            amountTTC: invoice.amountTTC, amountPaid: invoice.amountPaid, paymentMethod: invoice.paymentMethod,
+          })
+        )
+      )
     );
   };
 
@@ -1202,13 +1230,18 @@ export default function App() {
                   isDarkMode={isDarkMode}
                   suppliers={suppliers}
                   products={stockProducts}
+                  orders={purchaseOrders}
                   employees={employeeFullNames}
                   onNavigateToDashboard={() => {
                     setActiveTab('dashboard');
                     setActiveSubItem('');
                   }}
                   onNavigateToPurchases={() => setActiveSubItem('purchases_acquisitions')}
+                  onNavigateToSuppliers={() => setActiveSubItem('purchases_suppliers')}
+                  onNavigateToInvoices={() => setActiveSubItem('purchases_invoices')}
                   onSaveOrders={handleImportPurchaseOrders}
+                  onSaveSuppliers={handleImportSuppliers}
+                  onSaveInvoices={handleImportInvoices}
                 />
               </Suspense>
             ) : activeTab === 'staff_mgmt' && activeSubItem === 'staff_employees' ? (
