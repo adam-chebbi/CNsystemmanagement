@@ -46,6 +46,8 @@ import * as purchasesApi from './api/purchases';
 import * as hrApi from './api/hr';
 import * as notificationsApi from './api/notifications';
 import * as activityLogApi from './api/activityLog';
+import * as dashboardApi from './api/dashboard';
+import type { MonthlyTarget } from './api/dashboard';
 import { RotateCw, CheckCircle2, Loader2, WifiOff } from 'lucide-react';
 
 // Lazy-loaded: pulls in the xlsx/papaparse parsing libraries only when the user
@@ -196,6 +198,7 @@ export default function App() {
   const [hrRecurringPlans, setHrRecurringPlans] = useState<RecurringPlan[]>([]);
   const [hrFinancialRecords, setHrFinancialRecords] = useState<FinancialRecord[]>([]);
   const [treatedAlerts, setTreatedAlerts] = useState<Record<string, { treatedAt: string; treatedBy: string }>>({});
+  const [monthlySalesTargets, setMonthlySalesTargets] = useState<MonthlyTarget[]>([]);
   const [isDataLoaded, setIsDataLoaded] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -211,7 +214,7 @@ export default function App() {
       expenseCats, expensesRes,
       suppliersRes, orders, receptions, invoices, productAliasesRes,
       employees, shifts, dayRecords, recurringPlans, financialRecords,
-      treated, log,
+      treated, log, monthlyTargets,
     ] = await Promise.all([
       productCatalogApi.getProductCategories(),
       productCatalogApi.getProductSubCategories(),
@@ -237,6 +240,7 @@ export default function App() {
       hrApi.getFinancialRecords(),
       notificationsApi.getTreatedAlerts(),
       activityLogApi.getActivityLog(),
+      dashboardApi.getMonthlyTargets(),
     ]);
     setCatalogExtras(extras);
     setProductCategories(categories);
@@ -262,6 +266,7 @@ export default function App() {
     setHrFinancialRecords(financialRecords);
     setTreatedAlerts(treated);
     setActivityLog(log);
+    setMonthlySalesTargets(monthlyTargets);
   }, []);
 
   useEffect(() => {
@@ -717,7 +722,17 @@ export default function App() {
 
   const dailySalesCalendarData = useMemo(() => buildDailySalesCalendar(salesTransactions, 8), [salesTransactions]);
   const salesByPeriodData = useMemo(() => buildSalesByPeriod(salesTransactions), [salesTransactions]);
-  const categoryShareData = useMemo(() => buildCategoryShares(salesTransactions, dashboardRange), [salesTransactions, dashboardRange]);
+  const currentMonthKey = new Date().toISOString().slice(0, 7);
+  const customMonthlyTarget = monthlySalesTargets.find((t) => t.month === currentMonthKey)?.targetAmount;
+  const categoryShareData = useMemo(
+    () => buildCategoryShares(salesTransactions, dashboardRange, customMonthlyTarget),
+    [salesTransactions, dashboardRange, customMonthlyTarget]
+  );
+
+  const handleSetMonthlyTarget = async (amount: number): Promise<void> => {
+    await dashboardApi.setMonthlyTarget(currentMonthKey, amount);
+    await loadAllData();
+  };
 
   if (loadError) {
     return (
@@ -1465,6 +1480,8 @@ export default function App() {
                       categories={categoryShareData.categories}
                       monthlyTarget={categoryShareData.monthlyTarget}
                       achievedToDate={categoryShareData.achievedToDate}
+                      isCustomTarget={categoryShareData.isCustomTarget}
+                      onSetMonthlyTarget={handleSetMonthlyTarget}
                     />
                   </div>
                 </div>

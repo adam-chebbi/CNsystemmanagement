@@ -538,7 +538,19 @@ const CATEGORY_COLORS: Record<string, string> = {
 };
 const FALLBACK_COLORS = ['#10b981', '#0ea5e9', '#6366f1', '#f59e0b', '#f43f5e', '#8b5cf6', '#14b8a6', '#a855f7'];
 
-export const buildCategoryShares = (transactions: SaleTransaction[], range: DateRange): { categories: CategoryShare[]; monthlyTarget: number; achievedToDate: number } => {
+export interface CategorySharesResult {
+  categories: CategoryShare[];
+  monthlyTarget: number;
+  achievedToDate: number;
+  currentMonthKey: string; // 'YYYY-MM', for looking up / saving a custom target
+  isCustomTarget: boolean;
+}
+
+export const buildCategoryShares = (
+  transactions: SaleTransaction[],
+  range: DateRange,
+  customMonthlyTarget?: number
+): CategorySharesResult => {
   const byCategory = new Map<string, number>();
   let total = 0;
   transactions.forEach((t) => {
@@ -569,14 +581,15 @@ export const buildCategoryShares = (transactions: SaleTransaction[], range: Date
       return entry;
     });
 
-  // No configurable "monthly target" concept exists in the app; the previous calendar month's
-  // real revenue is used as an honest, data-driven stand-in rather than a fabricated round number.
+  // Falls back to the previous calendar month's real revenue — an honest, data-driven stand-in —
+  // whenever the user hasn't set a real objective for the current month via the PlanOverview card.
   const today = todayIso();
   const monthRange = { start: startOfMonth(today), end: today };
   const prevMonthEnd = addDays(monthRange.start, -1);
   const prevMonthRange = { start: startOfMonth(prevMonthEnd), end: prevMonthEnd };
   const achievedToDate = sumSales(transactions, monthRange).revenue;
-  const monthlyTarget = sumSales(transactions, prevMonthRange).revenue;
+  const fallbackTarget = sumSales(transactions, prevMonthRange).revenue;
+  const monthlyTarget = customMonthlyTarget ?? fallbackTarget;
 
-  return { categories, monthlyTarget, achievedToDate };
+  return { categories, monthlyTarget, achievedToDate, currentMonthKey: today.slice(0, 7), isCustomTarget: customMonthlyTarget !== undefined };
 };

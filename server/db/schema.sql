@@ -290,6 +290,16 @@ CREATE TABLE IF NOT EXISTS financial_records (
   created_at TEXT NOT NULL
 );
 
+-- User-defined monthly sales objective for the "Vue d'ensemble du plan" dashboard card. Absent a
+-- row for a given month, the dashboard falls back to its existing heuristic (previous month's
+-- real revenue) — this table only exists once someone actually sets a real target.
+CREATE TABLE IF NOT EXISTS monthly_sales_targets (
+  month TEXT PRIMARY KEY,
+  target_amount REAL NOT NULL,
+  updated_at TEXT NOT NULL,
+  updated_by TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS treated_alerts (
   alert_id TEXT PRIMARY KEY,
   treated_at TEXT NOT NULL,

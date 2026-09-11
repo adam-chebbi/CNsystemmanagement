@@ -1,17 +1,27 @@
 import React, { useState } from 'react';
-import { Target, TrendingUp, CheckCircle2 } from 'lucide-react';
+import { Target, TrendingUp, CheckCircle2, Pencil } from 'lucide-react';
 import { CategoryShare } from '../data/dashboardModel';
+import { ObjectivePicker } from './ObjectivePicker';
 
 interface PlanOverviewProps {
   categories: CategoryShare[];
   monthlyTarget: number;
   achievedToDate: number;
+  isCustomTarget?: boolean;
+  onSetMonthlyTarget?: (amount: number) => Promise<void>;
 }
 
 const formatDT = (v: number): string => `${v.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} DT`;
 
-export const PlanOverview: React.FC<PlanOverviewProps> = ({ categories, monthlyTarget, achievedToDate }) => {
+export const PlanOverview: React.FC<PlanOverviewProps> = ({
+  categories,
+  monthlyTarget,
+  achievedToDate,
+  isCustomTarget = false,
+  onSetMonthlyTarget,
+}) => {
   const [hoveredCategory, setHoveredCategory] = useState<string | null>(null);
+  const [showObjectivePicker, setShowObjectivePicker] = useState(false);
 
   // Circle geometry for SVG donut (r=40 -> circumference = 2 * PI * 40 ≈ 251.32)
   const circumference = 251.32;
@@ -39,15 +49,28 @@ export const PlanOverview: React.FC<PlanOverviewProps> = ({ categories, monthlyT
 
       {/* Stat strip */}
       <div className="grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x divide-gray-100 dark:divide-gray-800 border-b border-gray-100 dark:border-gray-800 shrink-0">
-        <div className="flex items-center gap-3 px-4 py-3">
-          <div className="w-8 h-8 rounded-lg bg-blue-100 dark:bg-blue-900/40 flex items-center justify-center shrink-0">
+        <button
+          type="button"
+          onClick={() => onSetMonthlyTarget && setShowObjectivePicker(true)}
+          disabled={!onSetMonthlyTarget}
+          title={onSetMonthlyTarget ? "Cliquer pour définir l'objectif du mois" : undefined}
+          className={`group flex items-center gap-3 px-4 py-3 text-left transition-colors ${
+            onSetMonthlyTarget ? 'cursor-pointer hover:bg-blue-50/60 dark:hover:bg-blue-950/20' : ''
+          }`}
+        >
+          <div className="w-8 h-8 rounded-lg bg-blue-100 dark:bg-blue-900/40 flex items-center justify-center shrink-0 transition-transform group-hover:scale-105">
             <Target className="h-4 w-4 text-blue-500" />
           </div>
-          <div className="min-w-0">
-            <p className="text-[11px] text-gray-400 dark:text-gray-500 truncate">Objectif mois</p>
+          <div className="min-w-0 flex-1">
+            <p className="text-[11px] text-gray-400 dark:text-gray-500 truncate flex items-center gap-1">
+              Objectif mois
+              {onSetMonthlyTarget && (
+                <Pencil size={10} className="text-gray-300 dark:text-gray-600 group-hover:text-blue-500 transition-colors shrink-0" />
+              )}
+            </p>
             <p className="text-sm font-bold text-gray-900 dark:text-white font-mono truncate">{formatDT(monthlyTarget)}</p>
           </div>
-        </div>
+        </button>
         <div className="flex items-center gap-3 px-4 py-3">
           <div className="w-8 h-8 rounded-lg bg-orange-100 dark:bg-orange-900/40 flex items-center justify-center shrink-0">
             <TrendingUp className="h-4 w-4 text-orange-500" />
@@ -135,6 +158,17 @@ export const PlanOverview: React.FC<PlanOverviewProps> = ({ categories, monthlyT
           </div>
         )}
       </div>
+
+      {showObjectivePicker && onSetMonthlyTarget && (
+        <ObjectivePicker
+          currentTarget={monthlyTarget}
+          achievedToDate={achievedToDate}
+          isCustomTarget={isCustomTarget}
+          monthLabel={currentMonthLabel}
+          onSave={onSetMonthlyTarget}
+          onClose={() => setShowObjectivePicker(false)}
+        />
+      )}
     </div>
   );
 };
