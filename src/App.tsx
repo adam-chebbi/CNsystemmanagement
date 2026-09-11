@@ -78,6 +78,7 @@ const SubRecipesPage = lazy(() => import('./components/SubRecipesPage').then((m)
 
 // Lazy-loaded: Journal d'activité.
 const ActivityLogPage = lazy(() => import('./components/ActivityLogPage').then((m) => ({ default: m.ActivityLogPage })));
+const SessionsPage = lazy(() => import('./components/SessionsPage').then((m) => ({ default: m.SessionsPage })));
 
 // Lazy-loaded: the "Achat et dépenses" → Dépenses module (2 pages).
 const ExpensesPage = lazy(() => import('./components/ExpensesPage').then((m) => ({ default: m.ExpensesPage })));
@@ -167,7 +168,7 @@ export default function App() {
   const [modalType, setModalType] = useState<
     'upgrade' | 'restock' | 'sales_returns' | 'purchase_returns' | 'products' | 'clients' | 'vendors' | null
   >(null);
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const performedBy = user?.fullName ?? 'Utilisateur';
 
   const [salesTransactions, setSalesTransactions] = useState<SaleTransaction[]>([]);
@@ -1374,6 +1375,21 @@ export default function App() {
                   isDarkMode={isDarkMode}
                   entries={activityLog}
                   onNavigateToDashboard={() => {
+                    setActiveTab('dashboard');
+                    setActiveSubItem('');
+                  }}
+                />
+              </Suspense>
+            ) : activeTab === 'account_sessions' ? (
+              <Suspense fallback={<StockPageLoadingFallback />}>
+                <SessionsPage
+                  fullName={user?.fullName ?? 'Utilisateur'}
+                  onNavigateToDashboard={() => {
+                    setActiveTab('dashboard');
+                    setActiveSubItem('');
+                  }}
+                  onCurrentSessionRevoked={() => {
+                    logout();
                     setActiveTab('dashboard');
                     setActiveSubItem('');
                   }}
