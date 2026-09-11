@@ -91,51 +91,56 @@ export const PlanOverview: React.FC<PlanOverviewProps> = ({
         </div>
       </div>
 
-      {/* Donut chart & category legend */}
+      {/* Donut chart & category legend — the ring (with the overall progression %) always shows,
+          even with zero sales; only the per-category legend is replaced by an empty-state note. */}
       <div className="p-4 sm:p-5 flex-1 flex flex-col justify-center">
-        {categories.length === 0 ? (
-          <p className="text-center text-xs text-gray-400 dark:text-gray-500 py-8">Aucune vente enregistrée sur la période.</p>
-        ) : (
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-2">
-            <div className="relative flex items-center justify-center w-full min-h-[180px] sm:min-h-[220px] flex-1">
-              <svg className="w-36 h-36 sm:w-44 sm:h-44 -rotate-90" viewBox="0 0 100 100">
-                <circle cx="50" cy="50" r="40" className="stroke-gray-100 dark:stroke-gray-800" strokeWidth="9" fill="transparent" />
-                {categories.map((cat) => {
-                  const dashLength = (circumference * cat.strokeLength) / 100;
-                  const dashGap = circumference - dashLength;
-                  const rotationAngle = (cat.strokeOffset / 100) * 360;
-                  const isSelected = hoveredCategory === cat.id;
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-2">
+          <div className="relative flex items-center justify-center w-full min-h-[180px] sm:min-h-[220px] flex-1">
+            <svg className="w-36 h-36 sm:w-44 sm:h-44 -rotate-90" viewBox="0 0 100 100">
+              <circle cx="50" cy="50" r="40" className="stroke-gray-100 dark:stroke-gray-800" strokeWidth="9" fill="transparent" />
+              {categories.map((cat) => {
+                const dashLength = (circumference * cat.strokeLength) / 100;
+                const dashGap = circumference - dashLength;
+                const rotationAngle = (cat.strokeOffset / 100) * 360;
+                const isSelected = hoveredCategory === cat.id;
 
-                  return (
-                    <circle
-                      key={cat.id}
-                      cx="50"
-                      cy="50"
-                      r="40"
-                      stroke={cat.color}
-                      strokeWidth={isSelected ? '11' : '9'}
-                      strokeDasharray={`${dashLength} ${dashGap}`}
-                      strokeDashoffset="0"
-                      transform={`rotate(${rotationAngle} 50 50)`}
-                      fill="transparent"
-                      className="transition-all duration-200 cursor-pointer"
-                      onMouseEnter={() => setHoveredCategory(cat.id)}
-                      onMouseLeave={() => setHoveredCategory(null)}
-                    />
-                  );
-                })}
-              </svg>
+                return (
+                  <circle
+                    key={cat.id}
+                    cx="50"
+                    cy="50"
+                    r="40"
+                    stroke={cat.color}
+                    strokeWidth={isSelected ? '11' : '9'}
+                    strokeDasharray={`${dashLength} ${dashGap}`}
+                    strokeDashoffset="0"
+                    transform={`rotate(${rotationAngle} 50 50)`}
+                    fill="transparent"
+                    className="transition-all duration-200 cursor-pointer"
+                    onMouseEnter={() => setHoveredCategory(cat.id)}
+                    onMouseLeave={() => setHoveredCategory(null)}
+                  />
+                );
+              })}
+            </svg>
 
-              <div className="absolute flex flex-col items-center pointer-events-none text-center">
-                <span className="text-2xl sm:text-3xl font-extrabold text-gray-900 dark:text-white">
-                  {hovered ? `${hovered.percent}%` : `${targetPercent}%`}
-                </span>
-                <span className="text-xs sm:text-sm font-semibold text-gray-900 dark:text-white mt-0.5 max-w-[110px] leading-tight truncate">
-                  {hovered ? hovered.label : 'Progression'}
-                </span>
-              </div>
+            <div className="absolute flex flex-col items-center pointer-events-none text-center">
+              <span className="text-2xl sm:text-3xl font-extrabold text-gray-900 dark:text-white">
+                {hovered ? `${hovered.percent}%` : `${targetPercent}%`}
+              </span>
+              <span className="text-xs sm:text-sm font-semibold text-gray-900 dark:text-white mt-0.5 max-w-[110px] leading-tight truncate">
+                {hovered ? hovered.label : 'Progression'}
+              </span>
             </div>
+          </div>
 
+          {categories.length === 0 ? (
+            <div className="w-full sm:w-32 shrink-0 border-t sm:border-t-0 pt-3 sm:pt-0 border-gray-100 dark:border-gray-800">
+              <p className="text-xs text-gray-400 dark:text-gray-500 text-center sm:text-left">
+                Aucune vente enregistrée sur la période.
+              </p>
+            </div>
+          ) : (
             <div className="grid grid-cols-2 sm:flex sm:flex-col gap-2.5 sm:gap-3 w-full sm:w-32 shrink-0 border-t sm:border-t-0 pt-3 sm:pt-0 border-gray-100 dark:border-gray-800">
               {categories.map((cat) => (
                 <div
@@ -155,8 +160,8 @@ export const PlanOverview: React.FC<PlanOverviewProps> = ({
                 </div>
               ))}
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
       {showObjectivePicker && onSetMonthlyTarget && (
