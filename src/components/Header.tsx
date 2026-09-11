@@ -3,9 +3,11 @@ import {
   ChevronDown,
   PanelLeft,
   Download,
+  ShieldCheck,
 } from 'lucide-react';
 import { useAuth } from '../auth/AuthContext';
 import { useInstallPrompt } from '../hooks/useInstallPrompt';
+import { SessionsModal } from './SessionsModal';
 
 interface HeaderProps {
   onToggleSidebar: () => void;
@@ -27,6 +29,7 @@ export const Header: React.FC<HeaderProps> = ({
   onNavigate,
 }) => {
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const [showSessionsModal, setShowSessionsModal] = useState(false);
   const { user, logout } = useAuth();
   const { canInstall, promptInstall } = useInstallPrompt();
 
@@ -123,16 +126,14 @@ export const Header: React.FC<HeaderProps> = ({
                   </>
                 )}
                 <button
-                  onClick={() => setShowUserMenu(false)}
-                  className="w-full text-left px-2 py-1.5 text-xs text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg cursor-pointer"
+                  onClick={() => {
+                    setShowUserMenu(false);
+                    setShowSessionsModal(true);
+                  }}
+                  className="w-full text-left px-2 py-1.5 text-xs text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg cursor-pointer flex items-center gap-2"
                 >
-                  Paramètres du compte
-                </button>
-                <button
-                  onClick={() => setShowUserMenu(false)}
-                  className="w-full text-left px-2 py-1.5 text-xs text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg cursor-pointer"
-                >
-                  Préférences
+                  <ShieldCheck size={13} className="text-gray-400" />
+                  Sessions &amp; appareils
                 </button>
                 <div className="border-t border-gray-100 dark:border-gray-700 my-1"></div>
                 <button
@@ -149,6 +150,17 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
         </div>
       </div>
+
+      {showSessionsModal && (
+        <SessionsModal
+          fullName={user?.fullName ?? 'Utilisateur'}
+          onClose={() => setShowSessionsModal(false)}
+          onCurrentSessionRevoked={() => {
+            setShowSessionsModal(false);
+            logout();
+          }}
+        />
+      )}
     </header>
   );
 };

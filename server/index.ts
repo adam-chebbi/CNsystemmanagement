@@ -21,6 +21,9 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 runSeed();
 
 const app = express();
+// nginx sits in front of this process on the same host — trust its X-Forwarded-For so req.ip
+// reflects the real client IP (used for session/device logging) instead of nginx's own address.
+app.set('trust proxy', 'loopback');
 app.use(express.json({ limit: '15mb' }));
 app.use(cookieParser());
 // Runs on every request (app shell + API) so the CSRF cookie is already set before the first

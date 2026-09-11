@@ -9,10 +9,19 @@ CREATE TABLE IF NOT EXISTS users (
   created_at TEXT NOT NULL
 );
 
+-- revoked_at IS NULL means the session is currently active; it's never deleted on logout so
+-- "Historique des connexions" can still show the login/logout event pair afterward.
 CREATE TABLE IF NOT EXISTS sessions (
   token TEXT PRIMARY KEY,
+  public_id TEXT UNIQUE,
   user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  created_at TEXT NOT NULL
+  created_at TEXT NOT NULL,
+  ip_address TEXT,
+  user_agent TEXT,
+  device_label TEXT,
+  location TEXT,
+  last_seen_at TEXT,
+  revoked_at TEXT
 );
 
 CREATE TABLE IF NOT EXISTS product_categories (
