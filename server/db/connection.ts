@@ -39,3 +39,12 @@ if (rowsNeedingPublicId.length > 0) {
   const assignPublicId = db.prepare('UPDATE sessions SET public_id = ? WHERE token = ?');
   rowsNeedingPublicId.forEach((row) => assignPublicId.run(randomUUID(), row.token));
 }
+
+// Sessions created before the device/IP/location capture above existed have no way to ever gain
+// that data retroactively, and would otherwise sit in "Sessions actives" forever showing
+// "Inconnue" for everything. A session only ever has a NULL ip_address if it predates this
+// feature (a freshly created one always gets a real value, even '' is never stored as NULL), so
+// this one-time, idempotent cleanup revokes exactly those — the next login captures full details.
+db.prepare(
+  "UPDATE sessions SET revoked_at = ? WHERE ip_address IS NULL AND revoked_at IS NULL"
+).run(new Date().toISOString());
