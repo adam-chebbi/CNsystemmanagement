@@ -95,6 +95,7 @@ const InvoicesPage = lazy(() => import('./components/InvoicesPage').then((m) => 
 // Lazy-loaded: the OCR page itself, and the tesseract.js/pdfjs-dist/mammoth libraries it dynamically
 // imports internally, are only ever fetched when the user opens "OCR des factures".
 const InvoiceOcrPage = lazy(() => import('./components/InvoiceOcrPage').then((m) => ({ default: m.InvoiceOcrPage })));
+const PurchasesImportPage = lazy(() => import('./components/PurchasesImportPage').then((m) => ({ default: m.PurchasesImportPage })));
 
 // Lazy-loaded: "Gestion du personnel" module (3 pages).
 const EmployeesPage = lazy(() => import('./components/EmployeesPage').then((m) => ({ default: m.EmployeesPage })));
@@ -454,6 +455,12 @@ export default function App() {
 
   const handleCreatePurchaseOrder = (order: PurchaseOrder) => {
     runMutation(() => purchasesApi.createPurchaseOrder(toOrderInput(order)));
+  };
+
+  // Achats → Import Excel/CSV creates every parsed order the same way a single manual order
+  // would (same endpoint, same input shape), just in parallel for the whole batch.
+  const handleImportPurchaseOrders = (orders: PurchaseOrder[]) => {
+    runMutation(() => Promise.all(orders.map((o) => purchasesApi.createPurchaseOrder(toOrderInput(o)))));
   };
 
   const handleUpdatePurchaseOrder = (order: PurchaseOrder) => {
@@ -1187,6 +1194,21 @@ export default function App() {
                   onNavigateToPurchases={() => setActiveSubItem('purchases_acquisitions')}
                   onCreateProductAlias={handleCreateProductAlias}
                   onIntegrateInvoice={handleIntegrateOcrInvoice}
+                />
+              </Suspense>
+            ) : activeTab === 'purchases_mgmt' && activeSubItem === 'purchases_import' ? (
+              <Suspense fallback={<StockPageLoadingFallback />}>
+                <PurchasesImportPage
+                  isDarkMode={isDarkMode}
+                  suppliers={suppliers}
+                  products={stockProducts}
+                  employees={employeeFullNames}
+                  onNavigateToDashboard={() => {
+                    setActiveTab('dashboard');
+                    setActiveSubItem('');
+                  }}
+                  onNavigateToPurchases={() => setActiveSubItem('purchases_acquisitions')}
+                  onSaveOrders={handleImportPurchaseOrders}
                 />
               </Suspense>
             ) : activeTab === 'staff_mgmt' && activeSubItem === 'staff_employees' ? (

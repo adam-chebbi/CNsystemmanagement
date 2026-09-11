@@ -146,6 +146,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             { id: 'purchases_suppliers', label: 'Listes des fournisseurs' },
             { id: 'purchases_invoices', label: 'Factures' },
             { id: 'purchases_ocr', label: 'OCR des factures' },
+            { id: 'purchases_import', label: 'Import Excel/CSV' },
           ],
         },
       ],
