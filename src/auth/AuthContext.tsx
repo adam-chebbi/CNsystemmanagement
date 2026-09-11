@@ -1,5 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
-import { apiGet, apiPost, ApiError, getStoredToken, setStoredToken } from '../api/client';
+import { apiGet, apiPost, ApiError } from '../api/client';
 
 export interface AuthUser {
   id: string;
@@ -21,26 +21,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isReady, setIsReady] = useState(false);
 
   useEffect(() => {
-    const token = getStoredToken();
-    if (!token) {
-      setIsReady(true);
-      return;
-    }
+    // The session lives in an httpOnly cookie that JS can't read, so the only way to know
+    // whether one exists is to ask the server — it 401s cleanly if there isn't one.
     apiGet<{ user: AuthUser }>('/auth/me')
       .then((res) => setUser(res.user))
-      .catch(() => setStoredToken(null))
+      .catch(() => undefined)
       .finally(() => setIsReady(true));
   }, []);
 
   const login = useCallback(async (cin: string) => {
-    const res = await apiPost<{ token: string; user: AuthUser }>('/auth/login', { cin });
-    setStoredToken(res.token);
+    const res = await apiPost<{ user: AuthUser }>('/auth/login', { cin });
     setUser(res.user);
   }, []);
 
   const logout = useCallback(() => {
     apiPost('/auth/logout').catch(() => undefined);
-    setStoredToken(null);
     setUser(null);
   }, []);
 

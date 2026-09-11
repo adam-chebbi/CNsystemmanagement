@@ -1,6 +1,7 @@
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import express from 'express';
+import cookieParser from 'cookie-parser';
 import './db/connection.js';
 import { runSeed } from './seed/index.js';
 import { authRouter } from './routes/auth.js';
@@ -13,6 +14,7 @@ import { hrRouter } from './routes/hr.js';
 import { notificationsRouter } from './routes/notifications.js';
 import { activityLogRouter } from './routes/activityLog.js';
 import { errorMiddleware } from './middleware/errors.js';
+import { ensureCsrfCookie, csrfProtection } from './middleware/csrf.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -20,6 +22,11 @@ runSeed();
 
 const app = express();
 app.use(express.json({ limit: '15mb' }));
+app.use(cookieParser());
+// Runs on every request (app shell + API) so the CSRF cookie is already set before the first
+// state-changing request — see server/middleware/csrf.ts.
+app.use(ensureCsrfCookie);
+app.use('/api', csrfProtection);
 
 app.use('/api/auth', authRouter);
 app.use('/api', productCatalogRouter);

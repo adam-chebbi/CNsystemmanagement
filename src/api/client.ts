@@ -1,22 +1,18 @@
-const TOKEN_STORAGE_KEY = 'cn_auth_token';
+// The session credential lives only in an httpOnly cookie set by the server — never in
+// localStorage or any other JS-readable storage, so it can't be read or exfiltrated by an XSS
+// payload. `credentials: 'include'` makes sure that cookie (and the CSRF cookie below) are sent
+// with every request.
 
 export class ApiError extends Error {}
 
-export const getStoredToken = (): string | null => {
-  try {
-    return localStorage.getItem(TOKEN_STORAGE_KEY);
-  } catch {
-    return null;
-  }
-};
+const CSRF_COOKIE = 'csrf_token';
+const CSRF_HEADER = 'X-CSRF-Token';
 
-export const setStoredToken = (token: string | null): void => {
-  try {
-    if (token) localStorage.setItem(TOKEN_STORAGE_KEY, token);
-    else localStorage.removeItem(TOKEN_STORAGE_KEY);
-  } catch {
-    // localStorage unavailable (e.g. private browsing) -- session just won't persist across reloads.
-  }
+// The CSRF cookie is intentionally NOT httpOnly (see server/middleware/csrf.ts) — the client
+// must read it here and echo it back in a header for every state-changing request.
+const getCsrfToken = (): string | null => {
+  const match = document.cookie.match(new RegExp(`(?:^|; )${CSRF_COOKIE}=([^;]*)`));
+  return match ? decodeURIComponent(match[1]) : null;
 };
 
 interface RequestOptions {
@@ -25,14 +21,18 @@ interface RequestOptions {
 }
 
 const request = async <T,>(path: string, options: RequestOptions = {}): Promise<T> => {
-  const token = getStoredToken();
+  const method = options.method ?? 'GET';
   const headers: Record<string, string> = {};
-  if (token) headers.Authorization = `Bearer ${token}`;
   if (options.body !== undefined) headers['Content-Type'] = 'application/json';
+  if (method !== 'GET') {
+    const csrfToken = getCsrfToken();
+    if (csrfToken) headers[CSRF_HEADER] = csrfToken;
+  }
 
   const res = await fetch(`/api${path}`, {
-    method: options.method ?? 'GET',
+    method,
     headers,
+    credentials: 'include',
     body: options.body !== undefined ? JSON.stringify(options.body) : undefined,
   });
 

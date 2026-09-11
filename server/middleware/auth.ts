@@ -27,9 +27,10 @@ interface UserRow {
   cin: string;
 }
 
+export const SESSION_COOKIE = 'session';
+
 export const requireAuth = (req: Request, _res: Response, next: NextFunction): void => {
-  const header = req.header('authorization') ?? '';
-  const token = header.startsWith('Bearer ') ? header.slice(7) : '';
+  const token = req.cookies?.[SESSION_COOKIE] ?? '';
   if (!token) throw new ApiError(401, 'Authentification requise.');
 
   const session = db.prepare('SELECT user_id FROM sessions WHERE token = ?').get(token) as SessionRow | undefined;

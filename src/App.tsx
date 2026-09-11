@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo, Suspense, lazy } from 'react';
+import { useCookieConsent } from './context/CookieConsentContext';
+import { getCookie, setCookie } from './lib/cookies';
 import { Sidebar } from './components/Sidebar';
 import { Header } from './components/Header';
 import { HeroBanner } from './components/HeroBanner';
@@ -117,9 +119,21 @@ const StockPageLoadingFallback: React.FC = () => (
   </div>
 );
 
+const SIDEBAR_COLLAPSED_COOKIE = 'cn_sidebar_collapsed';
+
 export default function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const { preferencesEnabled } = useCookieConsent();
+  // The collapsed/expanded state is the one real "user preference" this app currently has (no
+  // theme/language toggle exists) — it's only persisted across visits when the user has opted
+  // into preference cookies via the cookie consent banner; otherwise it just resets each session.
+  const [isSidebarCollapsed, setIsSidebarCollapsedRaw] = useState(
+    () => preferencesEnabled && getCookie(SIDEBAR_COLLAPSED_COOKIE) === '1'
+  );
+  const setIsSidebarCollapsed = (value: boolean) => {
+    setIsSidebarCollapsedRaw(value);
+    if (preferencesEnabled) setCookie(SIDEBAR_COLLAPSED_COOKIE, value ? '1' : '0', 365);
+  };
   // Drop-in replacement for two plain useState calls: same external shape (setActiveTab/
   // setActiveSubItem take a plain string), but kept in sync with the URL's ?tab=&sub= — deep
   // links, page refreshes and the browser back/forward buttons all work. 'dashboard' has no
