@@ -8,8 +8,11 @@ import {
   getExtraById,
   getVariantGroupForCategory,
   getVariantOption,
+  getArticleVatRate,
+  getArticleTtcPrice,
 } from './manualSalesCatalog';
 import { normalizeKey, parseDateFlexible } from './textUtils';
+import { roundToPayableCash } from './currencyRounding';
 
 export { normalizeKey, parseDateFlexible };
 
@@ -94,7 +97,7 @@ export const computeItemUnitPrice = (item: DraftTicketItem, catalog: Pick<SalesC
     ? getVariantOption(article.category, item.variantOptionId)?.priceDelta ?? 0
     : 0;
   const extrasTotal = item.extraIds.reduce((sum, id) => sum + (getExtraById(id, catalog.extras)?.price ?? 0), 0);
-  return article.price + variantDelta + extrasTotal;
+  return getArticleTtcPrice(article) + variantDelta + extrasTotal;
 };
 
 export const computeItemLineTotal = (item: DraftTicketItem, catalog: Pick<SalesCatalogContext, 'articles' | 'extras'>): number =>
@@ -209,11 +212,18 @@ const buildSaleItemFromDraft = (item: DraftTicketItem, catalog: Pick<SalesCatalo
   const variant = item.variantOptionId ? getVariantOption(article.category, item.variantOptionId) : undefined;
   const extraNames = item.extraIds.map((id) => getExtraById(id, catalog.extras)?.name).filter((n): n is string => Boolean(n));
   const nameSuffix = [variant?.label, ...extraNames].filter(Boolean).join(', ');
+  const unitPrice = computeItemUnitPrice(item, catalog);
+  const vatRate = getArticleVatRate(article);
+  const lineTtc = unitPrice * item.qty;
+  const lineNet = lineTtc / (1 + vatRate);
   return {
     name: nameSuffix ? `${article.name} (${nameSuffix})` : article.name,
     qty: item.qty,
-    price: computeItemUnitPrice(item, catalog),
+    price: unitPrice,
     category: article.category,
+    vatRate,
+    netAmount: lineNet,
+    taxAmount: lineTtc - lineNet,
   };
 };
 
@@ -232,7 +242,10 @@ export const buildSaleTransactionFromTicket = (
   const monthLabel = MONTHS_LIST[dateObj.getMonth()]?.label ?? 'Sep';
   const now = new Date();
   const timeLabel = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
-  const totalAmount = items.reduce((sum, it) => sum + it.qty * it.price, 0);
+  const preciseAmount = items.reduce((sum, it) => sum + it.qty * it.price, 0);
+  // Only cash payments face the "can this be made with real coins/notes" problem — card and
+  // ticket resto settle at the exact electronic amount.
+  const totalAmount = ticket.paymentMethod === 'Espèces' ? roundToPayableCash(preciseAmount) : preciseAmount;
   const itemsCount = items.reduce((sum, it) => sum + it.qty, 0);
   const itemsSummary = items.map((it) => `${it.qty}x ${it.name}`).join(', ');
 
@@ -250,6 +263,7 @@ export const buildSaleTransactionFromTicket = (
     paymentMethod: ticket.paymentMethod,
     barista: context.employee,
     totalAmount,
+    preciseAmount,
     date: context.date,
     time: timeLabel,
     month: monthLabel,

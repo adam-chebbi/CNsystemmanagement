@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Banknote, CreditCard, Ticket, CalendarDays, AlertCircle } from 'lucide-react';
+import { Banknote, CreditCard, Ticket, CalendarDays, AlertCircle, Receipt } from 'lucide-react';
 import { SaleTransaction } from '../data/salesTransactions';
 import { Expense } from '../data/expensesModel';
 import { SupplierInvoice } from '../data/purchasesModel';
@@ -13,6 +13,7 @@ import {
   buildCashCheckCalendar,
   findLatestVerificationForDate,
 } from '../data/cashCheckModel';
+import { computeVatBreakdown } from '../data/reportsModel';
 import { CashCheckHeatmap } from './cashCheck/CashCheckHeatmap';
 import { CashVerificationPanel } from './cashCheck/CashVerificationPanel';
 import { CashCheckHistory } from './cashCheck/CashCheckHistory';
@@ -60,6 +61,14 @@ export const CashCheckPage: React.FC<CashCheckPageProps> = ({
   const dayVerification = useMemo(
     () => findLatestVerificationForDate(verifications, selectedDate),
     [verifications, selectedDate]
+  );
+
+  // Accounting analysis only — never the basis for the money verification above/below, which
+  // stays entirely TTC (the real amount collected). Computed per rate, from each sale item's own
+  // vatRate, never a single flat rate.
+  const dayVatBreakdown = useMemo(
+    () => computeVatBreakdown(salesTransactions.filter((t) => t.date === selectedDate)),
+    [salesTransactions, selectedDate]
   );
 
   const handleConfirm = async (input: CashVerificationInput) => {
@@ -270,6 +279,54 @@ export const CashCheckPage: React.FC<CashCheckPageProps> = ({
             <span className="text-base font-bold text-gray-900 dark:text-white">{formatDT(dayTotals.netCarte)}</span>
           </div>
         </div>
+      </div>
+
+      {/* Analyse comptable HT / TVA — informative only, never the basis for the cash verification
+          below: real-money reconciliation always stays TTC, per l'argent réellement encaissé. */}
+      <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-[#151D2A] border border-gray-100 dark:border-gray-800 shadow-2xs space-y-3">
+        <div>
+          <h2 className="text-sm font-bold text-gray-900 dark:text-white inline-flex items-center gap-2">
+            <Receipt size={15} className="text-purple-500" /> Analyse comptable HT / TVA
+          </h2>
+          <p className="text-[11px] text-gray-400 mt-0.5">
+            Ventilation fiscale des ventes de la journée, calculée par taux propre à chaque produit — à titre
+            d'analyse uniquement, sans effet sur la vérification de caisse (toujours en TTC) ci-dessous.
+          </p>
+        </div>
+        {dayVatBreakdown.byRate.length === 0 ? (
+          <p className="text-xs text-gray-400">Aucune vente enregistrée pour ce jour.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="text-left text-gray-400 dark:text-gray-500">
+                  <th className="py-1 font-semibold">Taux de TVA</th>
+                  <th className="py-1 font-semibold text-right">TTC</th>
+                  <th className="py-1 font-semibold text-right">HT</th>
+                  <th className="py-1 font-semibold text-right">TVA</th>
+                </tr>
+              </thead>
+              <tbody>
+                {dayVatBreakdown.byRate.map((r) => (
+                  <tr key={r.rate} className="border-t border-gray-100 dark:border-gray-800">
+                    <td className="py-1 text-gray-600 dark:text-gray-300">{(r.rate * 100).toFixed(0)}%</td>
+                    <td className="py-1 text-right text-gray-600 dark:text-gray-300">{formatDT(r.gross)}</td>
+                    <td className="py-1 text-right text-gray-600 dark:text-gray-300">{formatDT(r.net)}</td>
+                    <td className="py-1 text-right font-semibold text-gray-800 dark:text-gray-200">{formatDT(r.tax)}</td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot>
+                <tr className="border-t-2 border-gray-200 dark:border-gray-700 font-bold">
+                  <td className="py-1.5 text-gray-900 dark:text-white">Total</td>
+                  <td className="py-1.5 text-right text-gray-900 dark:text-white">{formatDT(dayVatBreakdown.totalGross)}</td>
+                  <td className="py-1.5 text-right text-gray-900 dark:text-white">{formatDT(dayVatBreakdown.totalNet)}</td>
+                  <td className="py-1.5 text-right text-gray-900 dark:text-white">{formatDT(dayVatBreakdown.totalTax)}</td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        )}
       </div>
 
       {/* 6-9. Vérification */}

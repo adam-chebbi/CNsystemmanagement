@@ -20,6 +20,7 @@ import { DashboardPeriodData } from '../data/dashboardModel';
 
 interface MetricCardsProps {
   data: DashboardPeriodData;
+  caisseActuelle: string;
   compareWithPrevious: boolean;
   onNavigate: (tab: string, sub?: string) => void;
 }
@@ -150,6 +151,7 @@ const KpiCard: React.FC<{ card: KpiCardDef; compareWithPrevious: boolean; onNavi
 
 export const MetricCards: React.FC<MetricCardsProps> = ({
   data,
+  caisseActuelle,
   compareWithPrevious,
   onNavigate,
 }) => {
@@ -187,24 +189,23 @@ export const MetricCards: React.FC<MetricCardsProps> = ({
       nav: { tab: 'expenses_mgmt', sub: 'expenses' },
     },
     {
-      id: 'monthly-sales',
-      title: 'Ventes mensuelles',
-      amount: data.monthlyTurnover,
-      subtitle: `${data.monthlyTurnoverChange} par rapport au mois précédent`,
-      change: data.monthlyTurnoverChange,
+      id: 'benefice',
+      title: 'Bénéfices',
+      amount: data.benefice,
+      subtitle: compareWithPrevious ? `${data.beneficeChange} vs période préc.` : 'ventes nettes − achats − dépenses',
+      change: data.beneficeChange,
       accentColor: 'purple',
       icon: TrendingUp,
-      nav: { tab: 'reports_mgmt', sub: 'report_monthly' },
+      nav: { tab: 'reports_mgmt', sub: 'report_finance' },
     },
     {
-      id: 'monthly-purchases',
-      title: 'Achats mensuels',
-      amount: data.monthlyPurchases,
-      subtitle: compareWithPrevious ? `${data.monthlyPurchasesChange} vs mois préc.` : 'ce mois-ci',
-      change: data.monthlyPurchasesChange,
+      id: 'caisse-actuelle',
+      title: 'Total caisse actuelle',
+      amount: caisseActuelle,
+      subtitle: 'Espèces + Carte + Tickets resto',
       accentColor: 'sky',
       icon: Coins,
-      nav: { tab: 'reports_mgmt', sub: 'report_purchases' },
+      nav: { tab: 'sales_mgmt', sub: 'sales_cash_check' },
     },
   ];
 

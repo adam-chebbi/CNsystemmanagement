@@ -35,6 +35,7 @@ import {
   getExtraById,
   getVariantGroupForCategory,
   getVariantOption,
+  getArticleTtcPrice,
 } from '../data/manualSalesCatalog';
 import {
   DraftTicket,
@@ -901,7 +902,7 @@ export const ManualSalesEntryPage: React.FC<ManualSalesEntryPageProps> = ({
                                           <optgroup key={cat} label={cat}>
                                             {articles.filter((a) => a.category === cat).map((a) => (
                                               <option key={a.id} value={a.id}>
-                                                {a.name} — {a.price.toFixed(2)} DT
+                                                {a.name} — {getArticleTtcPrice(a).toFixed(2)} DT
                                               </option>
                                             ))}
                                           </optgroup>

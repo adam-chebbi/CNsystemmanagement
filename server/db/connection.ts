@@ -48,3 +48,16 @@ if (rowsNeedingPublicId.length > 0) {
 db.prepare(
   "UPDATE sessions SET revoked_at = ? WHERE ip_address IS NULL AND revoked_at IS NULL"
 ).run(new Date().toISOString());
+
+// One-time, idempotent migration: catalog_articles gained a per-product VAT rate and a
+// tax-inclusive-price flag after the original schema shipped. NULL on either column means "use
+// the app's default" (see manualSalesCatalog.getArticleVatRate / getArticleTtcPrice) — existing
+// rows are left NULL rather than backfilled with a guess, since only the business knows which of
+// its products are actually reduced-rate or HT-priced.
+const catalogArticleColumns = new Set((db.pragma('table_info(catalog_articles)') as { name: string }[]).map((c) => c.name));
+if (!catalogArticleColumns.has('vat_rate')) {
+  db.exec('ALTER TABLE catalog_articles ADD COLUMN vat_rate REAL');
+}
+if (!catalogArticleColumns.has('price_includes_tax')) {
+  db.exec('ALTER TABLE catalog_articles ADD COLUMN price_includes_tax INTEGER');
+}

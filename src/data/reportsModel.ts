@@ -9,7 +9,7 @@
 
 import { normalizeKey } from './textUtils';
 import { SaleTransaction, MONTHS_LIST } from './salesTransactions';
-import { CatalogArticle } from './manualSalesCatalog';
+import { CatalogArticle, DEFAULT_VAT_RATE } from './manualSalesCatalog';
 import { ProductCategory, SubRecipe, computeRecipeCost, computeMargin, DEFAULT_TARGET_MARGIN_RATE } from './productsModel';
 import { StockProduct, StockLedgerEntry, getTotalQty } from './stockModel';
 import { Expense, ExpenseCategory } from './expensesModel';
@@ -368,33 +368,87 @@ export const computeFinancialSummary = (
   };
 };
 
+// --- TVA (VAT) breakdown by rate — the single source of truth for every Gross/Net/TVA figure in
+// the app (Rapport fiscal, dashboard Bénéfices, printed receipts, "Calcul du quotidien"'s
+// accounting analysis). Article prices are TTC (what the customer actually pays); each SaleItem
+// carries the netAmount/taxAmount that were computed and frozen at the moment of sale (falling
+// back to deriving them from price/qty/vatRate for any sale recorded before those fields existed)
+// — never assumed from a single flat rate, since Tunisia's real VAT tiers (0%/7%/13%/19%) can
+// differ per product, and a later change to a product's rate must never rewrite a past receipt.
+// -------------------------------------------------------------------------------------------------
+
+export interface VatRateBreakdown {
+  rate: number;
+  gross: number; // TTC — the amount actually paid by customers for items at this rate
+  net: number; // HT
+  tax: number; // TVA
+}
+
+export interface VatBreakdown {
+  byRate: VatRateBreakdown[]; // sorted by rate, descending
+  totalGross: number;
+  totalNet: number;
+  totalTax: number;
+}
+
+export const computeVatBreakdown = (transactions: SaleTransaction[]): VatBreakdown => {
+  const byRate = new Map<number, { gross: number; net: number; tax: number }>();
+  transactions
+    .filter((t) => t.status === 'Payé')
+    .forEach((t) => {
+      t.items.forEach((item) => {
+        const rate = item.vatRate ?? DEFAULT_VAT_RATE;
+        const gross = item.qty * item.price;
+        // Prefer the values frozen at sale time; only derive them for historical items that
+        // predate net/tax capture.
+        const net = item.netAmount ?? gross / (1 + rate);
+        const tax = item.taxAmount ?? gross - net;
+        const bucket = byRate.get(rate) ?? { gross: 0, net: 0, tax: 0 };
+        bucket.gross += gross;
+        bucket.net += net;
+        bucket.tax += tax;
+        byRate.set(rate, bucket);
+      });
+    });
+
+  const rows: VatRateBreakdown[] = Array.from(byRate.entries())
+    .map(([rate, b]) => ({ rate, gross: b.gross, net: b.net, tax: b.tax }))
+    .sort((a, b) => b.rate - a.rate);
+
+  return {
+    byRate: rows,
+    totalGross: rows.reduce((s, r) => s + r.gross, 0),
+    totalNet: rows.reduce((s, r) => s + r.net, 0),
+    totalTax: rows.reduce((s, r) => s + r.tax, 0),
+  };
+};
+
 // --- Rapport fiscal (informational only — V1 is not a tax-declaration system) -----------------
 
-// Matches the 10% TVA split already baked into every ticket receipt (see SalesPage's
-// getReceiptTotals) — kept as the single constant so every report agrees with the printed
-// tickets rather than inventing a second rate.
-export const SALES_VAT_RATE = 0.1;
-
 export interface TaxSummary {
+  grossSales: number;
   salesHT: number;
   vatCollected: number;
   purchasesHT: number;
   vatDeductible: number;
   netVat: number;
+  vatByRate: VatRateBreakdown[];
 }
 
 export const computeTaxSummary = (transactions: SaleTransaction[], invoices: SupplierInvoice[], period: ReportPeriod): TaxSummary => {
-  const sales = computeSalesMetrics(transactions, period);
-  const vatCollected = sales.revenue * SALES_VAT_RATE;
+  const inPeriodSales = transactions.filter((t) => t.status === 'Payé' && isDateInPeriod(t.date, period));
+  const vatBreakdown = computeVatBreakdown(inPeriodSales);
   const inPeriodInvoices = invoices.filter((i) => isDateInPeriod(i.invoiceDate, period));
   const vatDeductible = inPeriodInvoices.reduce((s, i) => s + i.vatAmount, 0);
   const purchasesHT = inPeriodInvoices.reduce((s, i) => s + i.amountHT, 0);
   return {
-    salesHT: sales.revenue - vatCollected,
-    vatCollected,
+    grossSales: vatBreakdown.totalGross,
+    salesHT: vatBreakdown.totalNet,
+    vatCollected: vatBreakdown.totalTax,
     purchasesHT,
     vatDeductible,
-    netVat: vatCollected - vatDeductible,
+    netVat: vatBreakdown.totalTax - vatDeductible,
+    vatByRate: vatBreakdown.byRate,
   };
 };
 

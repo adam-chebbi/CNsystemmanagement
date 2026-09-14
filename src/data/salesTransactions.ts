@@ -1,11 +1,20 @@
 export interface SaleItem {
   name: string;
   qty: number;
-  price: number;
+  price: number; // TTC, per unit — this is the amount actually charged/collected
   // Widened from a fixed union to a plain string so it can reference the dynamic product
   // category catalog managed in "Produits, recettes & marges" (see productsModel.ts) — the
   // original 6 seeded category names are unchanged, new ones can now be added without a type edit.
   category: string;
+  // Tax snapshot, frozen at the moment of sale (see manualSalesCatalog.getArticleVatRate) — a
+  // later change to the article's rate must never rewrite a receipt that already happened.
+  // netAmount/taxAmount are the LINE totals (qty already applied), stored explicitly rather than
+  // only derivable, so historical accuracy never depends on any future formula staying the same.
+  // Absent on sales recorded before these fields existed; treat as DEFAULT_VAT_RATE / derive from
+  // price and qty in that case (see reportsModel.computeVatBreakdown).
+  vatRate?: number;
+  netAmount?: number;
+  taxAmount?: number;
 }
 
 export type ServiceType = 'Sur place' | 'À emporter';
@@ -21,7 +30,14 @@ export interface SaleTransaction {
   itemsSummary: string;
   paymentMethod: PaymentMethod;
   barista: string;
+  // The amount actually paid/collected — for Espèces this is rounded up to the nearest payable
+  // Tunisian cash denomination (see currencyRounding.roundToPayableCash); for Carte bancaire and
+  // Ticket resto it's the exact sum (no coin-rounding problem to solve). Sales stats, dashboards
+  // and cash-register totals all read this field, so they automatically reflect real cash flow.
   totalAmount: number;
+  // The precise pre-rounding sum of the items — kept for accounting/audit purposes even when
+  // totalAmount was rounded up for cash. Equal to totalAmount whenever no rounding applied.
+  preciseAmount?: number;
   date: string;
   time: string;
   month: string; // 'Jan' | 'Fév' | 'Mar' | 'Avr' | 'Mai' | 'Juin' | 'Juil' | 'Août' | 'Sep' | 'Oct' | 'Nov' | 'Déc'

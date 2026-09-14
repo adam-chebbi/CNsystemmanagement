@@ -8,7 +8,7 @@
 import { TimeFilterPeriod, MetricCardData, TopProduct, LowStockProduct, CoffeeAlert } from '../types';
 import { SaleTransaction } from './salesTransactions';
 import { StockProduct, StockLot, StockLedgerEntry, getTotalQty } from './stockModel';
-import { computeStockValue, computeLowStockProducts } from './reportsModel';
+import { computeStockValue, computeLowStockProducts, computeVatBreakdown } from './reportsModel';
 import { CatalogArticle } from './manualSalesCatalog';
 import { SubRecipe, computeRecipeCost, computeMargin } from './productsModel';
 import { Supplier, PurchaseOrder, SupplierInvoice, computeOrderTotal } from './purchasesModel';
@@ -59,7 +59,7 @@ export const getPreviousRange = (range: DateRange): DateRange => {
   return { start: addDays(range.start, -length), end: addDays(range.start, -1) };
 };
 
-const formatDT = (value: number): string => `${value.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} DT`;
+export const formatDT = (value: number): string => `${value.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} DT`;
 const formatPercentChange = (current: number, previous: number): string => {
   if (previous <= 0) return current > 0 ? '+100%' : '+0%';
   const pct = ((current - previous) / previous) * 100;
@@ -81,11 +81,19 @@ const sumSales = (transactions: SaleTransaction[], range: DateRange): { revenue:
   return { revenue, ticketCount, itemsCount };
 };
 
+// Excludes 'Annulée' orders — a cancelled order was never actually purchased, so it must never
+// count toward "achats" (matches reportsModel.computePurchasesMetrics' convention).
 const sumPurchases = (orders: PurchaseOrder[], range: DateRange): number =>
-  orders.filter((o) => inRange(o.orderDate, range)).reduce((sum, o) => sum + computeOrderTotal(o), 0);
+  orders
+    .filter((o) => inRange(o.orderDate, range) && o.status !== 'Annulée')
+    .reduce((sum, o) => sum + computeOrderTotal(o), 0);
 
+// Only 'Approuvé' expenses represent real money actually spent — matches the "dépenses
+// approuvées" label already shown under this card (the Rapport sur les dépenses page
+// intentionally counts pending expenses too, for budgeting oversight — a different, equally
+// valid purpose that stays untouched in reportsModel.ts's own computeExpensesMetrics).
 const sumExpenses = (expenses: Expense[], range: DateRange): number =>
-  expenses.filter((e) => inRange(e.date, range)).reduce((sum, e) => sum + e.amount, 0);
+  expenses.filter((e) => inRange(e.date, range) && e.status === 'Approuvé').reduce((sum, e) => sum + e.amount, 0);
 
 // Recipe-cost-based COGS estimate for the transactions in range: items whose name matches a
 // CatalogArticle with a recipe cost that recipe (converted through sub-recipes); anything without
@@ -123,10 +131,8 @@ export interface DashboardPeriodData {
   purchasesChange: string;
   expenses: string;
   expensesChange: string;
-  monthlyTurnover: string;
-  monthlyTurnoverChange: string;
-  monthlyPurchases: string;
-  monthlyPurchasesChange: string;
+  benefice: string;
+  beneficeChange: string;
   stockValue: string;
   staffCost: string;
   staffCostChange: string;
@@ -161,14 +167,16 @@ export const computeDashboardPeriodData = (range: DateRange, sources: DashboardD
   const expensesTotal = sumExpenses(expenses, range);
   const prevExpensesTotal = sumExpenses(expenses, prevRange);
 
-  const today = todayIso();
-  const monthRange = { start: startOfMonth(today), end: today };
-  const prevMonthEnd = addDays(monthRange.start, -1);
-  const prevMonthRange = { start: startOfMonth(prevMonthEnd), end: prevMonthEnd };
-  const monthlySales = sumSales(transactions, monthRange);
-  const prevMonthlySales = sumSales(transactions, prevMonthRange);
-  const monthlyPurchases = sumPurchases(orders, monthRange);
-  const prevMonthlyPurchases = sumPurchases(orders, prevMonthRange);
+  // Bénéfices = Ventes nettes − Achats − Dépenses, où Ventes nettes = Ventes brutes − TVA
+  // collectée (never the gross/TTC figure — taxes collected on behalf of the state are not
+  // profit). Sales stats/KPIs elsewhere (turnover, etc.) still show the gross amount actually
+  // paid by customers; only this profit figure nets the tax back out.
+  const inRangeSales = transactions.filter((t) => t.status === 'Payé' && inRange(t.date, range));
+  const prevInRangeSales = transactions.filter((t) => t.status === 'Payé' && inRange(t.date, prevRange));
+  const netSales = current.revenue - computeVatBreakdown(inRangeSales).totalTax;
+  const prevNetSales = previous.revenue - computeVatBreakdown(prevInRangeSales).totalTax;
+  const benefice = netSales - purchases - expensesTotal;
+  const prevBenefice = prevNetSales - prevPurchases - prevExpensesTotal;
 
   const now = new Date();
   const staffCost = financialRecords
@@ -189,10 +197,8 @@ export const computeDashboardPeriodData = (range: DateRange, sources: DashboardD
     purchasesChange: formatPercentChange(purchases, prevPurchases),
     expenses: formatDT(expensesTotal),
     expensesChange: formatPercentChange(expensesTotal, prevExpensesTotal),
-    monthlyTurnover: formatDT(monthlySales.revenue),
-    monthlyTurnoverChange: formatPercentChange(monthlySales.revenue, prevMonthlySales.revenue),
-    monthlyPurchases: formatDT(monthlyPurchases),
-    monthlyPurchasesChange: formatPercentChange(monthlyPurchases, prevMonthlyPurchases),
+    benefice: formatDT(benefice),
+    beneficeChange: formatPercentChange(benefice, prevBenefice),
     stockValue: formatDT(computeStockValue(stockProducts)),
     staffCost: formatDT(staffCost),
     staffCostChange: formatPercentChange(staffCost, prevStaffCost),
@@ -211,8 +217,7 @@ export const buildMetricCards = (data: DashboardPeriodData): MetricCardData[] =>
   { id: 'total-sales', title: 'Ventes totales', amount: data.turnover, subtitle: `${data.turnoverChange} vs période préc.`, accentColor: 'emerald', iconType: 'receipt' },
   { id: 'total-purchases', title: 'Achat total des biens et services', amount: data.purchases, subtitle: `${data.purchasesChange} vs période préc.`, accentColor: 'blue', iconType: 'cart' },
   { id: 'total-expenses', title: 'Total des dépenses', amount: data.expenses, subtitle: `${data.expensesChange} vs période préc.`, accentColor: 'rose', iconType: 'wallet' },
-  { id: 'monthly-sales', title: 'Ventes mensuelles', amount: data.monthlyTurnover, subtitle: `${data.monthlyTurnoverChange} vs mois préc.`, accentColor: 'purple', iconType: 'trending' },
-  { id: 'monthly-purchases', title: 'Achats mensuels', amount: data.monthlyPurchases, subtitle: `${data.monthlyPurchasesChange} vs mois préc.`, accentColor: 'sky', iconType: 'coins' },
+  { id: 'benefice', title: 'Bénéfices', amount: data.benefice, subtitle: `${data.beneficeChange} vs période préc.`, accentColor: 'purple', iconType: 'trending' },
 ];
 
 // --- Top/least/revenue/margin products + low stock (replaces the 4 TopProduct[] + LOW_STOCK_PRODUCTS) --

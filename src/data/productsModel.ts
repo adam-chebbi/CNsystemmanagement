@@ -261,6 +261,8 @@ export interface DraftProduct {
   variants: VariantOption[];
   extraIds: string[];
   targetMarginRate: string;
+  vatRate: string;
+  priceIncludesTax: boolean;
 }
 
 export const createEmptyDraftProduct = (): DraftProduct => ({
@@ -276,6 +278,8 @@ export const createEmptyDraftProduct = (): DraftProduct => ({
   variants: [],
   extraIds: [],
   targetMarginRate: '',
+  vatRate: '',
+  priceIncludesTax: true,
 });
 
 // Edit mode: seed the draft from an existing product so "Modifier" reuses the exact same
@@ -300,6 +304,8 @@ export const createDraftFromArticle = (
     variants: (article.variants ?? []).map((v) => ({ ...v })),
     extraIds: [...(article.extraIds ?? [])],
     targetMarginRate: article.targetMarginRate !== undefined ? String(article.targetMarginRate) : '',
+    vatRate: article.vatRate !== undefined ? String(article.vatRate) : '',
+    priceIncludesTax: article.priceIncludesTax !== false,
   };
 };
 
@@ -397,6 +403,13 @@ export const validateDraftProduct = (
     }
   }
 
+  if (draft.vatRate.trim() !== '') {
+    const rate = Number(draft.vatRate);
+    if (Number.isNaN(rate) || rate < 0 || rate > 1) {
+      issues.push({ field: 'vatRate', message: 'Le taux de TVA doit être un nombre entre 0 et 1 (ex: 0.19 pour 19%).' });
+    }
+  }
+
   return issues;
 };
 
@@ -420,6 +433,8 @@ export const buildCatalogArticleFromDraft = (
     variants: draft.variants.length > 0 ? draft.variants : undefined,
     recipe: draft.recipe.length > 0 ? draft.recipe : undefined,
     targetMarginRate: draft.targetMarginRate.trim() !== '' ? Number(draft.targetMarginRate) : undefined,
+    vatRate: draft.vatRate.trim() !== '' ? Number(draft.vatRate) : undefined,
+    priceIncludesTax: draft.priceIncludesTax,
     createdAt: new Date().toISOString().slice(0, 10),
   };
 };

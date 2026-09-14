@@ -16,7 +16,7 @@ import {
   Layers,
   Sparkles,
 } from 'lucide-react';
-import { CatalogArticle, CatalogExtra, VariantOption } from '../data/manualSalesCatalog';
+import { CatalogArticle, CatalogExtra, VariantOption, DEFAULT_VAT_RATE, COMMON_VAT_RATES } from '../data/manualSalesCatalog';
 import { StockProduct, StockUnit } from '../data/stockModel';
 import {
   ProductCategory,
@@ -480,6 +480,56 @@ export const ProductFormPage: React.FC<ProductFormPageProps> = ({
               <div>
                 <label className={labelClass}>Marge cible (optionnel)</label>
                 <input type="number" min={0} max={1} step="0.01" value={draft.targetMarginRate} onChange={(e) => updateDraft({ targetMarginRate: e.target.value })} placeholder={`Défaut ${(DEFAULT_TARGET_MARGIN_RATE * 100).toFixed(0)}%`} className={`${inputBaseClass} ${showErrors && issuesByField.has('targetMarginRate') ? inputErrorClass : inputValidClass}`} />
+              </div>
+              <div>
+                <label className={labelClass}>Taux de TVA (optionnel)</label>
+                <div className="flex items-center gap-1.5">
+                  <input
+                    type="number"
+                    min={0}
+                    max={1}
+                    step="0.01"
+                    value={draft.vatRate}
+                    onChange={(e) => updateDraft({ vatRate: e.target.value })}
+                    placeholder={`Défaut ${(DEFAULT_VAT_RATE * 100).toFixed(0)}%`}
+                    className={`${inputBaseClass} ${showErrors && issuesByField.has('vatRate') ? inputErrorClass : inputValidClass}`}
+                  />
+                  <div className="relative shrink-0">
+                    <select
+                      value=""
+                      onChange={(e) => e.target.value && updateDraft({ vatRate: e.target.value })}
+                      className="appearance-none px-2 py-2 pr-6 text-xs rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-500 dark:text-gray-400 cursor-pointer"
+                      title="Taux courants tunisiens"
+                    >
+                      <option value="">Taux…</option>
+                      {COMMON_VAT_RATES.map((r) => (
+                        <option key={r.rate} value={r.rate}>
+                          {r.label}
+                        </option>
+                      ))}
+                    </select>
+                    <ChevronDown size={12} className="absolute right-1.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                  </div>
+                </div>
+                {showErrors && issuesByField.get('vatRate') && (
+                  <p className="text-[11px] text-red-500 mt-1 flex items-center gap-1">
+                    <AlertCircle size={11} /> {issuesByField.get('vatRate')}
+                  </p>
+                )}
+              </div>
+              <div>
+                <label className={labelClass}>Le prix ci-dessus inclut la TVA</label>
+                <button
+                  type="button"
+                  onClick={() => updateDraft({ priceIncludesTax: !draft.priceIncludesTax })}
+                  className={`px-3.5 py-2 rounded-xl text-xs font-semibold border transition cursor-pointer w-full ${
+                    draft.priceIncludesTax
+                      ? 'bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800/70'
+                      : 'bg-gray-100 dark:bg-gray-800 text-gray-500 border-gray-200 dark:border-gray-700'
+                  }`}
+                >
+                  {draft.priceIncludesTax ? 'Oui — prix TTC' : 'Non — prix HT'}
+                </button>
               </div>
               <div className="flex items-end">
                 <button

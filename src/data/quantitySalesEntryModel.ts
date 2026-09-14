@@ -1,6 +1,7 @@
 import { SaleItem, SaleTransaction, ServiceType, PaymentMethod, MONTHS_LIST } from './salesTransactions';
-import { CatalogArticle, getArticleById } from './manualSalesCatalog';
+import { CatalogArticle, getArticleById, getArticleVatRate, getArticleTtcPrice } from './manualSalesCatalog';
 import { SalesCatalogContext } from './salesEntryModel';
+import { roundToPayableCash } from './currencyRounding';
 
 // Second way to enter "Ajout manuel des ventes", for businesses that don't work with individual
 // tickets/tables: one row per catalog product, the user only fills in what actually sold that day
@@ -75,7 +76,7 @@ export const computeRowDiscountTotal = (row: DraftQuantityRow): number =>
   row.discountPerUnit > 0 ? row.discountPerUnit * effectiveDiscountQty(row) : 0;
 
 export const computeRowGrossTotal = (row: DraftQuantityRow, article: CatalogArticle | undefined): number =>
-  article ? row.qty * article.price : 0;
+  article ? row.qty * getArticleTtcPrice(article) : 0;
 
 export const computeRowNetTotal = (row: DraftQuantityRow, article: CatalogArticle | undefined): number =>
   Math.max(0, computeRowGrossTotal(row, article) - computeRowDiscountTotal(row));
@@ -83,7 +84,7 @@ export const computeRowNetTotal = (row: DraftQuantityRow, article: CatalogArticl
 // A single blended unit price for the day's sales of this product (after its reduction) — used
 // both for display and to price the SaleTransaction items built from this row.
 export const computeRowUnitPriceAfterDiscount = (row: DraftQuantityRow, article: CatalogArticle | undefined): number =>
-  row.qty > 0 ? computeRowNetTotal(row, article) / row.qty : (article?.price ?? 0);
+  row.qty > 0 ? computeRowNetTotal(row, article) / row.qty : (article ? getArticleTtcPrice(article) : 0);
 
 export const computeRowPaymentAllocated = (row: DraftQuantityRow): number => row.paidCash + row.paidCard + row.paidRestoTicket;
 export const computeRowPaymentRemaining = (row: DraftQuantityRow): number => row.qty - computeRowPaymentAllocated(row);
@@ -256,12 +257,23 @@ export const buildSaleTransactionsFromQuantityForm = (
 
     const grid = apportionGrid([onSite, takeaway], payments);
     const name = computeRowDiscountTotal(row) > 0 ? `${article.name} (remise)` : article.name;
+    const vatRate = getArticleVatRate(article);
 
     SERVICE_TYPES.forEach((_service, sIdx) => {
       PAYMENT_METHODS.forEach((_payment, pIdx) => {
         const qty = grid[sIdx][pIdx];
         if (qty > 0) {
-          buckets[sIdx][pIdx].push({ name, qty, price: unitPrice, category: article.category });
+          const lineTtc = unitPrice * qty;
+          const lineNet = lineTtc / (1 + vatRate);
+          buckets[sIdx][pIdx].push({
+            name,
+            qty,
+            price: unitPrice,
+            category: article.category,
+            vatRate,
+            netAmount: lineNet,
+            taxAmount: lineTtc - lineNet,
+          });
         }
       });
     });
@@ -282,7 +294,8 @@ export const buildSaleTransactionsFromQuantityForm = (
       if (items.length === 0) return;
       seq += 1;
       const itemsCount = items.reduce((sum, it) => sum + it.qty, 0);
-      const totalAmount = items.reduce((sum, it) => sum + it.qty * it.price, 0);
+      const preciseAmount = items.reduce((sum, it) => sum + it.qty * it.price, 0);
+      const totalAmount = paymentMethod === 'Espèces' ? roundToPayableCash(preciseAmount) : preciseAmount;
       transactions.push({
         id: baseId + seq,
         saleNumber: `QTE-${datePrefix}-${seq.toString().padStart(3, '0')}`,
@@ -294,6 +307,7 @@ export const buildSaleTransactionsFromQuantityForm = (
         paymentMethod,
         barista: form.employee,
         totalAmount,
+        preciseAmount,
         date: form.date,
         time: timeLabel,
         month: monthLabel,

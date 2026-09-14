@@ -12,15 +12,30 @@ interface SaleRow {
   items_count: number; items_summary: string; payment_method: string; barista: string; total_amount: number;
   date: string; time: string; month: string; year: number; status: string;
 }
-const rowToSale = (r: SaleRow): SaleTransaction => ({
-  id: r.id, saleNumber: r.sale_number, serviceType: r.service_type as SaleTransaction['serviceType'],
-  tableOrArea: r.table_or_area, items: fromJson<SaleItem[]>(r.items, []), itemsCount: r.items_count,
-  itemsSummary: r.items_summary, paymentMethod: r.payment_method as SaleTransaction['paymentMethod'],
-  barista: r.barista, totalAmount: r.total_amount, date: r.date, time: r.time, month: r.month, year: r.year,
-  status: r.status as SaleTransaction['status'],
-});
+const rowToSale = (r: SaleRow): SaleTransaction => {
+  const items = fromJson<SaleItem[]>(r.items, []);
+  return {
+    id: r.id, saleNumber: r.sale_number, serviceType: r.service_type as SaleTransaction['serviceType'],
+    tableOrArea: r.table_or_area, items, itemsCount: r.items_count,
+    itemsSummary: r.items_summary, paymentMethod: r.payment_method as SaleTransaction['paymentMethod'],
+    barista: r.barista, totalAmount: r.total_amount,
+    // Derived, not stored: the pre-rounding sum of the items is always fully recoverable from
+    // their own (full-precision) price/qty, so there's no separate column to keep in sync.
+    preciseAmount: items.reduce((s, it) => s + it.qty * it.price, 0),
+    date: r.date, time: r.time, month: r.month, year: r.year,
+    status: r.status as SaleTransaction['status'],
+  };
+};
 
-const saleItemSchema = z.object({ name: z.string(), qty: z.number(), price: z.number(), category: z.string() });
+const saleItemSchema = z.object({
+  name: z.string(),
+  qty: z.number(),
+  price: z.number(),
+  category: z.string(),
+  vatRate: z.number().min(0).max(1).optional(),
+  netAmount: z.number().optional(),
+  taxAmount: z.number().optional(),
+});
 
 const saleSchema = z.object({
   saleNumber: z.string().min(1),

@@ -37,6 +37,7 @@ import {
   buildDailySalesCalendar,
   buildSalesByPeriod,
   buildCategoryShares,
+  formatDT as formatDashboardAmount,
 } from './data/dashboardModel';
 import * as productCatalogApi from './api/productCatalog';
 import * as stockApi from './api/stock';
@@ -49,7 +50,7 @@ import * as activityLogApi from './api/activityLog';
 import * as dashboardApi from './api/dashboard';
 import type { MonthlyTarget } from './api/dashboard';
 import * as cashVerificationsApi from './api/cashVerifications';
-import { CashVerification, CashVerificationInput } from './data/cashCheckModel';
+import { CashVerification, CashVerificationInput, computeCashKpis } from './data/cashCheckModel';
 import { RotateCw, CheckCircle2, Loader2, WifiOff } from 'lucide-react';
 
 // Lazy-loaded: pulls in the xlsx/papaparse parsing libraries only when the user
@@ -719,6 +720,14 @@ export default function App() {
 
 
   const dashboardRange = useMemo(() => resolveDashboardRange(activePeriod, customRange), [activePeriod, customRange]);
+
+  // Same computeCashKpis used by the "Calcul du quotidien" page — the dashboard's "Total caisse
+  // actuelle" card must always agree with that page's own KPIs, so it's the exact same call
+  // rather than a second, possibly-divergent calculation.
+  const cashKpis = useMemo(
+    () => computeCashKpis(salesTransactions, expenses, supplierInvoices, cashVerifications),
+    [salesTransactions, expenses, supplierInvoices, cashVerifications]
+  );
 
   const dashboardPeriodData = useMemo(
     () =>
@@ -1557,6 +1566,7 @@ export default function App() {
                 {/* KPI Cards Section: 5 Classic Cards + "Voir plus d'indicateurs" button for Coût du personnel, Valeur du stock, Nombre de tickets, Marge estimée */}
                 <MetricCards
                   data={dashboardPeriodData}
+                  caisseActuelle={formatDashboardAmount(cashKpis.especes + cashKpis.carte + cashKpis.restoNet)}
                   compareWithPrevious={compareWithPrevious}
                   onNavigate={(tab, sub) => {
                     setActiveTab(tab);

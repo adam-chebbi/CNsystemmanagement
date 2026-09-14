@@ -56,6 +56,8 @@ CREATE TABLE IF NOT EXISTS catalog_articles (
   variants TEXT,
   recipe TEXT,
   target_margin_rate REAL,
+  vat_rate REAL,
+  price_includes_tax INTEGER,
   created_at TEXT
 );
 

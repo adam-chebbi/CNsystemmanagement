@@ -26,10 +26,12 @@ import {
 } from 'lucide-react';
 import {
   SaleTransaction,
+  SaleItem,
   MONTHS_LIST,
   ServiceType,
   PaymentMethod,
 } from '../data/salesTransactions';
+import { DEFAULT_VAT_RATE } from '../data/manualSalesCatalog';
 
 interface SalesPageProps {
   onNavigateToDashboard: () => void;
@@ -45,10 +47,25 @@ const escapeHtml = (value: string): string =>
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;');
 
+// Per-item VAT, preferring the values frozen at sale time (see manualSalesCatalog.getArticleVatRate)
+// and falling back to deriving them from price/qty for any sale recorded before those fields
+// existed — never a single flat rate, since each product can carry its own real Tunisian VAT tier.
+const getItemVat = (item: SaleItem): { rate: number; net: number; tax: number } => {
+  const rate = item.vatRate ?? DEFAULT_VAT_RATE;
+  const gross = item.qty * item.price;
+  const net = item.netAmount ?? gross / (1 + rate);
+  return { rate, net, tax: item.taxAmount ?? gross - net };
+};
+
 // Shared receipt figures (kept in sync between the on-screen preview and the printed/downloaded documents)
 const getReceiptTotals = (sale: SaleTransaction) => {
-  const subtotalHT = sale.totalAmount * 0.9;
-  const tva = sale.totalAmount * 0.1;
+  let subtotalHT = 0;
+  let tva = 0;
+  sale.items.forEach((it) => {
+    const { net, tax } = getItemVat(it);
+    subtotalHT += net;
+    tva += tax;
+  });
   return { subtotalHT, tva };
 };
 
@@ -58,6 +75,7 @@ const buildThermalReceiptDoc = (sale: SaleTransaction): string => {
   const itemsHtml = sale.items
     .map((it) => {
       const amount = it.qty * it.price;
+      const { rate, tax } = getItemVat(it);
       return `
         <div style="margin-bottom:5px;padding-bottom:5px;border-bottom:1px dashed #aaa;">
           <div style="font-size:11px;font-weight:bold;margin-bottom:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(it.name)}</div>
@@ -66,7 +84,7 @@ const buildThermalReceiptDoc = (sale: SaleTransaction): string => {
             <span style="font-weight:bold;">${amount.toFixed(2)} DT</span>
           </div>
           <div style="display:flex;justify-content:space-between;font-size:10px;margin-top:1px;color:#555;">
-            <span>TVA: 10.00%</span><span>${(amount * 0.1).toFixed(2)} DT</span>
+            <span>TVA: ${(rate * 100).toFixed(2)}%</span><span>${tax.toFixed(2)} DT</span>
           </div>
         </div>`;
     })
@@ -111,7 +129,7 @@ const buildThermalReceiptDoc = (sale: SaleTransaction): string => {
       <div style="margin-top:6px;">
         <div style="display:flex;justify-content:space-between;margin-bottom:2px;font-size:11px;"><span>Total Articles :</span><span>${sale.itemsCount}</span></div>
         <div style="display:flex;justify-content:space-between;margin-bottom:2px;font-size:11px;"><span>Sous-total HT :</span><span>${subtotalHT.toFixed(2)} DT</span></div>
-        <div style="display:flex;justify-content:space-between;margin-bottom:2px;font-size:11px;"><span>TVA (10%) :</span><span>${tva.toFixed(2)} DT</span></div>
+        <div style="display:flex;justify-content:space-between;margin-bottom:2px;font-size:11px;"><span>TVA :</span><span>${tva.toFixed(2)} DT</span></div>
         <div style="border-top:1px solid #000;margin-top:4px;padding-top:4px;display:flex;justify-content:space-between;font-weight:bold;font-size:13px;"><span>TOTAL TTC</span><span>${sale.totalAmount.toFixed(2)} DT</span></div>
       </div>
     </div>
@@ -205,7 +223,7 @@ const buildA4ReceiptDoc = (sale: SaleTransaction): string => {
   <div style="display:flex;justify-content:flex-end;margin-top:20px;">
     <div style="width:280px;font-size:13px;">
       <div style="display:flex;justify-content:space-between;padding:4px 0;color:#6b7280;"><span>Sous-total HT</span><span>${subtotalHT.toFixed(2)} DT</span></div>
-      <div style="display:flex;justify-content:space-between;padding:4px 0;color:#6b7280;"><span>TVA (10%)</span><span>${tva.toFixed(2)} DT</span></div>
+      <div style="display:flex;justify-content:space-between;padding:4px 0;color:#6b7280;"><span>TVA</span><span>${tva.toFixed(2)} DT</span></div>
       <div style="display:flex;justify-content:space-between;padding:10px 0;border-top:2px solid #111827;margin-top:6px;font-weight:800;font-size:16px;"><span>TOTAL TTC</span><span>${sale.totalAmount.toFixed(2)} DT</span></div>
     </div>
   </div>
@@ -1110,47 +1128,50 @@ export const SalesPage: React.FC<SalesPageProps> = ({
                         <span>Désignation</span>
                         <span>Montant</span>
                       </div>
-                      {selectedSaleForModal.items.map((it, idx) => (
-                        <div
-                          key={idx}
-                          style={{
-                            marginBottom: 5,
-                            paddingBottom: 5,
-                            borderBottom: '1px dashed #aaa',
-                          }}
-                        >
+                      {selectedSaleForModal.items.map((it, idx) => {
+                        const { rate, tax } = getItemVat(it);
+                        return (
                           <div
+                            key={idx}
                             style={{
-                              fontSize: 11,
-                              fontWeight: 'bold',
-                              marginBottom: 2,
-                              overflow: 'hidden',
-                              textOverflow: 'ellipsis',
-                              whiteSpace: 'nowrap',
+                              marginBottom: 5,
+                              paddingBottom: 5,
+                              borderBottom: '1px dashed #aaa',
                             }}
                           >
-                            {it.name}
+                            <div
+                              style={{
+                                fontSize: 11,
+                                fontWeight: 'bold',
+                                marginBottom: 2,
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap',
+                              }}
+                            >
+                              {it.name}
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11 }}>
+                              <span>{it.qty} x {it.price.toFixed(2)} DT</span>
+                              <span style={{ fontWeight: 'bold' }}>{(it.qty * it.price).toFixed(2)} DT</span>
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, marginTop: 1, color: '#555' }}>
+                              <span>TVA: {(rate * 100).toFixed(2)}%</span>
+                              <span>{tax.toFixed(2)} DT</span>
+                            </div>
                           </div>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11 }}>
-                            <span>{it.qty} x {it.price.toFixed(2)} DT</span>
-                            <span style={{ fontWeight: 'bold' }}>{(it.qty * it.price).toFixed(2)} DT</span>
-                          </div>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, marginTop: 1, color: '#555' }}>
-                            <span>TVA: 10.00%</span>
-                            <span>{(it.qty * it.price * 0.1).toFixed(2)} DT</span>
-                          </div>
-                        </div>
-                      ))}
+                        );
+                      })}
 
                       <div style={{ marginTop: 6 }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 2, fontSize: 11 }}>
                           <span>Total Articles :</span><span>{selectedSaleForModal.itemsCount}</span>
                         </div>
                         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 2, fontSize: 11 }}>
-                          <span>Sous-total HT :</span><span>{(selectedSaleForModal.totalAmount * 0.9).toFixed(2)} DT</span>
+                          <span>Sous-total HT :</span><span>{getReceiptTotals(selectedSaleForModal).subtotalHT.toFixed(2)} DT</span>
                         </div>
                         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 2, fontSize: 11 }}>
-                          <span>TVA (10%) :</span><span>{(selectedSaleForModal.totalAmount * 0.1).toFixed(2)} DT</span>
+                          <span>TVA :</span><span>{getReceiptTotals(selectedSaleForModal).tva.toFixed(2)} DT</span>
                         </div>
                         <div
                           style={{

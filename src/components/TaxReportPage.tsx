@@ -8,7 +8,6 @@ import {
   formatPeriodLabel,
   isDateInPeriod,
   computeTaxSummary,
-  SALES_VAT_RATE,
 } from '../data/reportsModel';
 import { generateReportPdf } from '../data/reportPdf';
 import { ReportPageHeader, ReportKpiCard, ReportSection, ReportTable, formatAmount, formatPercent, useReportPeriodParam } from './reportShared';
@@ -40,8 +39,9 @@ export const TaxReportPage: React.FC<TaxReportPageProps> = ({ transactions, invo
     generateReportPdf({
       title: 'Rapport fiscal',
       periodLabel: formatPeriodLabel(period),
-      subtitle: `Rapport informatif de suivi de la TVA (taux ventes ${formatPercent(SALES_VAT_RATE)}) — ne constitue pas une déclaration fiscale officielle.`,
+      subtitle: "Rapport informatif de suivi de la TVA, calculée par ligne de vente selon le taux propre à chaque produit — ne constitue pas une déclaration fiscale officielle.",
       kpis: [
+        { label: 'Ventes brutes (TTC)', value: formatAmount(summary.grossSales) },
         { label: 'CA HT', value: formatAmount(summary.salesHT) },
         { label: 'TVA collectée (ventes)', value: formatAmount(summary.vatCollected) },
         { label: 'TVA déductible (achats)', value: formatAmount(summary.vatDeductible) },
@@ -52,13 +52,21 @@ export const TaxReportPage: React.FC<TaxReportPageProps> = ({ transactions, invo
           heading: 'Synthèse TVA de la période',
           columns: ['Élément', 'Montant'],
           rows: [
-            ['Chiffre d\'affaires HT', formatAmount(summary.salesHT)],
+            ['Ventes brutes (TTC)', formatAmount(summary.grossSales)],
+            ["Chiffre d'affaires HT", formatAmount(summary.salesHT)],
             ['TVA collectée sur les ventes', formatAmount(summary.vatCollected)],
             ['Achats HT (factures fournisseurs)', formatAmount(summary.purchasesHT)],
             ['TVA déductible sur achats', `- ${formatAmount(summary.vatDeductible)}`],
           ],
           align: ['left', 'right'],
           totalsRow: ['TVA nette estimée', formatAmount(summary.netVat)],
+        },
+        {
+          heading: 'Ventes par taux de TVA',
+          columns: ['Taux', 'TTC', 'HT', 'TVA'],
+          rows: summary.vatByRate.map((r) => [formatPercent(r.rate), formatAmount(r.gross), formatAmount(r.net), formatAmount(r.tax)]),
+          align: ['left', 'right', 'right', 'right'],
+          totalsRow: ['Total', formatAmount(summary.grossSales), formatAmount(summary.salesHT), formatAmount(summary.vatCollected)],
         },
         {
           heading: 'Détail des factures fournisseurs de la période',
@@ -69,7 +77,7 @@ export const TaxReportPage: React.FC<TaxReportPageProps> = ({ transactions, invo
         },
       ],
       insights: [
-        `La TVA collectée est estimée à partir du taux unique de ${formatPercent(SALES_VAT_RATE)} déjà appliqué sur les tickets de caisse.`,
+        'La TVA collectée est calculée ligne par ligne, selon le taux configuré pour chaque produit au moment de la vente, puis agrégée par taux — jamais à partir d\'un taux unique.',
         'La TVA déductible provient uniquement des factures fournisseurs enregistrées avec un montant de TVA sur la période.',
         'Ce rapport est un outil de suivi interne — la V1 de la plateforme n\'effectue aucune déclaration fiscale ou sociale officielle.',
       ],
@@ -80,7 +88,7 @@ export const TaxReportPage: React.FC<TaxReportPageProps> = ({ transactions, invo
     <div className="space-y-5 animate-in fade-in duration-200">
       <ReportPageHeader
         title="Rapport fiscal"
-        description={`Suivi informatif de la TVA collectée et déductible (taux ventes ${formatPercent(SALES_VAT_RATE)}).`}
+        description="Suivi informatif de la TVA collectée et déductible, calculée selon le taux propre à chaque produit."
         period={period}
         onPeriodChange={setPeriod}
         onExportPdf={handleExportPdf}
@@ -93,7 +101,8 @@ export const TaxReportPage: React.FC<TaxReportPageProps> = ({ transactions, invo
         <span>Rapport informatif de gestion — la V1 de la plateforme n'effectue aucune déclaration fiscale ou sociale officielle. Les montants ci-dessous sont des estimations à vérifier avec votre comptable.</span>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 sm:gap-5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4 sm:gap-5">
+        <ReportKpiCard label="Ventes brutes (TTC)" value={formatAmount(summary.grossSales)} icon={Receipt} color="gray" />
         <ReportKpiCard label="CA HT" value={formatAmount(summary.salesHT)} icon={Receipt} color="blue" />
         <ReportKpiCard label="TVA collectée (ventes)" value={formatAmount(summary.vatCollected)} icon={Landmark} color="emerald" variation={{ current: summary.vatCollected, previous: previousSummary.vatCollected }} />
         <ReportKpiCard label="TVA déductible (achats)" value={formatAmount(summary.vatDeductible)} icon={Truck} color="amber" />
@@ -105,12 +114,22 @@ export const TaxReportPage: React.FC<TaxReportPageProps> = ({ transactions, invo
           columns={['Élément', 'Montant']}
           align={['left', 'right']}
           rows={[
+            ['Ventes brutes (TTC)', formatAmount(summary.grossSales)],
             ["Chiffre d'affaires HT", formatAmount(summary.salesHT)],
             ['TVA collectée sur les ventes', formatAmount(summary.vatCollected)],
             ['Achats HT (factures fournisseurs)', formatAmount(summary.purchasesHT)],
             ['TVA déductible sur achats', `- ${formatAmount(summary.vatDeductible)}`],
           ]}
           totalsRow={['TVA nette estimée', formatAmount(summary.netVat)]}
+        />
+      </ReportSection>
+
+      <ReportSection title="Ventes par taux de TVA">
+        <ReportTable
+          columns={['Taux', 'TTC', 'HT', 'TVA']}
+          align={['left', 'right', 'right', 'right']}
+          rows={summary.vatByRate.map((r) => [formatPercent(r.rate), formatAmount(r.gross), formatAmount(r.net), formatAmount(r.tax)])}
+          totalsRow={['Total', formatAmount(summary.grossSales), formatAmount(summary.salesHT), formatAmount(summary.vatCollected)]}
         />
       </ReportSection>
 

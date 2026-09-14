@@ -16,7 +16,7 @@ import {
   ArrowLeft,
   Loader2,
 } from 'lucide-react';
-import { CatalogArticle, ARTICLE_CATEGORIES_ORDER, getArticleById } from '../data/manualSalesCatalog';
+import { CatalogArticle, ARTICLE_CATEGORIES_ORDER, getArticleById, getArticleTtcPrice } from '../data/manualSalesCatalog';
 import {
   DraftQuantityRow,
   QuantitySalesFormState,
@@ -249,7 +249,7 @@ export const QuantitySalesFormStep: React.FC<QuantitySalesFormStepProps> = ({
                           <ProductThumb article={article} />
                           <div className="flex-1 min-w-0">
                             <p className="text-xs font-semibold text-gray-800 dark:text-gray-200 truncate">{article.name}</p>
-                            <p className="text-[11px] text-gray-400">{article.price.toFixed(2)} DT / unité</p>
+                            <p className="text-[11px] text-gray-400">{getArticleTtcPrice(article).toFixed(2)} DT / unité</p>
                           </div>
                           <QtyStepper value={row.qty} onChange={(v) => onChangeQty(article.id, v)} />
                         </div>
@@ -269,7 +269,7 @@ export const QuantitySalesFormStep: React.FC<QuantitySalesFormStepProps> = ({
                           <ProductThumb article={article} />
                           <div className="flex-1 min-w-0">
                             <p className="text-xs font-semibold text-gray-800 dark:text-gray-200 truncate">{article.name}</p>
-                            <p className="text-[11px] text-gray-400">{article.price.toFixed(2)} DT / unité</p>
+                            <p className="text-[11px] text-gray-400">{getArticleTtcPrice(article).toFixed(2)} DT / unité</p>
                           </div>
                           <QtyStepper value={row.qty} onChange={(v) => onChangeQty(article.id, v)} />
                           <div className="text-right shrink-0 min-w-[72px]">

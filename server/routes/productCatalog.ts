@@ -27,7 +27,8 @@ interface ArticleRow {
   id: string; name: string; category: string; sub_category: string | null; price: number;
   description: string | null; image_url: string | null; is_available: number | null;
   extra_ids: string | null; variants: string | null; recipe: string | null;
-  target_margin_rate: number | null; created_at: string | null;
+  target_margin_rate: number | null; vat_rate: number | null; price_includes_tax: number | null;
+  created_at: string | null;
 }
 const rowToArticle = (r: ArticleRow): CatalogArticle => ({
   id: r.id,
@@ -42,6 +43,8 @@ const rowToArticle = (r: ArticleRow): CatalogArticle => ({
   variants: r.variants ? fromJson<VariantOption[]>(r.variants, []) : undefined,
   recipe: r.recipe ? fromJson<RecipeLine[]>(r.recipe, []) : undefined,
   targetMarginRate: r.target_margin_rate ?? undefined,
+  vatRate: r.vat_rate ?? undefined,
+  priceIncludesTax: fromBool(r.price_includes_tax),
   createdAt: r.created_at ?? undefined,
 });
 
@@ -211,6 +214,8 @@ const articleSchema = z.object({
   variants: z.array(variantSchema).optional(),
   recipe: z.array(recipeLineSchema).optional(),
   targetMarginRate: z.number().min(0).max(1).optional(),
+  vatRate: z.number().min(0).max(1).optional(),
+  priceIncludesTax: z.boolean().optional(),
 });
 
 const articleToRow = (a: CatalogArticle): ArticleRow => ({
@@ -226,6 +231,8 @@ const articleToRow = (a: CatalogArticle): ArticleRow => ({
   variants: toJson(a.variants),
   recipe: toJson(a.recipe),
   target_margin_rate: a.targetMarginRate ?? null,
+  vat_rate: a.vatRate ?? null,
+  price_includes_tax: toBool(a.priceIncludesTax),
   created_at: a.createdAt ?? null,
 });
 
@@ -244,8 +251,8 @@ productCatalogRouter.post(
     const article: CatalogArticle = { ...body, id: body.id ?? randomUUID(), createdAt: nowIso() };
     const row = articleToRow(article);
     db.prepare(
-      `INSERT INTO catalog_articles (id, name, category, sub_category, price, description, image_url, is_available, extra_ids, variants, recipe, target_margin_rate, created_at)
-       VALUES (@id, @name, @category, @sub_category, @price, @description, @image_url, @is_available, @extra_ids, @variants, @recipe, @target_margin_rate, @created_at)`
+      `INSERT INTO catalog_articles (id, name, category, sub_category, price, description, image_url, is_available, extra_ids, variants, recipe, target_margin_rate, vat_rate, price_includes_tax, created_at)
+       VALUES (@id, @name, @category, @sub_category, @price, @description, @image_url, @is_available, @extra_ids, @variants, @recipe, @target_margin_rate, @vat_rate, @price_includes_tax, @created_at)`
     ).run(row);
     recordActivity('Produits', 'Création', `Produit créé — ${article.name}`, req.user!.fullName);
     res.status(201).json(article);
@@ -262,7 +269,8 @@ productCatalogRouter.put(
     const row = articleToRow(article);
     db.prepare(
       `UPDATE catalog_articles SET name=@name, category=@category, sub_category=@sub_category, price=@price, description=@description,
-       image_url=@image_url, is_available=@is_available, extra_ids=@extra_ids, variants=@variants, recipe=@recipe, target_margin_rate=@target_margin_rate
+       image_url=@image_url, is_available=@is_available, extra_ids=@extra_ids, variants=@variants, recipe=@recipe, target_margin_rate=@target_margin_rate,
+       vat_rate=@vat_rate, price_includes_tax=@price_includes_tax
        WHERE id=@id`
     ).run(row);
     recordActivity('Produits', 'Modification', `Produit modifié — ${article.name}`, req.user!.fullName);

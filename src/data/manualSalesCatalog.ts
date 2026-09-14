@@ -29,6 +29,11 @@ export interface CatalogArticle {
   variants?: VariantOption[]; // per-product variants (distinct from the category-level groups below)
   recipe?: RecipeLine[];
   targetMarginRate?: number; // overrides DEFAULT_TARGET_MARGIN_RATE when set
+  vatRate?: number; // overrides DEFAULT_VAT_RATE when set — see getArticleVatRate
+  // Whether `price` already includes VAT. Undefined is treated as true — every Café Noir selling
+  // price is tax-inclusive by default. Set to false only for a product whose price is entered HT,
+  // in which case the customer-facing (TTC) price is derived via getArticleTtcPrice.
+  priceIncludesTax?: boolean;
   createdAt?: string;
 }
 
@@ -37,6 +42,29 @@ export interface CatalogExtra {
   name: string;
   price: number;
 }
+
+// Tunisia's standard VAT rate — the fallback for any article that hasn't been given a specific
+// (reduced) rate. Real per-product accuracy only comes from setting vatRate explicitly in Gestion
+// des produits for anything eligible for a reduced rate (0% / 7% / 13%) — this is only the default.
+export const DEFAULT_VAT_RATE = 0.19;
+
+// Common Tunisian VAT tiers, offered as quick choices in the product form — vatRate itself stays a
+// free numeric field so an uncommon rate can still be entered.
+export const COMMON_VAT_RATES: { rate: number; label: string }[] = [
+  { rate: 0, label: '0% (exonéré)' },
+  { rate: 0.07, label: '7% (taux réduit)' },
+  { rate: 0.13, label: '13% (taux intermédiaire)' },
+  { rate: 0.19, label: '19% (taux standard)' },
+];
+
+export const getArticleVatRate = (article: Pick<CatalogArticle, 'vatRate'>): number => article.vatRate ?? DEFAULT_VAT_RATE;
+
+// The actual price charged to the customer (TTC). Every Café Noir price is entered tax-inclusive
+// by default (priceIncludesTax undefined/true) so this is normally just `price` — it only differs
+// when a product was deliberately configured with an HT price, in which case VAT is added on top
+// so the customer still ends up paying a TTC amount, never a bare HT one.
+export const getArticleTtcPrice = (article: Pick<CatalogArticle, 'price' | 'vatRate' | 'priceIncludesTax'>): number =>
+  article.priceIncludesTax === false ? article.price * (1 + getArticleVatRate(article)) : article.price;
 
 export interface VariantOption {
   id: string;
