@@ -24,6 +24,7 @@ import {
   Users,
   ClipboardList,
   RotateCcw,
+  Package,
 } from 'lucide-react';
 import { SaleTransaction, ServiceType, PaymentMethod } from '../data/salesTransactions';
 import {
@@ -49,6 +50,16 @@ import {
   validateManualSalesForm,
   buildSaleTransactionsFromForm,
 } from '../data/salesEntryModel';
+import {
+  DraftQuantityRow,
+  QuantitySalesFormState,
+  RestoTicketCounts,
+  createEmptyQuantityForm,
+  computeQuantitySalesTotals,
+  validateQuantitySalesForm,
+  buildSaleTransactionsFromQuantityForm,
+} from '../data/quantitySalesEntryModel';
+import { QuantitySalesFormStep, QuantitySalesPreviewStep } from './QuantitySalesEntryForm';
 
 interface ManualSalesEntryPageProps {
   articles: CatalogArticle[];
@@ -62,6 +73,7 @@ interface ManualSalesEntryPageProps {
 }
 
 type Step = 'form' | 'preview' | 'success';
+type EntryMode = 'tickets' | 'quantities';
 
 const inputBaseClass =
   'w-full px-3.5 py-2 text-xs rounded-xl border bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-1 transition';
@@ -83,12 +95,17 @@ export const ManualSalesEntryPage: React.FC<ManualSalesEntryPageProps> = ({
   onSaveTickets,
 }) => {
   const catalog: SalesCatalogContext = { articles, extras, employees, shifts };
+  const [mode, setMode] = useState<EntryMode>('tickets');
   const [form, setForm] = useState<ManualSalesFormState>(() => createEmptyForm());
+  const [quantityForm, setQuantityForm] = useState<QuantitySalesFormState>(() => createEmptyQuantityForm(articles));
   const [step, setStep] = useState<Step>('form');
+  const [savedMode, setSavedMode] = useState<EntryMode>('tickets');
   const [hasAttemptedVerify, setHasAttemptedVerify] = useState(false);
+  const [qHasAttemptedVerify, setQHasAttemptedVerify] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [savedCount, setSavedCount] = useState(0);
+  const [qSavedStats, setQSavedStats] = useState<{ products: number; total: number } | null>(null);
   const [expandedExtras, setExpandedExtras] = useState<Set<string>>(new Set());
   // Tickets are expanded by default (a freshly added ticket needs filling in); collapsing is
   // purely a user choice to shorten a long list, never automatic.
@@ -132,6 +149,17 @@ export const ManualSalesEntryPage: React.FC<ManualSalesEntryPageProps> = ({
     form.tickets.some(
       (t) => t.items.some((it) => it.articleId) || t.tableNumber.trim() || t.counterLabel !== 'Comptoir Express'
     );
+
+  const qIssues = useMemo(() => validateQuantitySalesForm(quantityForm, articles), [quantityForm, articles]);
+  const qTotals = useMemo(() => computeQuantitySalesTotals(quantityForm, catalog), [quantityForm, catalog]);
+  const qHasAnyData =
+    Boolean(quantityForm.shift) ||
+    Boolean(quantityForm.employee) ||
+    quantityForm.rows.some((r) => r.qty > 0) ||
+    quantityForm.restoTickets.count5 > 0 ||
+    quantityForm.restoTickets.count7 > 0 ||
+    quantityForm.restoTickets.count10 > 0;
+  const activeHasAnyData = mode === 'quantities' ? qHasAnyData : hasAnyData;
 
   // --- Mutators (all immutable updates against the single `form` state) ---
 
@@ -236,7 +264,53 @@ export const ManualSalesEntryPage: React.FC<ManualSalesEntryPageProps> = ({
     });
   };
 
+  // --- Quantities-mode mutators ---
+
+  const updateQuantityGeneral = (patch: Partial<Pick<QuantitySalesFormState, 'date' | 'shift' | 'employee'>>) => {
+    setQuantityForm((prev) => ({ ...prev, ...patch }));
+  };
+
+  const updateQuantityRowQty = (articleId: string, qty: number) => {
+    setQuantityForm((prev) => ({
+      ...prev,
+      rows: prev.rows.map((r) => {
+        if (r.articleId !== articleId) return r;
+        const clamped = Math.max(0, Math.round(qty) || 0);
+        const delta = clamped - r.qty;
+        // Any change in quantity is assumed Espèces by default until the user redistributes it
+        // across the other payment methods — keeps the row's payment split always summing to qty
+        // without overwriting whatever the user already chose for cash/card/resto.
+        return {
+          ...r,
+          qty: clamped,
+          takeawayQty: Math.min(r.takeawayQty, clamped),
+          discountQty: Math.min(r.discountQty, clamped),
+          paidCash: Math.max(0, r.paidCash + delta),
+        };
+      }),
+    }));
+  };
+
+  const updateQuantityRow = (articleId: string, patch: Partial<DraftQuantityRow>) => {
+    setQuantityForm((prev) => ({
+      ...prev,
+      rows: prev.rows.map((r) => (r.articleId === articleId ? { ...r, ...patch } : r)),
+    }));
+  };
+
+  const updateRestoTickets = (patch: Partial<RestoTicketCounts>) => {
+    setQuantityForm((prev) => ({ ...prev, restoTickets: { ...prev.restoTickets, ...patch } }));
+  };
+
   const handleVerify = () => {
+    if (mode === 'quantities') {
+      setQHasAttemptedVerify(true);
+      if (qIssues.length === 0) {
+        setStep('preview');
+        document.getElementById('app-main-scroll-area')?.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+      return;
+    }
     setHasAttemptedVerify(true);
     if (issues.length === 0) {
       setStep('preview');
@@ -260,9 +334,17 @@ export const ManualSalesEntryPage: React.FC<ManualSalesEntryPageProps> = ({
     setIsSaving(true);
     setSaveError(null);
     try {
-      const newTransactions = buildSaleTransactionsFromForm(form, catalog);
-      await onSaveTickets(newTransactions);
-      setSavedCount(newTransactions.length);
+      if (mode === 'quantities') {
+        const newTransactions = buildSaleTransactionsFromQuantityForm(quantityForm, catalog);
+        await onSaveTickets(newTransactions);
+        setQSavedStats({ products: qTotals.activeProductsCount, total: qTotals.totalNet });
+        setSavedMode('quantities');
+      } else {
+        const newTransactions = buildSaleTransactionsFromForm(form, catalog);
+        await onSaveTickets(newTransactions);
+        setSavedCount(newTransactions.length);
+        setSavedMode('tickets');
+      }
       setStep('success');
     } catch (err) {
       setSaveError(
@@ -274,6 +356,14 @@ export const ManualSalesEntryPage: React.FC<ManualSalesEntryPageProps> = ({
   };
 
   const handleReset = () => {
+    if (mode === 'quantities') {
+      if (qHasAnyData && !window.confirm('Voulez-vous réinitialiser la saisie ? Toutes les données non enregistrées seront perdues.')) {
+        return;
+      }
+      setQuantityForm(createEmptyQuantityForm(articles));
+      setQHasAttemptedVerify(false);
+      return;
+    }
     if (hasAnyData && !window.confirm('Voulez-vous réinitialiser la saisie ? Toutes les données non enregistrées seront perdues.')) {
       return;
     }
@@ -282,7 +372,7 @@ export const ManualSalesEntryPage: React.FC<ManualSalesEntryPageProps> = ({
   };
 
   const handleCancel = () => {
-    if (hasAnyData && !window.confirm('Voulez-vous quitter la saisie manuelle ? Les données non enregistrées seront perdues.')) {
+    if (activeHasAnyData && !window.confirm('Voulez-vous quitter la saisie manuelle ? Les données non enregistrées seront perdues.')) {
       return;
     }
     onNavigateToSalesList();
@@ -290,7 +380,9 @@ export const ManualSalesEntryPage: React.FC<ManualSalesEntryPageProps> = ({
 
   const handleAddMore = () => {
     setForm(createEmptyForm());
+    setQuantityForm(createEmptyQuantityForm(articles));
     setHasAttemptedVerify(false);
+    setQHasAttemptedVerify(false);
     setSaveError(null);
     setStep('form');
   };
@@ -341,7 +433,8 @@ export const ManualSalesEntryPage: React.FC<ManualSalesEntryPageProps> = ({
             </span>
           </h1>
           <p className="text-xs text-gray-500 dark:text-gray-400">
-            Saisissez un ou plusieurs tickets qui n'ont pas été enregistrés automatiquement.
+            Ajoutez les ventes qui n'ont pas été enregistrées automatiquement, ticket par ticket ou par quantités
+            vendues.
           </p>
         </div>
 
@@ -369,8 +462,9 @@ export const ManualSalesEntryPage: React.FC<ManualSalesEntryPageProps> = ({
           </div>
           <h2 className="text-lg font-bold text-gray-900 dark:text-white">Ventes enregistrées avec succès</h2>
           <p className="text-xs text-gray-500 dark:text-gray-400 max-w-md">
-            {savedCount} {savedCount > 1 ? 'tickets ont été ajoutés' : 'ticket a été ajouté'} à l'historique des
-            ventes Café Noir.
+            {savedMode === 'quantities' && qSavedStats
+              ? `${qSavedStats.products} produit${qSavedStats.products > 1 ? 's' : ''} pour un total de ${qSavedStats.total.toFixed(2)} DT ont été ajoutés à l'historique des ventes Café Noir.`
+              : `${savedCount} ${savedCount > 1 ? 'tickets ont été ajoutés' : 'ticket a été ajouté'} à l'historique des ventes Café Noir.`}
           </p>
           <div className="flex items-center gap-2 pt-2">
             <button onClick={handleAddMore} className={secondaryButtonClass}>
@@ -383,6 +477,16 @@ export const ManualSalesEntryPage: React.FC<ManualSalesEntryPageProps> = ({
             </button>
           </div>
         </div>
+      ) : step === 'preview' && mode === 'quantities' ? (
+        <QuantitySalesPreviewStep
+          articles={articles}
+          form={quantityForm}
+          totals={qTotals}
+          isSaving={isSaving}
+          saveError={saveError}
+          onBackToForm={handleBackToForm}
+          onConfirmSave={handleConfirmSave}
+        />
       ) : step === 'preview' ? (
         <>
           {/* Preview banner */}
@@ -510,6 +614,57 @@ export const ManualSalesEntryPage: React.FC<ManualSalesEntryPageProps> = ({
         </>
       ) : (
         <>
+          {/* Entry mode switch */}
+          <div className="p-1 rounded-2xl bg-white dark:bg-[#151D2A] border border-gray-100 dark:border-gray-800 shadow-2xs flex items-center gap-1 w-fit">
+            <button
+              onClick={() => setMode('tickets')}
+              className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold transition cursor-pointer ${
+                mode === 'tickets'
+                  ? 'bg-[#00A86B] text-white shadow-xs'
+                  : 'text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800/70'
+              }`}
+            >
+              <Receipt size={14} />
+              <span>Par tickets</span>
+            </button>
+            <button
+              onClick={() => setMode('quantities')}
+              className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold transition cursor-pointer ${
+                mode === 'quantities'
+                  ? 'bg-[#00A86B] text-white shadow-xs'
+                  : 'text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800/70'
+              }`}
+            >
+              <Package size={14} />
+              <span>Par quantités vendues</span>
+            </button>
+          </div>
+          {mode === 'quantities' && (
+            <p className="text-[11px] text-gray-400 -mt-2">
+              Pratique quand la journée ne se prête pas à une saisie détaillée : indiquez simplement combien de
+              chaque produit a été vendu, avec les remises et règlements associés.
+            </p>
+          )}
+
+          {mode === 'quantities' ? (
+            <QuantitySalesFormStep
+              articles={articles}
+              employees={employees}
+              shifts={shifts}
+              form={quantityForm}
+              totals={qTotals}
+              issues={qIssues}
+              showErrors={qHasAttemptedVerify}
+              onChangeGeneral={updateQuantityGeneral}
+              onChangeQty={updateQuantityRowQty}
+              onChangeRow={updateQuantityRow}
+              onChangeRestoTickets={updateRestoTickets}
+              onReset={handleReset}
+              onCancel={handleCancel}
+              onVerify={handleVerify}
+            />
+          ) : (
+            <>
           {/* Validation error summary */}
           {showErrors && issues.length > 0 && (
             <div className="p-4 rounded-2xl bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800/60">
@@ -1007,6 +1162,8 @@ export const ManualSalesEntryPage: React.FC<ManualSalesEntryPageProps> = ({
               </button>
             </div>
           </div>
+            </>
+          )}
         </>
       )}
     </div>
