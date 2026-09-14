@@ -95,6 +95,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             { id: 'sales', label: 'Ventes' },
             { id: 'sales_manual_add', label: 'Ajoute Manuelle Ventes' },
             { id: 'sales_import', label: 'Import Excel/CSV' },
+            { id: 'sales_cash_check', label: 'Calcul du quotidien' },
           ],
         },
         {

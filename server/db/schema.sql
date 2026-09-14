@@ -314,3 +314,32 @@ CREATE TABLE IF NOT EXISTS activity_log (
   action TEXT NOT NULL,
   description TEXT NOT NULL
 );
+
+-- "Calcul du quotidien" cash/card/ticket-resto reconciliation. Only a CONFIRMED check is ever
+-- persisted here — the counting/comparison/justification workflow lives entirely in the browser
+-- until the user explicitly confirms it, at which point it becomes an immutable historical record.
+-- A later correction never mutates a row in place (see App §10): it inserts a new row for the same
+-- covered_date with supersedes_id pointing at the one it replaces, so the previously validated
+-- situation stays on record next to the corrected one.
+CREATE TABLE IF NOT EXISTS cash_verifications (
+  id TEXT PRIMARY KEY,
+  covered_date TEXT NOT NULL,
+  cash_counts TEXT NOT NULL,
+  cash_system_amount REAL NOT NULL,
+  cash_counted_amount REAL NOT NULL,
+  resto_counts TEXT NOT NULL,
+  resto_system_amount REAL NOT NULL,
+  resto_counted_gross REAL NOT NULL,
+  resto_counted_net REAL NOT NULL,
+  card_system_amount REAL NOT NULL,
+  card_verified_amount REAL NOT NULL,
+  card_verified_count INTEGER,
+  total_system REAL NOT NULL,
+  total_counted REAL NOT NULL,
+  total_difference REAL NOT NULL,
+  status TEXT NOT NULL,
+  justifications TEXT NOT NULL,
+  supersedes_id TEXT REFERENCES cash_verifications(id),
+  confirmed_at TEXT NOT NULL,
+  confirmed_by TEXT NOT NULL
+);

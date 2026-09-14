@@ -14,6 +14,7 @@ import { hrRouter } from './routes/hr.js';
 import { notificationsRouter } from './routes/notifications.js';
 import { activityLogRouter } from './routes/activityLog.js';
 import { dashboardRouter } from './routes/dashboard.js';
+import { cashVerificationsRouter } from './routes/cashVerifications.js';
 import { publicRouter } from './routes/public.js';
 import { errorMiddleware } from './middleware/errors.js';
 import { ensureCsrfCookie, csrfProtection } from './middleware/csrf.js';
@@ -43,6 +44,7 @@ app.use('/api/hr', hrRouter);
 app.use('/api/notifications', notificationsRouter);
 app.use('/api/activity-log', activityLogRouter);
 app.use('/api/dashboard', dashboardRouter);
+app.use('/api/cash-verifications', cashVerificationsRouter);
 app.use('/api/public', publicRouter);
 
 app.use(errorMiddleware);

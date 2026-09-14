@@ -48,6 +48,8 @@ import * as notificationsApi from './api/notifications';
 import * as activityLogApi from './api/activityLog';
 import * as dashboardApi from './api/dashboard';
 import type { MonthlyTarget } from './api/dashboard';
+import * as cashVerificationsApi from './api/cashVerifications';
+import { CashVerification, CashVerificationInput } from './data/cashCheckModel';
 import { RotateCw, CheckCircle2, Loader2, WifiOff } from 'lucide-react';
 
 // Lazy-loaded: pulls in the xlsx/papaparse parsing libraries only when the user
@@ -55,6 +57,10 @@ import { RotateCw, CheckCircle2, Loader2, WifiOff } from 'lucide-react';
 const ImportSalesPage = lazy(() =>
   import('./components/ImportSalesPage').then((m) => ({ default: m.ImportSalesPage }))
 );
+
+// Lazy-loaded: "Calcul du quotidien" is a large, self-contained reconciliation tool most sessions
+// never open.
+const CashCheckPage = lazy(() => import('./components/CashCheckPage').then((m) => ({ default: m.CashCheckPage })));
 
 // Lazy-loaded: the Stock module (5 pages) is only fetched when the user opens the Stock section.
 const StockPage = lazy(() => import('./components/StockPage').then((m) => ({ default: m.StockPage })));
@@ -200,6 +206,7 @@ export default function App() {
   const [hrFinancialRecords, setHrFinancialRecords] = useState<FinancialRecord[]>([]);
   const [treatedAlerts, setTreatedAlerts] = useState<Record<string, { treatedAt: string; treatedBy: string }>>({});
   const [monthlySalesTargets, setMonthlySalesTargets] = useState<MonthlyTarget[]>([]);
+  const [cashVerifications, setCashVerifications] = useState<CashVerification[]>([]);
   const [isDataLoaded, setIsDataLoaded] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -215,7 +222,7 @@ export default function App() {
       expenseCats, expensesRes,
       suppliersRes, orders, receptions, invoices, productAliasesRes,
       employees, shifts, dayRecords, recurringPlans, financialRecords,
-      treated, log, monthlyTargets,
+      treated, log, monthlyTargets, cashVerificationsRes,
     ] = await Promise.all([
       productCatalogApi.getProductCategories(),
       productCatalogApi.getProductSubCategories(),
@@ -242,6 +249,7 @@ export default function App() {
       notificationsApi.getTreatedAlerts(),
       activityLogApi.getActivityLog(),
       dashboardApi.getMonthlyTargets(),
+      cashVerificationsApi.getCashVerifications(),
     ]);
     setCatalogExtras(extras);
     setProductCategories(categories);
@@ -268,6 +276,7 @@ export default function App() {
     setTreatedAlerts(treated);
     setActivityLog(log);
     setMonthlySalesTargets(monthlyTargets);
+    setCashVerifications(cashVerificationsRes);
   }, []);
 
   useEffect(() => {
@@ -699,6 +708,15 @@ export default function App() {
     runMutation(() => salesApi.createSalesTransactions(newTransactions.map(toTicketInput)));
   };
 
+  // Deliberately bypasses runMutation: a failed cash-check confirmation must surface inline on the
+  // page (this is a financial reconciliation record — silently pretending it saved would defeat
+  // the whole point of the traceability this feature exists for), and a single new row never needs
+  // a full app-wide refetch.
+  const handleConfirmCashVerification = async (input: CashVerificationInput): Promise<void> => {
+    const created = await cashVerificationsApi.createCashVerification(input);
+    setCashVerifications((prev) => [created, ...prev]);
+  };
+
 
   const dashboardRange = useMemo(() => resolveDashboardRange(activePeriod, customRange), [activePeriod, customRange]);
 
@@ -894,6 +912,27 @@ export default function App() {
                     setActiveSubItem('sales');
                   }}
                   onSaveTickets={handleSaveImportedSalesTickets}
+                />
+              </Suspense>
+            ) : activeTab === 'sales_mgmt' && activeSubItem === 'sales_cash_check' ? (
+              <Suspense
+                fallback={
+                  <div className="flex items-center justify-center gap-2 py-24 text-sm text-gray-500 dark:text-gray-400">
+                    <Loader2 size={18} className="animate-spin" />
+                    <span>Chargement du calcul du quotidien…</span>
+                  </div>
+                }
+              >
+                <CashCheckPage
+                  salesTransactions={salesTransactions}
+                  expenses={expenses}
+                  supplierInvoices={supplierInvoices}
+                  verifications={cashVerifications}
+                  onConfirmVerification={handleConfirmCashVerification}
+                  onNavigateToDashboard={() => {
+                    setActiveTab('dashboard');
+                    setActiveSubItem('');
+                  }}
                 />
               </Suspense>
             ) : activeTab === 'stock' && activeSubItem === 'stock_overview' ? (

@@ -1,0 +1,301 @@
+import React, { useMemo, useState } from 'react';
+import { Banknote, CreditCard, Ticket, CalendarDays, AlertCircle } from 'lucide-react';
+import { SaleTransaction } from '../data/salesTransactions';
+import { Expense } from '../data/expensesModel';
+import { SupplierInvoice } from '../data/purchasesModel';
+import {
+  CashVerification,
+  CashVerificationInput,
+  CASH_DENOMINATIONS,
+  RESTO_TICKET_DENOMINATIONS,
+  computeCashKpis,
+  computeDaySystemTotals,
+  buildCashCheckCalendar,
+  findLatestVerificationForDate,
+} from '../data/cashCheckModel';
+import { CashCheckHeatmap } from './cashCheck/CashCheckHeatmap';
+import { CashVerificationPanel } from './cashCheck/CashVerificationPanel';
+import { CashCheckHistory } from './cashCheck/CashCheckHistory';
+
+interface CashCheckPageProps {
+  salesTransactions: SaleTransaction[];
+  expenses: Expense[];
+  supplierInvoices: SupplierInvoice[];
+  verifications: CashVerification[];
+  onConfirmVerification: (input: CashVerificationInput) => Promise<void>;
+  onNavigateToDashboard: () => void;
+}
+
+const formatDT = (v: number): string => `${v.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} DT`;
+const todayIso = (): string => new Date().toISOString().slice(0, 10);
+
+export const CashCheckPage: React.FC<CashCheckPageProps> = ({
+  salesTransactions,
+  expenses,
+  supplierInvoices,
+  verifications,
+  onConfirmVerification,
+  onNavigateToDashboard,
+}) => {
+  const today = useMemo(() => todayIso(), []);
+  const [selectedDate, setSelectedDate] = useState(today);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  const kpis = useMemo(
+    () => computeCashKpis(salesTransactions, expenses, supplierInvoices, verifications),
+    [salesTransactions, expenses, supplierInvoices, verifications]
+  );
+
+  const calendar = useMemo(
+    () => buildCashCheckCalendar(salesTransactions, expenses, supplierInvoices, 8),
+    [salesTransactions, expenses, supplierInvoices]
+  );
+
+  const dayTotals = useMemo(
+    () => computeDaySystemTotals(selectedDate, salesTransactions, expenses, supplierInvoices),
+    [selectedDate, salesTransactions, expenses, supplierInvoices]
+  );
+
+  const dayVerification = useMemo(
+    () => findLatestVerificationForDate(verifications, selectedDate),
+    [verifications, selectedDate]
+  );
+
+  const handleConfirm = async (input: CashVerificationInput) => {
+    setIsSaving(true);
+    setSaveError(null);
+    try {
+      await onConfirmVerification({
+        ...input,
+        supersedesId: dayVerification?.id,
+      });
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : "Une erreur est survenue lors de l'enregistrement.");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const selectedDateLabel = new Date(`${selectedDate}T00:00:00`).toLocaleDateString('fr-FR', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  });
+
+  return (
+    <div className="space-y-5 animate-in fade-in duration-200">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1">
+        <div>
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-gray-900 dark:text-white">Calcul du quotidien</h1>
+          <p className="text-xs text-gray-500 dark:text-gray-400">
+            Suivi, comptage et vérification des montants réellement présents en caisse.
+          </p>
+        </div>
+        <button
+          onClick={onNavigateToDashboard}
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-emerald-300 dark:border-emerald-700/80 bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 text-xs font-semibold text-emerald-700 dark:text-emerald-300 transition active:scale-98 cursor-pointer self-start sm:self-auto"
+        >
+          <span>Tableau de bord</span>
+        </button>
+      </div>
+
+      {/* 1. KPIs — situation actuelle */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+        <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-[#151D2A] border border-gray-100 dark:border-gray-800 shadow-2xs">
+          <div className="flex items-center gap-2 mb-1.5">
+            <span className="w-8 h-8 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
+              <Banknote size={16} />
+            </span>
+            <span className="text-xs font-semibold text-gray-500 dark:text-gray-400">Espèces</span>
+          </div>
+          <p className="text-xl font-bold text-gray-900 dark:text-white">{formatDT(kpis.especes)}</p>
+          <p className="text-[11px] text-gray-400 mt-0.5">Situation actuelle en caisse</p>
+        </div>
+        <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-[#151D2A] border border-gray-100 dark:border-gray-800 shadow-2xs">
+          <div className="flex items-center gap-2 mb-1.5">
+            <span className="w-8 h-8 rounded-xl bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 flex items-center justify-center">
+              <CreditCard size={16} />
+            </span>
+            <span className="text-xs font-semibold text-gray-500 dark:text-gray-400">Carte bancaire</span>
+          </div>
+          <p className="text-xl font-bold text-gray-900 dark:text-white">{formatDT(kpis.carte)}</p>
+          <p className="text-[11px] text-gray-400 mt-0.5">Situation actuelle</p>
+        </div>
+        <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-[#151D2A] border border-gray-100 dark:border-gray-800 shadow-2xs">
+          <div className="flex items-center gap-2 mb-1.5">
+            <span className="w-8 h-8 rounded-xl bg-amber-50 dark:bg-amber-950/50 text-amber-600 dark:text-amber-400 flex items-center justify-center">
+              <Ticket size={16} />
+            </span>
+            <span className="text-xs font-semibold text-gray-500 dark:text-gray-400">Tickets restaurant</span>
+          </div>
+          <p className="text-xl font-bold text-gray-900 dark:text-white">{formatDT(kpis.restoNet)}</p>
+          <p className="text-[11px] text-gray-400 mt-0.5">{kpis.restoTicketCount} ticket(s) papier concernés</p>
+        </div>
+      </div>
+
+      {/* 2. Graphique d'évolution quotidienne */}
+      <CashCheckHeatmap
+        data={calendar}
+        selectedDate={selectedDate}
+        todayIso={today}
+        onSelectDate={setSelectedDate}
+        onResetToToday={() => setSelectedDate(today)}
+      />
+
+      {/* Selected day banner */}
+      <div className="p-3.5 rounded-2xl bg-gray-50 dark:bg-gray-800/40 border border-gray-100 dark:border-gray-800 flex items-center gap-2 text-xs">
+        <CalendarDays size={14} className="text-emerald-500 shrink-0" />
+        <span className="text-gray-500 dark:text-gray-400">
+          Journée affichée ci-dessous : <strong className="text-gray-900 dark:text-white capitalize">{selectedDateLabel}</strong>
+          {selectedDate === today && <span className="text-emerald-600 dark:text-emerald-400 font-semibold"> (aujourd'hui)</span>}
+        </span>
+      </div>
+
+      {/* 3. Espèces */}
+      <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-[#151D2A] border border-gray-100 dark:border-gray-800 shadow-2xs space-y-3">
+        <h2 className="text-sm font-bold text-gray-900 dark:text-white inline-flex items-center gap-2">
+          <Banknote size={15} className="text-emerald-500" /> Espèces
+        </h2>
+        {!dayVerification ? (
+          <p className="text-xs text-gray-400 flex items-center gap-2">
+            <AlertCircle size={13} /> Aucune vérification confirmée pour ce jour — lancez une vérification ci-dessous.
+          </p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="text-left text-gray-400 dark:text-gray-500">
+                  <th className="py-1 font-semibold">Coupure</th>
+                  <th className="py-1 font-semibold text-right">Nombre</th>
+                  <th className="py-1 font-semibold text-right">Sous-total</th>
+                </tr>
+              </thead>
+              <tbody>
+                {CASH_DENOMINATIONS.map((d) => {
+                  const count = dayVerification.cashCounts[d.id] || 0;
+                  return (
+                    <tr key={d.id} className="border-t border-gray-100 dark:border-gray-800">
+                      <td className="py-1 text-gray-600 dark:text-gray-300">{d.label}</td>
+                      <td className="py-1 text-right text-gray-600 dark:text-gray-300">{count}</td>
+                      <td className="py-1 text-right font-semibold text-gray-800 dark:text-gray-200">{formatDT(count * d.value)}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+        <div className="flex items-center justify-between pt-2 border-t border-gray-100 dark:border-gray-800">
+          <span className="text-xs font-bold text-gray-700 dark:text-gray-300">Total espèces</span>
+          <span className="text-base font-bold text-gray-900 dark:text-white">{formatDT(dayVerification?.cashCountedAmount ?? 0)}</span>
+        </div>
+      </div>
+
+      {/* 4. Tickets restaurant papier */}
+      <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-[#151D2A] border border-gray-100 dark:border-gray-800 shadow-2xs space-y-3">
+        <h2 className="text-sm font-bold text-gray-900 dark:text-white inline-flex items-center gap-2">
+          <Ticket size={15} className="text-amber-500" /> Tickets restaurant papier
+        </h2>
+        {!dayVerification ? (
+          <p className="text-xs text-gray-400 flex items-center gap-2">
+            <AlertCircle size={13} /> Aucune vérification confirmée pour ce jour.
+          </p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="text-left text-gray-400 dark:text-gray-500">
+                  <th className="py-1 font-semibold">Valeur</th>
+                  <th className="py-1 font-semibold text-right">Nombre</th>
+                  <th className="py-1 font-semibold text-right">Montant</th>
+                </tr>
+              </thead>
+              <tbody>
+                {RESTO_TICKET_DENOMINATIONS.map((d) => {
+                  const count = dayVerification.restoCounts[d.id] || 0;
+                  return (
+                    <tr key={d.id} className="border-t border-gray-100 dark:border-gray-800">
+                      <td className="py-1 text-gray-600 dark:text-gray-300">{d.label}</td>
+                      <td className="py-1 text-right text-gray-600 dark:text-gray-300">{count}</td>
+                      <td className="py-1 text-right font-semibold text-gray-800 dark:text-gray-200">{formatDT(count * d.value)}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+        <div className="grid grid-cols-3 gap-2 pt-2 border-t border-gray-100 dark:border-gray-800 text-xs">
+          <div>
+            <span className="text-gray-400 block">Total avant déduction</span>
+            <span className="font-bold text-gray-800 dark:text-gray-200">{formatDT(dayVerification?.restoCountedGross ?? 0)}</span>
+          </div>
+          <div>
+            <span className="text-gray-400 block">Déduction (10%)</span>
+            <span className="font-bold text-red-500">
+              − {formatDT((dayVerification?.restoCountedGross ?? 0) - (dayVerification?.restoCountedNet ?? 0))}
+            </span>
+          </div>
+          <div>
+            <span className="text-gray-400 block">Montant net</span>
+            <span className="font-bold text-gray-900 dark:text-white">{formatDT(dayVerification?.restoCountedNet ?? 0)}</span>
+          </div>
+        </div>
+      </div>
+
+      {/* 5. Paiements par carte bancaire */}
+      <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-[#151D2A] border border-gray-100 dark:border-gray-800 shadow-2xs space-y-2">
+        <h2 className="text-sm font-bold text-gray-900 dark:text-white inline-flex items-center gap-2">
+          <CreditCard size={15} className="text-blue-500" /> Paiements par carte bancaire
+        </h2>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+          <div>
+            <span className="text-gray-400 block">Ventes carte</span>
+            <span className="font-bold text-gray-800 dark:text-gray-200">{formatDT(dayTotals.ventesCarte)}</span>
+          </div>
+          <div>
+            <span className="text-gray-400 block">Nombre de paiements</span>
+            <span className="font-bold text-gray-800 dark:text-gray-200">{dayTotals.ventesCarteCount}</span>
+          </div>
+          <div>
+            <span className="text-gray-400 block">Dépenses/achats carte</span>
+            <span className="font-bold text-gray-800 dark:text-gray-200">
+              {dayTotals.depensesCarte + dayTotals.achatsCarte > 0 ? `− ${formatDT(dayTotals.depensesCarte + dayTotals.achatsCarte)}` : '—'}
+            </span>
+          </div>
+          <div>
+            <span className="text-gray-400 block">Total système (net)</span>
+            <span className="text-base font-bold text-gray-900 dark:text-white">{formatDT(dayTotals.netCarte)}</span>
+          </div>
+        </div>
+      </div>
+
+      {/* 6-9. Vérification */}
+      {saveError && (
+        <div className="p-4 rounded-2xl bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800/60 flex items-start gap-3">
+          <AlertCircle size={18} className="text-red-500 shrink-0 mt-0.5" />
+          <div className="flex-1">
+            <p className="text-sm font-bold text-red-700 dark:text-red-300">Échec de l'enregistrement</p>
+            <p className="text-xs text-red-600/90 dark:text-red-400/90">{saveError}</p>
+          </div>
+        </div>
+      )}
+      <CashVerificationPanel
+        key={selectedDate}
+        selectedDate={selectedDate}
+        cashSystemAmount={dayTotals.netEspeces}
+        restoSystemGross={dayTotals.ventesRestoGross}
+        restoSystemNet={dayTotals.ventesRestoNet}
+        cardSystemAmount={dayTotals.netCarte}
+        cardSystemCount={dayTotals.ventesCarteCount}
+        isSaving={isSaving}
+        onConfirm={handleConfirm}
+      />
+
+      {/* 12. Historique */}
+      <CashCheckHistory verifications={verifications} />
+    </div>
+  );
+};
