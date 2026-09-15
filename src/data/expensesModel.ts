@@ -19,6 +19,14 @@ export interface ExpenseCategory {
   createdAt: string;
 }
 
+// The 12 categories a fresh/seeded install starts with (server/seed/misc.ts). Shared here so the
+// "Recréer les catégories par défaut" action (for after a full data wipe emptied this table) and
+// the seed script can never drift apart by listing the names twice.
+export const DEFAULT_EXPENSE_CATEGORY_NAMES = [
+  'Loyer', 'STEG', 'SONEDE', 'Téléphone / Internet', 'Personnel', 'Entretien',
+  'Réparation', 'Marketing', 'Fournitures', 'Transport', 'Taxes et frais', 'Divers',
+];
+
 export const resolveExpenseCategoryByName = (raw: string, categories: ExpenseCategory[]): ExpenseCategory | undefined => {
   const key = normalizeKey(raw);
   if (!key) return undefined;

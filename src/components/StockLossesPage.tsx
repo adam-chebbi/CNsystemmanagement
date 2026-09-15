@@ -37,7 +37,7 @@ interface StockLossesPageProps {
   employees: string[];
   onNavigateToDashboard: () => void;
   onNavigateToStock: () => void;
-  onPostEntries: (entries: StockLedgerEntry[], lotChanges?: { upsert?: StockLot[] }) => void;
+  onPostEntries: (entries: StockLedgerEntry[]) => void;
   isDarkMode?: boolean;
 }
 
@@ -147,12 +147,8 @@ export const StockLossesPage: React.FC<StockLossesPageProps> = ({
       const signedDelta = form.direction === 'Perte' ? -qty : qty;
       const before = getZoneQty(product, form.zone);
       const timestamp = new Date(form.dateTime).toISOString();
-      const lotChanges: StockLot[] = [];
-
-      if (product.lotTracked && form.lotId) {
-        const lot = lots.find((l) => l.id === form.lotId);
-        if (lot) lotChanges.push({ ...lot, quantity: lot.quantity + signedDelta });
-      }
+      // The lot's own quantity is updated automatically server-side (upsertLotForEntry, keyed off
+      // this entry's lotNumber) — there is no separate lot-changes payload to build here.
 
       const entry: StockLedgerEntry = {
         id: generateStockId('led'),
@@ -173,7 +169,7 @@ export const StockLossesPage: React.FC<StockLossesPageProps> = ({
       };
 
       await new Promise((resolve) => setTimeout(resolve, 600));
-      onPostEntries([entry], lotChanges.length > 0 ? { upsert: lotChanges } : undefined);
+      onPostEntries([entry]);
       setStep('success');
     } catch (err) {
       setSaveError(err instanceof Error ? err.message : 'Une erreur est survenue. Veuillez réessayer.');

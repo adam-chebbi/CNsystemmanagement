@@ -99,6 +99,9 @@ export const MonthlyReportPage: React.FC<MonthlyReportPageProps> = ({
   const previousSales = useMemo(() => computeSalesMetrics(transactions, previousPeriod), [transactions, previousPeriod]);
   const topProducts = useMemo(() => computeTopProducts(transactions, period, 5), [transactions, period]);
   const lowMarginProducts = useMemo(() => computeLowMarginProducts(articles, stockProducts, subRecipes, 5), [articles, stockProducts, subRecipes]);
+  // Untruncated — only used to feed the alert's *count*, so "X produit(s) sous leur marge cible"
+  // reflects the true total even when the table above only ever shows the worst 5.
+  const allLowMarginProducts = useMemo(() => computeLowMarginProducts(articles, stockProducts, subRecipes, articles.length), [articles, stockProducts, subRecipes]);
 
   const purchases = useMemo(() => computePurchasesMetrics(orders, period), [orders, period]);
   const supplierPerf = useMemo(() => computeSupplierPerformance(suppliers, orders, receptions, invoices, period).slice(0, 5), [suppliers, orders, receptions, invoices, period]);
@@ -118,8 +121,8 @@ export const MonthlyReportPage: React.FC<MonthlyReportPageProps> = ({
   const taxSummary = useMemo(() => computeTaxSummary(transactions, invoices, period), [transactions, invoices, period]);
 
   const alerts = useMemo(
-    () => computeGlobalAlerts({ stockProducts, invoices, expenses, orders, lowMarginProducts, employees, period }),
-    [stockProducts, invoices, expenses, orders, lowMarginProducts, employees, period]
+    () => computeGlobalAlerts({ stockProducts, invoices, expenses, orders, lowMarginProducts: allLowMarginProducts, employees, period }),
+    [stockProducts, invoices, expenses, orders, allLowMarginProducts, employees, period]
   );
 
   const supplierName = (id: string) => suppliers.find((s) => s.id === id)?.name ?? '—';

@@ -11,8 +11,16 @@ import {
   Loader2,
   CheckCircle2,
   Receipt,
+  RotateCcw,
 } from 'lucide-react';
-import { ExpenseCategory, Expense, generateExpenseId, resolveExpenseCategoryByName, getExpenseCategoryUsageCount } from '../data/expensesModel';
+import {
+  ExpenseCategory,
+  Expense,
+  generateExpenseId,
+  resolveExpenseCategoryByName,
+  getExpenseCategoryUsageCount,
+  DEFAULT_EXPENSE_CATEGORY_NAMES,
+} from '../data/expensesModel';
 
 interface ExpenseCategoriesPageProps {
   categories: ExpenseCategory[];
@@ -58,6 +66,24 @@ export const ExpenseCategoriesPage: React.FC<ExpenseCategoriesPageProps> = ({
   const [deleteTarget, setDeleteTarget] = useState<ExpenseCategory | null>(null);
 
   const editingCategory = useMemo(() => categories.find((c) => c.id === editingId) ?? null, [categories, editingId]);
+
+  // After a full data wipe (or on an install that never seeded them), some/all of the 12 default
+  // categories can be missing with no quick way back short of typing each one in by hand.
+  const missingDefaultNames = useMemo(
+    () => DEFAULT_EXPENSE_CATEGORY_NAMES.filter((n) => !resolveExpenseCategoryByName(n, categories)),
+    [categories]
+  );
+  const [isRecreatingDefaults, setIsRecreatingDefaults] = useState(false);
+  const handleRecreateDefaults = async () => {
+    setIsRecreatingDefaults(true);
+    try {
+      for (const catName of missingDefaultNames) {
+        await onCreateCategory({ id: generateExpenseId('ecat'), name: catName, createdAt: new Date().toISOString().slice(0, 10) });
+      }
+    } finally {
+      setIsRecreatingDefaults(false);
+    }
+  };
 
   const issues = useMemo(() => {
     const list: string[] = [];
@@ -157,6 +183,17 @@ export const ExpenseCategoriesPage: React.FC<ExpenseCategoriesPageProps> = ({
             <Receipt size={14} className="text-gray-500 dark:text-gray-400" />
             <span>Voir les dépenses</span>
           </button>
+          {mode === 'list' && missingDefaultNames.length > 0 && (
+            <button
+              onClick={handleRecreateDefaults}
+              disabled={isRecreatingDefaults}
+              title={`Recrée les catégories par défaut manquantes : ${missingDefaultNames.join(', ')}`}
+              className={secondaryButtonClass}
+            >
+              {isRecreatingDefaults ? <Loader2 size={14} className="animate-spin" /> : <RotateCcw size={14} />}
+              <span>Recréer les catégories par défaut ({missingDefaultNames.length})</span>
+            </button>
+          )}
           {mode === 'list' && (
             <button onClick={handleOpenCreate} className={primaryButtonClass}>
               <Plus size={14} />

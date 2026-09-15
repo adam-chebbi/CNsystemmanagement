@@ -272,6 +272,7 @@ export const SalesPage: React.FC<SalesPageProps> = ({
   const [selectedService, setSelectedService] = useState<string>('all');
   const [selectedPayment, setSelectedPayment] = useState<string>('all');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [selectedEmployee, setSelectedEmployee] = useState<string>('all');
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [rowsPerPage, setRowsPerPage] = useState<number>(10);
   const [sortField, setSortField] = useState<'saleNumber' | 'totalAmount' | 'date'>('date');
@@ -295,10 +296,30 @@ export const SalesPage: React.FC<SalesPageProps> = ({
     setSelectedService('all');
     setSelectedPayment('all');
     setSelectedCategory('all');
+    setSelectedEmployee('all');
     setSelectedMonth('Sep');
     setSelectedYear(2026);
     setCurrentPage(1);
   };
+
+  // Categories actually present in the sales history, derived live rather than a fixed list —
+  // categories are managed dynamically (Gestion des produits → Catégories) and no longer match
+  // the old hardcoded 6-category set this filter used to offer.
+  const availableCategories = useMemo(() => {
+    const set = new Set<string>();
+    transactions.forEach((t) => t.items.forEach((item) => set.add(item.category)));
+    return Array.from(set).sort((a, b) => a.localeCompare(b, 'fr'));
+  }, [transactions]);
+
+  // Employees who rang up at least one sale — the "barista" field was previously only reachable
+  // via free-text search, not selectable directly. (Sales carry no "shift" of their own — only
+  // HR's Planning module does — so a shift filter isn't representable here without a schema
+  // change; employee is the closest equivalent already on every sale.)
+  const availableEmployees = useMemo(() => {
+    const set = new Set<string>();
+    transactions.forEach((t) => { if (t.barista) set.add(t.barista); });
+    return Array.from(set).sort((a, b) => a.localeCompare(b, 'fr'));
+  }, [transactions]);
 
   // Filter transactions
   const filteredTransactions = useMemo(() => {
@@ -327,6 +348,11 @@ export const SalesPage: React.FC<SalesPageProps> = ({
         if (!hasCategory) return false;
       }
 
+      // Employee filter
+      if (selectedEmployee !== 'all' && t.barista !== selectedEmployee) {
+        return false;
+      }
+
       // Search query (ticket number, item name, table/area, barista)
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
@@ -349,6 +375,7 @@ export const SalesPage: React.FC<SalesPageProps> = ({
     selectedService,
     selectedPayment,
     selectedCategory,
+    selectedEmployee,
     searchQuery,
   ]);
 
@@ -806,13 +833,31 @@ export const SalesPage: React.FC<SalesPageProps> = ({
                 }}
                 className="w-full appearance-none pl-3.5 pr-8 py-2 text-xs font-medium rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-1 focus:ring-emerald-500 cursor-pointer"
               >
-                <option value="all">Toutes les catégories café</option>
-                <option value="Café chaud">Cafés chauds & Espressos</option>
-                <option value="Boisson lactée">Boissons lactées (Lattes, Cappuccinos)</option>
-                <option value="Boisson glacée">Cold Brew & Boissons fraîches</option>
-                <option value="Pâtisserie">Pâtisseries & Viennoiseries</option>
-                <option value="Snack">Snacks & Formules Brunch</option>
-                <option value="Épicerie Café">Grains & Paquets de café</option>
+                <option value="all">Toutes les catégories</option>
+                {availableCategories.map((cat) => (
+                  <option key={cat} value={cat}>{cat}</option>
+                ))}
+              </select>
+              <ChevronDown
+                size={14}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"
+              />
+            </div>
+
+            {/* Employee Filter */}
+            <div className="relative">
+              <select
+                value={selectedEmployee}
+                onChange={(e) => {
+                  setSelectedEmployee(e.target.value);
+                  setCurrentPage(1);
+                }}
+                className="w-full appearance-none pl-3.5 pr-8 py-2 text-xs font-medium rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-1 focus:ring-emerald-500 cursor-pointer"
+              >
+                <option value="all">Tous les employés</option>
+                {availableEmployees.map((emp) => (
+                  <option key={emp} value={emp}>{emp}</option>
+                ))}
               </select>
               <ChevronDown
                 size={14}

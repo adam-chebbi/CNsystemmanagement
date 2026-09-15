@@ -60,8 +60,12 @@ export const getPreviousRange = (range: DateRange): DateRange => {
 };
 
 export const formatDT = (value: number): string => `${value.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} DT`;
+// A previous-period baseline of 0 makes any percentage meaningless (going from 0 to anything is
+// mathematically "+100%" but reads as a real, comparable growth figure it isn't — especially
+// misleading in a café's first days, or for a just-launched product). "Nouveau" mirrors the "—"
+// shown by the Rapports pages (computeVariation) for the exact same null-baseline case.
 const formatPercentChange = (current: number, previous: number): string => {
-  if (previous <= 0) return current > 0 ? '+100%' : '+0%';
+  if (previous <= 0) return current > 0 ? 'Nouveau' : '+0%';
   const pct = ((current - previous) / previous) * 100;
   return `${pct >= 0 ? '+' : ''}${pct.toFixed(1)}%`;
 };
@@ -299,7 +303,7 @@ const relativeTimeFromNow = (iso: string): string => {
 };
 
 const alertCategoryFor = (alert: OperationalAlert): CoffeeAlert['category'] => {
-  if (alert.type === 'invoice_due' || alert.type === 'invoice_ocr_review') return 'Fournisseur';
+  if (alert.type === 'invoice_due') return 'Fournisseur';
   return 'Stock';
 };
 

@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { db } from '../db/connection.js';
+import { DEFAULT_EXPENSE_CATEGORY_NAMES } from '../../src/data/expensesModel.js';
 
 const isoDate = (offsetDays = 0): string => {
   const d = new Date();
@@ -72,7 +73,7 @@ export const seedCatalogExtras = (): void => {
 
 export const seedExpenseCategories = (): void => {
   const insert = db.prepare('INSERT INTO expense_categories (id, name, created_at) VALUES (?, ?, ?)');
-  ['Loyer', 'STEG', 'SONEDE', 'Téléphone / Internet', 'Personnel', 'Entretien', 'Réparation', 'Marketing', 'Fournitures', 'Transport', 'Taxes et frais', 'Divers'].forEach((name) =>
+  DEFAULT_EXPENSE_CATEGORY_NAMES.forEach((name) =>
     insert.run(randomUUID(), name, isoDate(-180))
   );
 };

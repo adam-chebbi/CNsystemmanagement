@@ -4,10 +4,7 @@
 // comes from. The only thing that needs its own persisted state is which alerts a user has
 // already marked as "Traité" — tracked by App.tsx via each alert's deterministic id.
 //
-// V1 scope: alerts are shown only inside the platform (no SMS/WhatsApp/email). "Facture OCR à
-// vérifier" is part of the alert taxonomy (filters/legend) because the cahier des charges lists
-// it, but this app has no OCR invoice-scanning pipeline yet, so it can never actually fire —
-// that's an honest reflection of what's built, not a placeholder pretending otherwise.
+// V1 scope: alerts are shown only inside the platform (no SMS/WhatsApp/email).
 
 import { StockProduct, StockLot, StockLedgerEntry, getTotalQty, getLotStatus, DEFAULT_EXPIRY_ALERT_DAYS } from './stockModel';
 import { CatalogArticle } from './manualSalesCatalog';
@@ -20,7 +17,6 @@ export type AlertType =
   | 'stock_negative'
   | 'expiry_soon'
   | 'expiry_passed'
-  | 'invoice_ocr_review'
   | 'invoice_due'
   | 'inventory_discrepancy'
   | 'margin_below_target';
@@ -31,7 +27,6 @@ export const ALERT_TYPE_LABELS: Record<AlertType, string> = {
   stock_negative: 'Stock négatif',
   expiry_soon: 'Péremption proche',
   expiry_passed: 'Produit périmé',
-  invoice_ocr_review: 'Facture OCR à vérifier',
   invoice_due: 'Facture fournisseur à échéance',
   inventory_discrepancy: 'Écart de stock important',
   margin_below_target: "Marge sous l'objectif",
