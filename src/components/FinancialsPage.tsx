@@ -536,7 +536,19 @@ export const FinancialsPage: React.FC<FinancialsPageProps> = ({
                 <div>
                   <label className={labelClass}>Employé *</label>
                   <div className="relative">
-                    <select value={draft.employeeId} onChange={(e) => updateDraft({ employeeId: e.target.value })} className={`${inputBaseClass} appearance-none pr-8 cursor-pointer ${showErrors && issuesByField.has('employeeId') ? inputErrorClass : inputValidClass}`}>
+                    <select
+                      value={draft.employeeId}
+                      onChange={(e) => {
+                        const nextEmployeeId = e.target.value;
+                        // Prefilled only when creating a brand-new record with no base salary
+                        // typed yet — never overwrites a value the user already entered/edited,
+                        // and never touches an existing record being modified.
+                        const selectedEmployee = employees.find((emp) => emp.id === nextEmployeeId);
+                        const shouldPrefill = formOpen === 'create' && !draft.baseSalary.trim() && selectedEmployee;
+                        updateDraft({ employeeId: nextEmployeeId, ...(shouldPrefill ? { baseSalary: String(selectedEmployee.salary) } : {}) });
+                      }}
+                      className={`${inputBaseClass} appearance-none pr-8 cursor-pointer ${showErrors && issuesByField.has('employeeId') ? inputErrorClass : inputValidClass}`}
+                    >
                       <option value="">Sélectionner un employé</option>
                       {employees.map((e) => (<option key={e.id} value={e.id}>{getEmployeeFullName(e)} — {e.poste}</option>))}
                     </select>
