@@ -17,6 +17,7 @@ import {
   type FinancialRecord,
   type WeeklyPattern,
 } from '../../src/data/hrModel.js';
+import { recordAutoExpense } from '../lib/expenses.js';
 
 const nowIso = () => new Date().toISOString();
 const CIN_PATTERN = /^\d{8}$/;
@@ -273,6 +274,30 @@ const financialSchema = z.object({
   paymentDate: z.string().optional(),
 });
 
+// Same auto-expense mechanism as a sale's VAT and a supplier invoice payment — a salary actually
+// paid out shows up in Gestion des dépenses without a second manual entry. Only the newly-paid
+// increment is logged (never the running amountPaid total), since financial-record create/update
+// is a plain overwrite here (unlike invoices' dedicated incremental /payment endpoint) — computing
+// the delta against what was already on record before is what keeps this idempotent across edits.
+// FinancialRecord has no paymentMethod field of its own; Espèces is assumed for this auto-expense,
+// the most common way a small café actually pays salaries in cash.
+const recordSalaryPaymentExpense = (employeeId: string, amountDelta: number, periodMonthIndex: number, periodYear: number, performedBy: string): void => {
+  if (amountDelta <= 0) return;
+  const employeeRow = db.prepare('SELECT * FROM employees WHERE id = ?').get(employeeId) as EmployeeRow | undefined;
+  const employeeName = employeeRow ? getEmployeeFullName(rowToEmployee(employeeRow)) : employeeId;
+  recordAutoExpense({
+    title: `Salaire — ${employeeName} (${periodMonthIndex + 1}/${periodYear})`,
+    amount: amountDelta,
+    date: nowIso().slice(0, 10),
+    categoryName: 'Personnel',
+    paymentMethod: 'Espèces',
+    comment: `Paiement de salaire — généré automatiquement.`,
+    sourceType: 'salary_payment',
+    sourceId: `${employeeId}-${periodYear}-${periodMonthIndex}`,
+    performedBy,
+  });
+};
+
 hrRouter.get('/financial-records', asyncHandler((_req, res) => {
   res.json((db.prepare('SELECT * FROM financial_records').all() as FinancialRow[]).map(rowToFinancial));
 }));
@@ -287,6 +312,7 @@ hrRouter.post('/financial-records', asyncHandler((req, res) => {
     `INSERT INTO financial_records (id, employee_id, period_month_index, period_year, base_salary, advances, bonuses, deductions, amount_paid, payment_date, created_at)
      VALUES (@id, @employeeId, @periodMonthIndex, @periodYear, @baseSalary, @advances, @bonuses, @deductions, @amountPaid, @paymentDate, @createdAt)`
   ).run({ id, createdAt, ...body, paymentDate: body.paymentDate ?? null });
+  recordSalaryPaymentExpense(body.employeeId, body.amountPaid, body.periodMonthIndex, body.periodYear, req.user!.fullName);
   recordActivity('Personnel', 'Création', `Suivi financier créé — employé ${body.employeeId}`, req.user!.fullName);
   res.status(201).json(rowToFinancial({ id, employee_id: body.employeeId, period_month_index: body.periodMonthIndex, period_year: body.periodYear,
     base_salary: body.baseSalary, advances: body.advances, bonuses: body.bonuses, deductions: body.deductions, amount_paid: body.amountPaid,
@@ -301,6 +327,7 @@ hrRouter.put('/financial-records/:id', asyncHandler((req, res) => {
     `UPDATE financial_records SET base_salary=@baseSalary, advances=@advances, bonuses=@bonuses, deductions=@deductions,
      amount_paid=@amountPaid, payment_date=@paymentDate WHERE id=@id`
   ).run({ id: req.params.id, ...body, paymentDate: body.paymentDate ?? null });
+  recordSalaryPaymentExpense(body.employeeId, body.amountPaid - existing.amount_paid, body.periodMonthIndex, body.periodYear, req.user!.fullName);
   recordActivity('Personnel', 'Modification', `Suivi financier modifié — employé ${body.employeeId}`, req.user!.fullName);
   res.json(rowToFinancial({ ...existing, base_salary: body.baseSalary, amount_paid: body.amountPaid, payment_date: body.paymentDate ?? null }));
 }));

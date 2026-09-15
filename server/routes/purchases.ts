@@ -23,6 +23,7 @@ import {
 import { normalizeKey } from '../../src/data/textUtils.js';
 import type { ProductAlias } from '../../src/data/productAliases.js';
 import { STOCK_ZONES, type StockZone } from '../../src/data/stockModel.js';
+import { recordAutoExpense } from '../lib/expenses.js';
 
 const nowIso = () => new Date().toISOString();
 
@@ -332,6 +333,23 @@ purchasesRouter.post('/invoices/:id/payment', asyncHandler((req, res) => {
   if (newPaid > existing.amount_ttc) throw new ApiError(400, 'Le paiement dépasserait le montant TTC de la facture.');
   db.prepare('UPDATE supplier_invoices SET amount_paid = ? WHERE id = ?').run(newPaid, req.params.id);
   const updated = rowToInvoice({ ...existing, amount_paid: newPaid });
+  const supplier = db.prepare('SELECT name FROM suppliers WHERE id = ?').get(existing.supplier_id) as { name: string } | undefined;
+  // Same auto-expense mechanism as a sale's VAT — every real payment out the door ends up in
+  // Gestion des dépenses, whether or not it was also entered manually there before. One expense
+  // row per payment (a partial payment made in two calls creates two rows), tagged so it's
+  // traceable back to this exact payment via source_id = invoice id + a running total wouldn't be
+  // representable in a single tag — the amount itself is the payment increment, not the balance.
+  recordAutoExpense({
+    title: `Facture fournisseur ${existing.invoice_number}${supplier ? ` — ${supplier.name}` : ''}`,
+    amount: body.amount,
+    date: new Date().toISOString().slice(0, 10),
+    categoryName: 'Fournitures',
+    paymentMethod: existing.payment_method as 'Espèces' | 'Carte bancaire' | 'Chèque' | 'Virement bancaire',
+    comment: `Paiement de la facture ${existing.invoice_number} — généré automatiquement.`,
+    sourceType: 'invoice_payment',
+    sourceId: existing.id,
+    performedBy: req.user!.fullName,
+  });
   recordActivity('Achats', 'Paiement', `Paiement enregistré — ${existing.invoice_number} (+${body.amount} DT, statut: ${computeInvoiceStatus(updated)})`, req.user!.fullName);
   res.json(updated);
 }));

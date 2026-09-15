@@ -1,4 +1,3 @@
-import { randomUUID } from 'node:crypto';
 import { Router } from 'express';
 import { z } from 'zod';
 import { db } from '../db/connection.js';
@@ -12,6 +11,7 @@ import { accumulateRecipeConsumption } from '../../src/data/productsModel.js';
 import { normalizeKey } from '../../src/data/textUtils.js';
 import { getAllArticlesRaw, getAllSubRecipesRaw } from './productCatalog.js';
 import { getAllProducts, postEntries, cancelLedgerEntryById, getLedgerEntryIdsBySource, type LedgerEntryInput } from './stock.js';
+import { recordAutoExpense } from '../lib/expenses.js';
 
 interface SaleRow {
   id: number; sale_number: string; service_type: string; table_or_area: string; items: string;
@@ -127,42 +127,23 @@ const computeSaleTaxAmount = (items: SaleItem[]): number =>
 const mapSalePaymentMethodToExpense = (method: SaleTransaction['paymentMethod']): 'Espèces' | 'Carte bancaire' =>
   method === 'Carte bancaire' ? 'Carte bancaire' : 'Espèces';
 
-const ensureTaxesEtFraisCategoryId = (): string => {
-  const categories = db.prepare('SELECT id, name FROM expense_categories').all() as { id: string; name: string }[];
-  const existing = categories.find((c) => normalizeKey(c.name) === normalizeKey(TAXES_ET_FRAIS_CATEGORY_NAME));
-  if (existing) return existing.id;
-  const id = randomUUID();
-  db.prepare('INSERT INTO expense_categories (id, name, created_at) VALUES (?, ?, ?)').run(
-    id, TAXES_ET_FRAIS_CATEGORY_NAME, new Date().toISOString().slice(0, 10)
-  );
-  return id;
-};
-
 const recordTaxExpenseForSale = (
   t: Pick<SaleTransaction, 'saleNumber' | 'date' | 'paymentMethod' | 'items'>,
   performedBy: string,
   saleId: number
 ): void => {
   const taxAmount = computeSaleTaxAmount(t.items);
-  if (taxAmount <= 0) return;
-  const categoryId = ensureTaxesEtFraisCategoryId();
-  const id = randomUUID();
-  const createdAt = new Date().toISOString();
-  db.prepare(
-    `INSERT INTO expenses (id, title, amount, date, category_id, nature, recurrence, payment_method, status, comment, attachment, created_at, source_type, source_id)
-     VALUES (@id, @title, @amount, @date, @category_id, 'Variable', 'Ponctuelle', @payment_method, 'Approuvé', @comment, NULL, @created_at, 'sale_vat', @sourceId)`
-  ).run({
-    id,
+  recordAutoExpense({
     title: `TVA collectée — Vente ${t.saleNumber}`,
-    amount: Math.round(taxAmount * 1000) / 1000,
+    amount: taxAmount,
     date: t.date,
-    category_id: categoryId,
-    payment_method: mapSalePaymentMethodToExpense(t.paymentMethod),
+    categoryName: TAXES_ET_FRAIS_CATEGORY_NAME,
+    paymentMethod: mapSalePaymentMethodToExpense(t.paymentMethod),
     comment: `Généré automatiquement à partir de la vente ${t.saleNumber}.`,
-    created_at: createdAt,
+    sourceType: 'sale_vat',
     sourceId: String(saleId),
+    performedBy,
   });
-  recordActivity('Dépenses', 'Création', `Dépense créée automatiquement — TVA vente ${t.saleNumber} (${taxAmount.toFixed(3)} DT)`, performedBy);
 };
 
 // Reverses everything a sale's automatic side effects did: cancels every stock ledger entry it
