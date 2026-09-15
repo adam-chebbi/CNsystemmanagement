@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { Router } from 'express';
 import { z } from 'zod';
 import { db } from '../db/connection.js';
@@ -6,7 +7,7 @@ import { asyncHandler } from '../middleware/errors.js';
 import { requireAuth } from '../middleware/auth.js';
 import { recordActivity } from '../lib/activity.js';
 import type { SaleItem, SaleTransaction } from '../../src/data/salesTransactions.js';
-import type { CatalogArticle } from '../../src/data/manualSalesCatalog.js';
+import { DEFAULT_VAT_RATE, type CatalogArticle } from '../../src/data/manualSalesCatalog.js';
 import { accumulateRecipeConsumption } from '../../src/data/productsModel.js';
 import { normalizeKey } from '../../src/data/textUtils.js';
 import { getAllArticlesRaw, getAllSubRecipesRaw } from './productCatalog.js';
@@ -101,6 +102,60 @@ const deductStockForSale = (items: SaleItem[], performedBy: string): void => {
   if (inputs.length > 0) postEntries(inputs);
 };
 
+// Every paid sale automatically logs its VAT as an expense under a "Taxes et frais" category,
+// created on first use if it doesn't already exist (e.g. after a full data wipe that emptied
+// expense_categories, or on an install that never seeded the default categories). This mirrors
+// the collected-VAT figure already shown in Rapports → Rapport fiscal, but as an actual expense
+// row so it shows up in Gestion des dépenses without any manual entry.
+const TAXES_ET_FRAIS_CATEGORY_NAME = 'Taxes et frais';
+
+const computeSaleTaxAmount = (items: SaleItem[]): number =>
+  items.reduce((sum, item) => {
+    const rate = item.vatRate ?? DEFAULT_VAT_RATE;
+    const gross = item.qty * item.price;
+    const net = item.netAmount ?? gross / (1 + rate);
+    const tax = item.taxAmount ?? gross - net;
+    return sum + tax;
+  }, 0);
+
+// Expense.paymentMethod has no "Ticket resto" option (that one only exists on the sales side) —
+// fold it into Espèces, the closest cash-equivalent settlement method.
+const mapSalePaymentMethodToExpense = (method: SaleTransaction['paymentMethod']): 'Espèces' | 'Carte bancaire' =>
+  method === 'Carte bancaire' ? 'Carte bancaire' : 'Espèces';
+
+const ensureTaxesEtFraisCategoryId = (): string => {
+  const categories = db.prepare('SELECT id, name FROM expense_categories').all() as { id: string; name: string }[];
+  const existing = categories.find((c) => normalizeKey(c.name) === normalizeKey(TAXES_ET_FRAIS_CATEGORY_NAME));
+  if (existing) return existing.id;
+  const id = randomUUID();
+  db.prepare('INSERT INTO expense_categories (id, name, created_at) VALUES (?, ?, ?)').run(
+    id, TAXES_ET_FRAIS_CATEGORY_NAME, new Date().toISOString().slice(0, 10)
+  );
+  return id;
+};
+
+const recordTaxExpenseForSale = (t: Pick<SaleTransaction, 'saleNumber' | 'date' | 'paymentMethod' | 'items'>, performedBy: string): void => {
+  const taxAmount = computeSaleTaxAmount(t.items);
+  if (taxAmount <= 0) return;
+  const categoryId = ensureTaxesEtFraisCategoryId();
+  const id = randomUUID();
+  const createdAt = new Date().toISOString();
+  db.prepare(
+    `INSERT INTO expenses (id, title, amount, date, category_id, nature, recurrence, payment_method, status, comment, attachment, created_at)
+     VALUES (@id, @title, @amount, @date, @category_id, 'Variable', 'Ponctuelle', @payment_method, 'Approuvé', @comment, NULL, @created_at)`
+  ).run({
+    id,
+    title: `TVA collectée — Vente ${t.saleNumber}`,
+    amount: Math.round(taxAmount * 1000) / 1000,
+    date: t.date,
+    category_id: categoryId,
+    payment_method: mapSalePaymentMethodToExpense(t.paymentMethod),
+    comment: `Généré automatiquement à partir de la vente ${t.saleNumber}.`,
+    created_at: createdAt,
+  });
+  recordActivity('Dépenses', 'Création', `Dépense créée automatiquement — TVA vente ${t.saleNumber} (${taxAmount.toFixed(3)} DT)`, performedBy);
+};
+
 export const salesRouter = Router();
 salesRouter.use(requireAuth);
 
@@ -127,7 +182,10 @@ salesRouter.post('/transactions', asyncHandler((req, res) => {
         items_count: t.itemsCount, items_summary: t.itemsSummary, payment_method: t.paymentMethod, barista: t.barista,
         total_amount: t.totalAmount, date: t.date, time: t.time, month: t.month, year: t.year, status: t.status,
       });
-      if (t.status === 'Payé') deductStockForSale(t.items, req.user!.fullName);
+      if (t.status === 'Payé') {
+        deductStockForSale(t.items, req.user!.fullName);
+        recordTaxExpenseForSale(t, req.user!.fullName);
+      }
       created.push({ ...t, id });
     }
     return created;
