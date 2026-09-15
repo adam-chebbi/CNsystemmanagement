@@ -30,7 +30,7 @@ import { SaleTransaction, ServiceType, PaymentMethod } from '../data/salesTransa
 import {
   CatalogArticle,
   CatalogExtra,
-  ARTICLE_CATEGORIES_ORDER,
+  getArticleCategoriesInUse,
   getArticleById,
   getExtraById,
   getVariantGroupForCategory,
@@ -96,6 +96,7 @@ export const ManualSalesEntryPage: React.FC<ManualSalesEntryPageProps> = ({
   onSaveTickets,
 }) => {
   const catalog: SalesCatalogContext = { articles, extras, employees, shifts };
+  const articleCategories = useMemo(() => getArticleCategoriesInUse(articles), [articles]);
   const [mode, setMode] = useState<EntryMode>('tickets');
   const [form, setForm] = useState<ManualSalesFormState>(() => createEmptyForm());
   const [quantityForm, setQuantityForm] = useState<QuantitySalesFormState>(() => createEmptyQuantityForm(articles));
@@ -898,7 +899,7 @@ export const ManualSalesEntryPage: React.FC<ManualSalesEntryPageProps> = ({
                                         }`}
                                       >
                                         <option value="">Choisir une consommation / un article</option>
-                                        {ARTICLE_CATEGORIES_ORDER.map((cat) => (
+                                        {articleCategories.map((cat) => (
                                           <optgroup key={cat} label={cat}>
                                             {articles.filter((a) => a.category === cat).map((a) => (
                                               <option key={a.id} value={a.id}>

@@ -27,7 +27,7 @@ import { SaleTransaction, ServiceType, PaymentMethod } from '../data/salesTransa
 import {
   CatalogArticle,
   CatalogExtra,
-  ARTICLE_CATEGORIES_ORDER,
+  getArticleCategoriesInUse,
   getArticleById,
   getExtraById,
   getVariantGroupForCategory,
@@ -78,6 +78,7 @@ export const ImportSalesPage: React.FC<ImportSalesPageProps> = ({
   onSaveTickets,
 }) => {
   const catalog: SalesCatalogContext = { articles, extras, employees, shifts };
+  const articleCategories = useMemo(() => getArticleCategoriesInUse(articles), [articles]);
   const [step, setStep] = useState<Step>('upload');
   const [file, setFile] = useState<File | null>(null);
   const [isDragOver, setIsDragOver] = useState(false);
@@ -555,7 +556,7 @@ export const ImportSalesPage: React.FC<ImportSalesPageProps> = ({
                                   }`}
                                 >
                                   <option value="">Choisir une consommation / un article</option>
-                                  {ARTICLE_CATEGORIES_ORDER.map((cat) => (
+                                  {articleCategories.map((cat) => (
                                     <optgroup key={cat} label={cat}>
                                       {articles.filter((a) => a.category === cat).map((a) => (
                                         <option key={a.id} value={a.id}>

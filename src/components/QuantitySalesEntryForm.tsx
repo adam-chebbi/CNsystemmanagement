@@ -16,7 +16,7 @@ import {
   ArrowLeft,
   Loader2,
 } from 'lucide-react';
-import { CatalogArticle, ARTICLE_CATEGORIES_ORDER, getArticleById, getArticleTtcPrice } from '../data/manualSalesCatalog';
+import { CatalogArticle, getArticleCategoriesInUse, getArticleById, getArticleTtcPrice } from '../data/manualSalesCatalog';
 import {
   DraftQuantityRow,
   QuantitySalesFormState,
@@ -127,6 +127,8 @@ export const QuantitySalesFormStep: React.FC<QuantitySalesFormStepProps> = ({
     return map;
   }, [form.rows]);
 
+  const articleCategories = useMemo(() => getArticleCategoriesInUse(articles), [articles]);
+
   const restoTicketsCollected = computeRestoTicketsCollected(form.restoTickets);
   const restoMismatch =
     (form.restoTickets.count5 > 0 || form.restoTickets.count7 > 0 || form.restoTickets.count10 > 0 || totals.totalRestoQty > 0) &&
@@ -221,7 +223,7 @@ export const QuantitySalesFormStep: React.FC<QuantitySalesFormStepProps> = ({
         )}
 
         <div className="space-y-5 max-h-[900px] overflow-y-auto custom-scrollbar pr-0.5">
-          {ARTICLE_CATEGORIES_ORDER.filter((cat) => articles.some((a) => a.category === cat)).map((category) => (
+          {articleCategories.map((category) => (
             <div key={category} className="space-y-2">
               <h3 className="text-xs font-bold uppercase tracking-wide text-gray-400 dark:text-gray-500 px-1">{category}</h3>
               <div className="space-y-2">

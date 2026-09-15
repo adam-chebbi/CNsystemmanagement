@@ -126,12 +126,10 @@ export const getVariantGroupForCategory = (category: ArticleCategory): VariantGr
 export const getVariantOption = (category: ArticleCategory, optionId: string): VariantOption | undefined =>
   VARIANT_GROUPS_BY_CATEGORY[category]?.options.find((o) => o.id === optionId);
 
-// Articles grouped by category, in a stable order, for building <optgroup> pickers.
-export const ARTICLE_CATEGORIES_ORDER: ArticleCategory[] = [
-  'Café chaud',
-  'Boisson lactée',
-  'Boisson glacée',
-  'Pâtisserie',
-  'Snack',
-  'Épicerie Café',
-];
+// Categories to group articles under when building <optgroup> pickers (manual sales entry,
+// quantities entry, sales import). Categories are managed dynamically (Gestion des produits →
+// Catalogue → Catégories), so this is derived live from whatever categories are actually present
+// on `articles` — never a fixed list — sorted alphabetically (French collation) for a stable,
+// predictable order without depending on category-creation order being threaded through as a prop.
+export const getArticleCategoriesInUse = (articles: CatalogArticle[]): string[] =>
+  Array.from(new Set(articles.map((a) => a.category))).sort((a, b) => a.localeCompare(b, 'fr'));
