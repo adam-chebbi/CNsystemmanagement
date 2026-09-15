@@ -407,6 +407,12 @@ export default function App() {
     runMutation(() => productCatalogApi.deleteSubRecipe(subRecipeId));
   };
 
+  // Sous-recettes → Import Excel/CSV: POST /sub-recipes only ever accepts one sub-recipe per
+  // call, so a bulk import is a Promise.all of independent creates (same pattern as ingredients).
+  const handleImportSubRecipes = (newSubRecipes: Omit<SubRecipe, 'id' | 'createdAt'>[]) => {
+    runMutation(() => Promise.all(newSubRecipes.map((sr) => productCatalogApi.createSubRecipe(sr))));
+  };
+
   const handleCreateProductCategory = (category: ProductCategory) => {
     runMutation(() => productCatalogApi.createProductCategory(category.name));
   };
@@ -1129,6 +1135,7 @@ export default function App() {
                   onCreateSubRecipe={handleCreateSubRecipe}
                   onUpdateSubRecipe={handleUpdateSubRecipe}
                   onDeleteSubRecipe={handleDeleteSubRecipe}
+                  onImportSubRecipes={handleImportSubRecipes}
                 />
               </Suspense>
             ) : activeTab === 'products_recipes_mgmt' && activeSubItem === 'prm_catalog' ? (

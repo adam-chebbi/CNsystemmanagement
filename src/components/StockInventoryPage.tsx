@@ -10,6 +10,7 @@ import {
   History,
   Info,
   Plus,
+  UploadCloud,
 } from 'lucide-react';
 import {
   StockProduct,
@@ -23,6 +24,7 @@ import {
   getZoneQty,
   getTotalQty,
 } from '../data/stockModel';
+import { InventoryImportForm } from './InventoryImportForm';
 
 interface StockInventoryPageProps {
   products: StockProduct[];
@@ -35,6 +37,7 @@ interface StockInventoryPageProps {
 }
 
 type Step = 'setup' | 'counting' | 'preview' | 'success';
+type Mode = 'manual' | 'import';
 
 interface InventoryFormState {
   scopeType: InventoryScopeType;
@@ -70,6 +73,7 @@ export const StockInventoryPage: React.FC<StockInventoryPageProps> = ({
   onNavigateToStock,
   onPostEntries,
 }) => {
+  const [mode, setMode] = useState<Mode>('manual');
   const [step, setStep] = useState<Step>('setup');
   const [form, setForm] = useState<InventoryFormState>(createEmptyInventoryForm());
   const [hasAttemptedVerify, setHasAttemptedVerify] = useState(false);
@@ -208,6 +212,12 @@ export const StockInventoryPage: React.FC<StockInventoryPageProps> = ({
           </p>
         </div>
         <div className="flex items-center gap-2 self-start sm:self-auto">
+          {mode === 'manual' && (
+            <button onClick={() => setMode('import')} className={secondaryButtonClass}>
+              <UploadCloud size={14} className="text-gray-500 dark:text-gray-400" />
+              <span>Import Excel/CSV</span>
+            </button>
+          )}
           <button onClick={onNavigateToStock} className={secondaryButtonClass}>
             <History size={14} className="text-gray-500 dark:text-gray-400" />
             <span>Voir le stock</span>
@@ -221,7 +231,14 @@ export const StockInventoryPage: React.FC<StockInventoryPageProps> = ({
         </div>
       </div>
 
-      {step === 'success' ? (
+      {mode === 'import' ? (
+        <InventoryImportForm
+          products={products}
+          employees={employees}
+          onPostEntries={onPostEntries}
+          onClose={() => setMode('manual')}
+        />
+      ) : step === 'success' ? (
         <div className="p-8 sm:p-12 rounded-2xl bg-white dark:bg-[#151D2A] border border-gray-100 dark:border-gray-800 shadow-2xs flex flex-col items-center text-center gap-3">
           <div className="w-14 h-14 rounded-full bg-emerald-50 dark:bg-emerald-950/50 flex items-center justify-center text-emerald-500">
             <CheckCircle2 size={30} />

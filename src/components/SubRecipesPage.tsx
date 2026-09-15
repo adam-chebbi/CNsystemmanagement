@@ -13,6 +13,7 @@ import {
   History,
   ArrowLeft,
   ChevronDown,
+  UploadCloud,
 } from 'lucide-react';
 import { CatalogArticle } from '../data/manualSalesCatalog';
 import { StockProduct, StockUnit, areUnitsCompatible } from '../data/stockModel';
@@ -28,6 +29,7 @@ import {
   computeRecipeCost,
   getSubRecipeUsageCount,
 } from '../data/productsModel';
+import { SubRecipesImportForm } from './SubRecipesImportForm';
 
 interface SubRecipesPageProps {
   subRecipes: SubRecipe[];
@@ -39,10 +41,11 @@ interface SubRecipesPageProps {
   onCreateSubRecipe: (subRecipe: SubRecipe) => void;
   onUpdateSubRecipe: (subRecipe: SubRecipe) => void;
   onDeleteSubRecipe: (subRecipeId: string) => void;
+  onImportSubRecipes: (subRecipes: Omit<SubRecipe, 'id' | 'createdAt'>[]) => void;
   isDarkMode?: boolean;
 }
 
-type Mode = 'list' | 'create' | 'edit';
+type Mode = 'list' | 'create' | 'edit' | 'import';
 type Step = 'form' | 'preview' | 'success';
 
 const inputBaseClass =
@@ -66,6 +69,7 @@ export const SubRecipesPage: React.FC<SubRecipesPageProps> = ({
   onCreateSubRecipe,
   onUpdateSubRecipe,
   onDeleteSubRecipe,
+  onImportSubRecipes,
 }) => {
   const [mode, setMode] = useState<Mode>('list');
   const [step, setStep] = useState<Step>('form');
@@ -218,10 +222,16 @@ export const SubRecipesPage: React.FC<SubRecipesPageProps> = ({
             <span>Voir les produits</span>
           </button>
           {mode === 'list' && (
-            <button onClick={handleOpenCreate} className={primaryButtonClass}>
-              <Plus size={14} />
-              <span>Ajouter une sous-recette</span>
-            </button>
+            <>
+              <button onClick={() => setMode('import')} className={secondaryButtonClass}>
+                <UploadCloud size={14} className="text-gray-500 dark:text-gray-400" />
+                <span>Import Excel/CSV</span>
+              </button>
+              <button onClick={handleOpenCreate} className={primaryButtonClass}>
+                <Plus size={14} />
+                <span>Ajouter une sous-recette</span>
+              </button>
+            </>
           )}
           <button
             onClick={onNavigateToDashboard}
@@ -232,7 +242,15 @@ export const SubRecipesPage: React.FC<SubRecipesPageProps> = ({
         </div>
       </div>
 
-      {mode !== 'list' ? (
+      {mode === 'import' ? (
+        <SubRecipesImportForm
+          subRecipes={subRecipes}
+          ingredients={ingredients}
+          units={units}
+          onImportSubRecipes={onImportSubRecipes}
+          onClose={() => setMode('list')}
+        />
+      ) : mode !== 'list' ? (
         <div className="space-y-4">
           {step === 'success' ? (
             <div className="p-8 sm:p-12 rounded-2xl bg-white dark:bg-[#151D2A] border border-gray-100 dark:border-gray-800 shadow-2xs flex flex-col items-center text-center gap-3">
