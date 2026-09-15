@@ -3,7 +3,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { db } from '../db/connection.js';
 import { fromJson, toJson } from '../db/json.js';
-import { asyncHandler } from '../middleware/errors.js';
+import { asyncHandler, ApiError, notFound } from '../middleware/errors.js';
 import { requireAuth } from '../middleware/auth.js';
 import { recordActivity } from '../lib/activity.js';
 import type { SaleItem, SaleTransaction } from '../../src/data/salesTransactions.js';
@@ -11,7 +11,7 @@ import { DEFAULT_VAT_RATE, type CatalogArticle } from '../../src/data/manualSale
 import { accumulateRecipeConsumption } from '../../src/data/productsModel.js';
 import { normalizeKey } from '../../src/data/textUtils.js';
 import { getAllArticlesRaw, getAllSubRecipesRaw } from './productCatalog.js';
-import { getAllProducts, postEntries, type LedgerEntryInput } from './stock.js';
+import { getAllProducts, postEntries, cancelLedgerEntryById, getLedgerEntryIdsBySource, type LedgerEntryInput } from './stock.js';
 
 interface SaleRow {
   id: number; sale_number: string; service_type: string; table_or_area: string; items: string;
@@ -73,7 +73,7 @@ const resolveArticleForSaleItem = (item: SaleItem, articles: CatalogArticle[]): 
 // stock movement per ingredient via the exact same postEntries() the manual Stock module uses.
 // Deliberately defensive: a product with no recipe, or an ingredient that no longer exists, is
 // silently skipped rather than thrown — a sale must never fail because of a stock/recipe data gap.
-const deductStockForSale = (items: SaleItem[], performedBy: string): void => {
+const deductStockForSale = (items: SaleItem[], performedBy: string, saleId: number): void => {
   const articles = getAllArticlesRaw();
   const subRecipes = getAllSubRecipesRaw();
   const products = getAllProducts();
@@ -97,6 +97,10 @@ const deductStockForSale = (items: SaleItem[], performedBy: string): void => {
       quantityDelta: -qty,
       reason: 'Vente',
       performedBy,
+      // Tagged so a later refund (see POST /transactions/:id/refund) can find and cancel exactly
+      // these entries, instead of string-matching the reason/comment.
+      sourceType: 'sale',
+      sourceId: String(saleId),
     });
   });
   if (inputs.length > 0) postEntries(inputs);
@@ -134,15 +138,19 @@ const ensureTaxesEtFraisCategoryId = (): string => {
   return id;
 };
 
-const recordTaxExpenseForSale = (t: Pick<SaleTransaction, 'saleNumber' | 'date' | 'paymentMethod' | 'items'>, performedBy: string): void => {
+const recordTaxExpenseForSale = (
+  t: Pick<SaleTransaction, 'saleNumber' | 'date' | 'paymentMethod' | 'items'>,
+  performedBy: string,
+  saleId: number
+): void => {
   const taxAmount = computeSaleTaxAmount(t.items);
   if (taxAmount <= 0) return;
   const categoryId = ensureTaxesEtFraisCategoryId();
   const id = randomUUID();
   const createdAt = new Date().toISOString();
   db.prepare(
-    `INSERT INTO expenses (id, title, amount, date, category_id, nature, recurrence, payment_method, status, comment, attachment, created_at)
-     VALUES (@id, @title, @amount, @date, @category_id, 'Variable', 'Ponctuelle', @payment_method, 'Approuvé', @comment, NULL, @created_at)`
+    `INSERT INTO expenses (id, title, amount, date, category_id, nature, recurrence, payment_method, status, comment, attachment, created_at, source_type, source_id)
+     VALUES (@id, @title, @amount, @date, @category_id, 'Variable', 'Ponctuelle', @payment_method, 'Approuvé', @comment, NULL, @created_at, 'sale_vat', @sourceId)`
   ).run({
     id,
     title: `TVA collectée — Vente ${t.saleNumber}`,
@@ -152,8 +160,28 @@ const recordTaxExpenseForSale = (t: Pick<SaleTransaction, 'saleNumber' | 'date' 
     payment_method: mapSalePaymentMethodToExpense(t.paymentMethod),
     comment: `Généré automatiquement à partir de la vente ${t.saleNumber}.`,
     created_at: createdAt,
+    sourceId: String(saleId),
   });
   recordActivity('Dépenses', 'Création', `Dépense créée automatiquement — TVA vente ${t.saleNumber} (${taxAmount.toFixed(3)} DT)`, performedBy);
+};
+
+// Reverses everything a sale's automatic side effects did: cancels every stock ledger entry it
+// generated (re-adding the consumed ingredients back to stock) and rejects the auto-created VAT
+// expense (kept, not deleted, so the audit trail shows it was reversed rather than never existing).
+const reverseSaleSideEffects = (saleId: number, performedBy: string, saleNumber: string): void => {
+  getLedgerEntryIdsBySource('sale', String(saleId)).forEach((ledgerId) => {
+    cancelLedgerEntryById(ledgerId, performedBy, `Remboursement de la vente ${saleNumber}`);
+  });
+  const expenseRows = db.prepare(
+    "SELECT id, comment FROM expenses WHERE source_type = 'sale_vat' AND source_id = ? AND status != 'Rejeté'"
+  ).all(String(saleId)) as { id: string; comment: string | null }[];
+  expenseRows.forEach((row) => {
+    db.prepare('UPDATE expenses SET status = ?, comment = ? WHERE id = ?').run(
+      'Rejeté',
+      `${row.comment ?? ''} — Annulée suite au remboursement de la vente ${saleNumber}.`.trim(),
+      row.id
+    );
+  });
 };
 
 export const salesRouter = Router();
@@ -183,8 +211,8 @@ salesRouter.post('/transactions', asyncHandler((req, res) => {
         total_amount: t.totalAmount, date: t.date, time: t.time, month: t.month, year: t.year, status: t.status,
       });
       if (t.status === 'Payé') {
-        deductStockForSale(t.items, req.user!.fullName);
-        recordTaxExpenseForSale(t, req.user!.fullName);
+        deductStockForSale(t.items, req.user!.fullName, id);
+        recordTaxExpenseForSale(t, req.user!.fullName, id);
       }
       created.push({ ...t, id });
     }
@@ -193,4 +221,25 @@ salesRouter.post('/transactions', asyncHandler((req, res) => {
   const created = tx();
   recordActivity('Ventes', 'Création', `${created.length} vente(s) enregistrée(s)`, req.user!.fullName);
   res.status(201).json(created);
+}));
+
+// Reverses a paid sale: cancels the stock it consumed, rejects the VAT expense it generated, and
+// flips its status to Remboursé — the three side effects of a sale (revenue, stock, tax expense)
+// are undone together, never piecemeal, so a refunded sale can never leave stock/expenses
+// overstated even though the sale itself was reversed.
+salesRouter.post('/transactions/:id/refund', asyncHandler((req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isFinite(id)) throw notFound('Vente');
+  const row = db.prepare('SELECT * FROM sales_transactions WHERE id = ?').get(id) as SaleRow | undefined;
+  if (!row) throw notFound('Vente');
+  const sale = rowToSale(row);
+  if (sale.status === 'Remboursé') throw new ApiError(409, 'Cette vente est déjà remboursée.');
+
+  const tx = db.transaction(() => {
+    reverseSaleSideEffects(id, req.user!.fullName, sale.saleNumber);
+    db.prepare('UPDATE sales_transactions SET status = ? WHERE id = ?').run('Remboursé', id);
+  });
+  tx();
+  recordActivity('Ventes', 'Remboursement', `Vente remboursée — ${sale.saleNumber}`, req.user!.fullName);
+  res.json(rowToSale({ ...row, status: 'Remboursé' }));
 }));

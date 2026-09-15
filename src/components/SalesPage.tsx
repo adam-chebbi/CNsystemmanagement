@@ -23,6 +23,7 @@ import {
   Ticket,
   FileText,
   Info,
+  Undo2,
 } from 'lucide-react';
 import {
   SaleTransaction,
@@ -37,6 +38,7 @@ interface SalesPageProps {
   onNavigateToDashboard: () => void;
   isDarkMode?: boolean;
   transactions: SaleTransaction[];
+  onRefundSale: (id: number) => void;
 }
 
 // Escape user-facing text before interpolating it into a raw HTML document string
@@ -251,7 +253,18 @@ const openPrintDocument = (html: string) => {
 export const SalesPage: React.FC<SalesPageProps> = ({
   onNavigateToDashboard,
   transactions,
+  onRefundSale,
 }) => {
+  const [refundingId, setRefundingId] = useState<number | null>(null);
+  const handleRefund = (sale: SaleTransaction) => {
+    if (!window.confirm(
+      `Rembourser le ticket ${sale.saleNumber} ?\n\nLes ingrédients consommés seront réintégrés au stock et la dépense de TVA générée automatiquement sera annulée.`
+    )) {
+      return;
+    }
+    setRefundingId(sale.id);
+    Promise.resolve(onRefundSale(sale.id)).finally(() => setRefundingId(null));
+  };
   const [selectedYear, setSelectedYear] = useState<number>(2026);
   // 'all' for entire year or month label 'Jan', 'Fév', etc.
   const [selectedMonth, setSelectedMonth] = useState<string>('Sep');
@@ -361,11 +374,14 @@ export const SalesPage: React.FC<SalesPageProps> = ({
     return list;
   }, [filteredTransactions, sortField, sortOrder]);
 
-  // Dynamic Metrics computed strictly from filtered transactions
-  const totalSalesCount = filteredTransactions.length;
+  // Dynamic Metrics computed strictly from filtered transactions — a refunded sale still shows up
+  // in the list (with its "Remboursé" badge) but must never count toward revenue/ticket totals,
+  // since its revenue was reversed.
+  const paidFilteredTransactions = useMemo(() => filteredTransactions.filter((t) => t.status !== 'Remboursé'), [filteredTransactions]);
+  const totalSalesCount = paidFilteredTransactions.length;
   const totalRevenue = useMemo(() => {
-    return filteredTransactions.reduce((acc, curr) => acc + curr.totalAmount, 0);
-  }, [filteredTransactions]);
+    return paidFilteredTransactions.reduce((acc, curr) => acc + curr.totalAmount, 0);
+  }, [paidFilteredTransactions]);
   const averageTicket = totalSalesCount > 0 ? totalRevenue / totalSalesCount : 0;
 
   // Pagination calculation
@@ -853,13 +869,14 @@ export const SalesPage: React.FC<SalesPageProps> = ({
                     <span className="text-[10px] opacity-70">⇅</span>
                   </div>
                 </th>
+                <th className="py-3.5 px-4 text-center">Statut</th>
                 <th className="py-3.5 px-4 text-center">Ticket</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100 dark:divide-gray-800/60 text-xs">
               {paginatedTransactions.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="text-center py-12 text-gray-400">
+                  <td colSpan={9} className="text-center py-12 text-gray-400">
                     <div className="max-w-sm mx-auto space-y-2">
                       <Coffee className="w-8 h-8 mx-auto text-gray-300 dark:text-gray-600" />
                       <p className="font-semibold text-gray-700 dark:text-gray-300 text-sm">
@@ -973,15 +990,40 @@ export const SalesPage: React.FC<SalesPageProps> = ({
                         </div>
                       </td>
 
-                      {/* Actions (View/Print Receipt) */}
+                      {/* Statut */}
                       <td className="py-3.5 px-4 text-center">
-                        <button
-                          onClick={() => handlePrint(tx)}
-                          title="Imprimer le ticket de caisse"
-                          className="p-1.5 rounded-lg text-gray-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition cursor-pointer"
+                        <span
+                          className={`inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-semibold border ${
+                            tx.status === 'Remboursé'
+                              ? 'bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-300 border-red-200 dark:border-red-800/70'
+                              : 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800/70'
+                          }`}
                         >
-                          <Printer size={16} />
-                        </button>
+                          {tx.status}
+                        </span>
+                      </td>
+
+                      {/* Actions (View/Print Receipt, Refund) */}
+                      <td className="py-3.5 px-4">
+                        <div className="flex items-center justify-center gap-1">
+                          <button
+                            onClick={() => handlePrint(tx)}
+                            title="Imprimer le ticket de caisse"
+                            className="p-1.5 rounded-lg text-gray-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition cursor-pointer"
+                          >
+                            <Printer size={16} />
+                          </button>
+                          {tx.status === 'Payé' && (
+                            <button
+                              onClick={() => handleRefund(tx)}
+                              disabled={refundingId === tx.id}
+                              title="Rembourser cette vente"
+                              className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 transition cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                              <Undo2 size={16} />
+                            </button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   );

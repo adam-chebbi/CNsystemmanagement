@@ -5,3 +5,6 @@ export const getSalesTransactions = () => apiGet<SaleTransaction[]>('/sales/tran
 
 export const createSalesTransactions = (tickets: Omit<SaleTransaction, 'id'>[]) =>
   apiPost<SaleTransaction[]>('/sales/transactions', { tickets });
+
+export const refundSaleTransaction = (id: number) =>
+  apiPost<SaleTransaction>(`/sales/transactions/${id}/refund`, {});

@@ -739,6 +739,10 @@ export default function App() {
     runMutation(() => salesApi.createSalesTransactions(newTransactions.map(toTicketInput)));
   };
 
+  const handleRefundSale = (id: number) => {
+    runMutation(() => salesApi.refundSaleTransaction(id));
+  };
+
   // Deliberately bypasses runMutation: a failed cash-check confirmation must surface inline on the
   // page (this is a financial reconciliation record — silently pretending it saved would defeat
   // the whole point of the traceability this feature exists for), and a single new row never needs
@@ -909,6 +913,7 @@ export default function App() {
                 }}
                 isDarkMode={isDarkMode}
                 transactions={salesTransactions}
+                onRefundSale={handleRefundSale}
               />
             ) : activeTab === 'sales_mgmt' && activeSubItem === 'sales_manual_add' ? (
               <ManualSalesEntryPage

@@ -101,6 +101,11 @@ const ledgerEntryInputSchema = z.object({
   discrepancyValue: z.number().optional(),
   inventoryChoice: z.enum(['Ajusté', 'Conservé']).optional(),
   inventoryScope: z.string().optional(),
+  // Which automated process created this entry (e.g. 'sale') and its own id — lets a later
+  // reversal (e.g. sales.ts's refund handler) find and cancel exactly the entries it caused.
+  // Never set by any UI-driven manual movement.
+  sourceType: z.string().optional(),
+  sourceId: z.string().optional(),
 });
 export type LedgerEntryInput = z.infer<typeof ledgerEntryInputSchema>;
 
@@ -150,10 +155,10 @@ export const postEntries = (inputs: LedgerEntryInput[]): { products: StockProduc
     db.prepare(
       `INSERT INTO stock_ledger (id, group_id, timestamp, type, product_id, zone, related_zone, quantity_before, quantity_delta,
        quantity_after, reason, comment, lot_id, lot_number, expiry_date, performed_by, status, value_impact,
-       theoretical_qty, real_qty, discrepancy_qty, discrepancy_value, inventory_choice, inventory_scope)
+       theoretical_qty, real_qty, discrepancy_qty, discrepancy_value, inventory_choice, inventory_scope, source_type, source_id)
        VALUES (@id, @groupId, @timestamp, @type, @productId, @zone, @relatedZone, @quantityBefore, @quantityDelta,
        @quantityAfter, @reason, @comment, @lotId, @lotNumber, @expiryDate, @performedBy, @status, @valueImpact,
-       @theoreticalQty, @realQty, @discrepancyQty, @discrepancyValue, @inventoryChoice, @inventoryScope)`
+       @theoreticalQty, @realQty, @discrepancyQty, @discrepancyValue, @inventoryChoice, @inventoryScope, @sourceType, @sourceId)`
     ).run({
       id: entry.id, groupId: entry.groupId ?? null, timestamp: entry.timestamp, type: entry.type, productId: entry.productId,
       zone: entry.zone, relatedZone: entry.relatedZone ?? null, quantityBefore: entry.quantityBefore, quantityDelta: entry.quantityDelta,
@@ -162,6 +167,7 @@ export const postEntries = (inputs: LedgerEntryInput[]): { products: StockProduc
       valueImpact: entry.valueImpact, theoreticalQty: entry.theoreticalQty ?? null, realQty: entry.realQty ?? null,
       discrepancyQty: entry.discrepancyQty ?? null, discrepancyValue: entry.discrepancyValue ?? null,
       inventoryChoice: entry.inventoryChoice ?? null, inventoryScope: entry.inventoryScope ?? null,
+      sourceType: input.sourceType ?? null, sourceId: input.sourceId ?? null,
     });
 
     const updated = applyLedgerEntries(products, [entry]);
@@ -173,6 +179,33 @@ export const postEntries = (inputs: LedgerEntryInput[]): { products: StockProduc
 
   return { products: getAllProducts(), lots: getAllLots(), ledger: inserted };
 };
+
+// Cancels one ledger entry by id: reverses its quantity delta on the product and marks it
+// 'Annulé'. Shared by POST /ledger/:id/cancel (a manual, user-initiated cancellation) and
+// sales.ts's refund handler (which cancels every entry a given sale's automatic stock deduction
+// created) — one cancellation mechanism, not two.
+export const cancelLedgerEntryById = (id: string, cancelledBy: string, cancelReason?: string): StockProduct => {
+  const row = db.prepare('SELECT * FROM stock_ledger WHERE id = ?').get(id) as LedgerRow | undefined;
+  if (!row) throw notFound('Mouvement de stock');
+  const entry = rowToLedger(row);
+  if (entry.status === 'Annulé') throw new ApiError(409, 'Ce mouvement est déjà annulé.');
+
+  const products = getAllProducts();
+  const product = products.find((p) => p.id === entry.productId);
+  if (!product) throw notFound('Produit de stock');
+  const reversed = reverseLedgerEntry(products, entry).find((p) => p.id === product.id)!;
+  saveProduct(reversed);
+  db.prepare('UPDATE stock_ledger SET status = ?, cancelled_at = ?, cancelled_by = ?, cancel_reason = ? WHERE id = ?').run(
+    'Annulé', new Date().toISOString(), cancelledBy, cancelReason ?? null, entry.id
+  );
+  return reversed;
+};
+
+// Every ledger entry a given automated process created (source_type/source_id, see
+// ledgerEntryInputSchema above) that hasn't already been cancelled — e.g. every stock deduction a
+// specific sale generated, for a refund to reverse.
+export const getLedgerEntryIdsBySource = (sourceType: string, sourceId: string): string[] =>
+  (db.prepare("SELECT id FROM stock_ledger WHERE source_type = ? AND source_id = ? AND status != 'Annulé'").all(sourceType, sourceId) as { id: string }[]).map((r) => r.id);
 
 export const stockRouter = Router();
 stockRouter.use(requireAuth);
@@ -318,19 +351,7 @@ stockRouter.post('/ledger/:id/cancel', asyncHandler((req, res) => {
   const row = db.prepare('SELECT * FROM stock_ledger WHERE id = ?').get(req.params.id) as LedgerRow | undefined;
   if (!row) throw notFound('Mouvement de stock');
   const entry = rowToLedger(row);
-  if (entry.status === 'Annulé') throw new ApiError(409, 'Ce mouvement est déjà annulé.');
-
-  const tx = db.transaction(() => {
-    const products = getAllProducts();
-    const product = products.find((p) => p.id === entry.productId);
-    if (!product) throw notFound('Produit de stock');
-    const reversed = reverseLedgerEntry(products, entry).find((p) => p.id === product.id)!;
-    saveProduct(reversed);
-    db.prepare('UPDATE stock_ledger SET status = ?, cancelled_at = ?, cancelled_by = ?, cancel_reason = ? WHERE id = ?').run(
-      'Annulé', new Date().toISOString(), body.cancelledBy, body.cancelReason ?? null, entry.id
-    );
-    return reversed;
-  });
+  const tx = db.transaction(() => cancelLedgerEntryById(req.params.id, body.cancelledBy, body.cancelReason));
   const updatedProduct = tx();
   recordActivity('Stock', 'Annulation', `Mouvement annulé — ${entry.reason} (${entry.productId})`, req.user!.fullName);
   res.json({ product: updatedProduct, ledgerId: entry.id });
