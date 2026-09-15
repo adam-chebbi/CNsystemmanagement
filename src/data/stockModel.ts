@@ -247,7 +247,10 @@ export const getStatusBadgeClass = (status: StockStatus): string => {
   }
 };
 
-export const DEFAULT_EXPIRY_ALERT_DAYS = 7;
+// Runtime-configurable via Paramètres (see src/data/settingsModel.ts) — a live `let` so every
+// caller that reads this constant directly picks up a changed setting without re-threading a prop.
+export let DEFAULT_EXPIRY_ALERT_DAYS = 7;
+export const setDefaultExpiryAlertDays = (days: number): void => { DEFAULT_EXPIRY_ALERT_DAYS = days; };
 
 export const getLotStatusBadgeClass = (status: LotStatus): string => {
   switch (status) {

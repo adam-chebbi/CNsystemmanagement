@@ -55,9 +55,11 @@ export const getSubCategoryUsageCount = (subCategory: ProductSubCategory, articl
 
 // --- Margins ------------------------------------------------------------------------------
 
-// No target-margin setting existed anywhere in the app; this is the single new default, used
-// unless a product sets its own targetMarginRate override.
-export const DEFAULT_TARGET_MARGIN_RATE = 0.65;
+// Runtime-configurable via Paramètres (see src/data/settingsModel.ts) — a live `let` so every
+// caller that reads this constant directly picks up a changed default without re-threading a prop.
+// Used unless a product sets its own targetMarginRate override.
+export let DEFAULT_TARGET_MARGIN_RATE = 0.65;
+export const setDefaultTargetMarginRate = (rate: number): void => { DEFAULT_TARGET_MARGIN_RATE = rate; };
 
 export interface MarginResult {
   grossMargin: number;

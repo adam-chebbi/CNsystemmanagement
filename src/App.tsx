@@ -51,6 +51,8 @@ import * as dashboardApi from './api/dashboard';
 import type { MonthlyTarget } from './api/dashboard';
 import * as cashVerificationsApi from './api/cashVerifications';
 import { CashVerification, CashVerificationInput, computeCashKpis } from './data/cashCheckModel';
+import * as settingsApi from './api/settings';
+import { AppSettings, DEFAULT_APP_SETTINGS, applySettingsToRuntime } from './data/settingsModel';
 import { RotateCw, CheckCircle2, Loader2, WifiOff } from 'lucide-react';
 
 // Lazy-loaded: pulls in the xlsx/papaparse parsing libraries only when the user
@@ -87,6 +89,7 @@ const SubRecipesPage = lazy(() => import('./components/SubRecipesPage').then((m)
 
 // Lazy-loaded: Journal d'activité.
 const ActivityLogPage = lazy(() => import('./components/ActivityLogPage').then((m) => ({ default: m.ActivityLogPage })));
+const SettingsPage = lazy(() => import('./components/SettingsPage').then((m) => ({ default: m.SettingsPage })));
 const SessionsPage = lazy(() => import('./components/SessionsPage').then((m) => ({ default: m.SessionsPage })));
 
 // Lazy-loaded: the "Achat et dépenses" → Dépenses module (2 pages).
@@ -208,6 +211,7 @@ export default function App() {
   const [treatedAlerts, setTreatedAlerts] = useState<Record<string, { treatedAt: string; treatedBy: string }>>({});
   const [monthlySalesTargets, setMonthlySalesTargets] = useState<MonthlyTarget[]>([]);
   const [cashVerifications, setCashVerifications] = useState<CashVerification[]>([]);
+  const [appSettings, setAppSettings] = useState<AppSettings>(DEFAULT_APP_SETTINGS);
   const [isDataLoaded, setIsDataLoaded] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -223,7 +227,7 @@ export default function App() {
       expenseCats, expensesRes,
       suppliersRes, orders, receptions, invoices, productAliasesRes,
       employees, shifts, dayRecords, recurringPlans, financialRecords,
-      treated, log, monthlyTargets, cashVerificationsRes,
+      treated, log, monthlyTargets, cashVerificationsRes, settingsRes,
     ] = await Promise.all([
       productCatalogApi.getProductCategories(),
       productCatalogApi.getProductSubCategories(),
@@ -251,6 +255,7 @@ export default function App() {
       activityLogApi.getActivityLog(),
       dashboardApi.getMonthlyTargets(),
       cashVerificationsApi.getCashVerifications(),
+      settingsApi.getSettings(),
     ]);
     setCatalogExtras(extras);
     setProductCategories(categories);
@@ -278,7 +283,15 @@ export default function App() {
     setActivityLog(log);
     setMonthlySalesTargets(monthlyTargets);
     setCashVerifications(cashVerificationsRes);
+    setAppSettings(settingsRes);
+    applySettingsToRuntime(settingsRes);
   }, []);
+
+  const handleSaveSettings = async (next: AppSettings) => {
+    const saved = await settingsApi.updateSettings(next);
+    setAppSettings(saved);
+    applySettingsToRuntime(saved);
+  };
 
   useEffect(() => {
     loadAllData()
@@ -614,6 +627,10 @@ export default function App() {
       supplierId, orderDate: payload.orderDate, createdBy: payload.createdBy,
       lines: payload.lines.map((l) => ({ id: `ocr-${Math.random().toString(36).slice(2)}`, ...l })),
     });
+    // Every order created via createPurchaseOrder starts life as Brouillon — advance it through
+    // Commandée before receiving, exactly like the manual Achats flow, so an OCR-integrated order
+    // isn't silently received while still Brouillon and can't be told apart from a never-sent one.
+    await purchasesApi.updatePurchaseOrderStatus(order.id, 'Commandée');
     await purchasesApi.receivePurchaseOrder(order.id, {
       receptionDate: payload.receptionDate, zone: payload.zone, performedBy: payload.createdBy,
       lines: order.lines.map((l) => ({ lineId: l.id, quantityReceived: l.quantity })),
@@ -1240,6 +1257,7 @@ export default function App() {
                   isDarkMode={isDarkMode}
                   suppliers={suppliers}
                   orders={purchaseOrders}
+                  invoices={supplierInvoices}
                   products={stockProducts}
                   onNavigateToDashboard={() => {
                     setActiveTab('dashboard');
@@ -1508,6 +1526,18 @@ export default function App() {
                 <ActivityLogPage
                   isDarkMode={isDarkMode}
                   entries={activityLog}
+                  onNavigateToDashboard={() => {
+                    setActiveTab('dashboard');
+                    setActiveSubItem('');
+                  }}
+                />
+              </Suspense>
+            ) : activeTab === 'settings' ? (
+              <Suspense fallback={<StockPageLoadingFallback />}>
+                <SettingsPage
+                  isDarkMode={isDarkMode}
+                  settings={appSettings}
+                  onSaveSettings={handleSaveSettings}
                   onNavigateToDashboard={() => {
                     setActiveTab('dashboard');
                     setActiveSubItem('');

@@ -90,6 +90,15 @@ export interface AlertsContext {
   discrepancyLookbackDays?: number;
 }
 
+// Runtime-configurable defaults (see src/data/settingsModel.ts) — a live `let` binding rather than
+// a frozen constant so the Paramètres screen can change them for every caller that relies on the
+// `ctx.xxx ?? DEFAULT_XXX` fallback below, without having to thread the setting through every call
+// site individually.
+export let DEFAULT_DISCREPANCY_THRESHOLD = 30; // DT — below this, an inventory gap isn't worth an alert
+export let DEFAULT_DISCREPANCY_LOOKBACK_DAYS = 60;
+export const setDefaultDiscrepancyThreshold = (dt: number): void => { DEFAULT_DISCREPANCY_THRESHOLD = dt; };
+export const setDefaultDiscrepancyLookbackDays = (days: number): void => { DEFAULT_DISCREPANCY_LOOKBACK_DAYS = days; };
+
 const STOCK_NAV: AlertNavigateTarget = { tab: 'stock', subItem: 'stock_overview' };
 const LOTS_NAV: AlertNavigateTarget = { tab: 'stock', subItem: 'stock_lots' };
 const INVENTORY_NAV: AlertNavigateTarget = { tab: 'stock', subItem: 'stock_inventory' };
@@ -99,8 +108,8 @@ const PRODUCTS_NAV: AlertNavigateTarget = { tab: 'products_recipes_mgmt', subIte
 export const computeOperationalAlerts = (ctx: AlertsContext): OperationalAlert[] => {
   const alerts: OperationalAlert[] = [];
   const expiryAlertDays = ctx.expiryAlertDays ?? DEFAULT_EXPIRY_ALERT_DAYS;
-  const discrepancyThreshold = ctx.discrepancyThreshold ?? 30;
-  const discrepancyLookbackDays = ctx.discrepancyLookbackDays ?? 60;
+  const discrepancyThreshold = ctx.discrepancyThreshold ?? DEFAULT_DISCREPANCY_THRESHOLD;
+  const discrepancyLookbackDays = ctx.discrepancyLookbackDays ?? DEFAULT_DISCREPANCY_LOOKBACK_DAYS;
   const today = todayIso();
 
   // --- Stock: faible / rupture / négatif (mutually exclusive per product, worst case wins) ---

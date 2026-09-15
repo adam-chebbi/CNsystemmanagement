@@ -37,8 +37,11 @@ export const resolveSupplierByName = (raw: string, suppliers: Supplier[]): Suppl
   return suppliers.find((s) => normalizeKey(s.name) === key);
 };
 
-export const getSupplierUsageCount = (supplier: Supplier, orders: PurchaseOrder[]): number =>
-  orders.filter((o) => o.supplierId === supplier.id).length;
+// Counts both commandes AND factures referencing this supplier — a supplier referenced only by a
+// manually-entered invoice (no linked order) previously showed no usage warning at all before
+// deletion, even though deleting it would orphan that invoice's supplierId.
+export const getSupplierUsageCount = (supplier: Supplier, orders: PurchaseOrder[], invoices: SupplierInvoice[] = []): number =>
+  orders.filter((o) => o.supplierId === supplier.id).length + invoices.filter((i) => i.supplierId === supplier.id).length;
 
 // --- Supplier draft / workflow helpers --------------------------------------------------------
 

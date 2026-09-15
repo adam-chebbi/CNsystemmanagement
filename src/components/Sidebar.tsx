@@ -14,6 +14,7 @@ import {
   X,
   PanelLeft,
   ChefHat,
+  Settings,
 } from 'lucide-react';
 
 interface SubMenuItem {
@@ -188,12 +189,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
       ],
     },
     {
-      heading: "Journal d'activité",
+      heading: 'Administration',
       items: [
         {
           id: 'activity_log',
           label: "Journal d'activité",
           icon: History,
+        },
+        {
+          id: 'settings',
+          label: 'Paramètres',
+          icon: Settings,
         },
       ],
     },
@@ -232,6 +238,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     { id: 'reports_mgmt', label: 'Rapports de gestion', icon: BarChart3 },
     { id: 'staff_mgmt', label: 'Gestion du personnel', icon: Users },
     { id: 'activity_log', label: "Journal d'activité", icon: History },
+    { id: 'settings', label: 'Paramètres', icon: Settings },
   ];
 
   // Filtering by search query

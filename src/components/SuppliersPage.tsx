@@ -25,6 +25,7 @@ import { StockProduct } from '../data/stockModel';
 import {
   Supplier,
   PurchaseOrder,
+  SupplierInvoice,
   DraftSupplier,
   createEmptyDraftSupplier,
   createDraftFromSupplier,
@@ -37,6 +38,7 @@ import {
 interface SuppliersPageProps {
   suppliers: Supplier[];
   orders: PurchaseOrder[];
+  invoices: SupplierInvoice[];
   products: StockProduct[];
   onNavigateToDashboard: () => void;
   onNavigateToPurchases: () => void;
@@ -69,6 +71,7 @@ const formatDate = (iso: string) => {
 export const SuppliersPage: React.FC<SuppliersPageProps> = ({
   suppliers,
   orders,
+  invoices,
   products,
   onNavigateToDashboard,
   onNavigateToPurchases,
@@ -168,8 +171,8 @@ export const SuppliersPage: React.FC<SuppliersPageProps> = ({
 
   const deleteBlockedReason = useMemo(() => {
     if (!deleteTarget) return null;
-    const count = getSupplierUsageCount(deleteTarget, orders);
-    return count > 0 ? `${count} achat${count > 1 ? 's utilisent' : ' utilise'} ce fournisseur.` : null;
+    const count = getSupplierUsageCount(deleteTarget, orders, invoices);
+    return count > 0 ? `${count} achat${count > 1 ? 's ou factures utilisent' : ' ou facture utilise'} ce fournisseur.` : null;
   }, [deleteTarget, orders]);
 
   return (
@@ -343,7 +346,7 @@ export const SuppliersPage: React.FC<SuppliersPageProps> = ({
                         <td className="py-3.5 px-4 text-gray-600 dark:text-gray-300">{s.phone ?? '—'}</td>
                         <td className="py-3.5 px-4 text-gray-600 dark:text-gray-300">{s.email ?? '—'}</td>
                         <td className="py-3.5 px-4 text-gray-600 dark:text-gray-300">{s.mainContact ?? '—'}</td>
-                        <td className="py-3.5 px-4 text-center text-gray-600 dark:text-gray-300">{getSupplierUsageCount(s, orders)}</td>
+                        <td className="py-3.5 px-4 text-center text-gray-600 dark:text-gray-300">{getSupplierUsageCount(s, orders, invoices)}</td>
                         <td className="py-3.5 px-4">
                           <div className="flex items-center justify-center gap-1">
                             <button onClick={() => setViewingSupplier(s)} title="Consulter" className="p-1.5 rounded-lg text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/40 transition cursor-pointer"><Eye size={14} /></button>

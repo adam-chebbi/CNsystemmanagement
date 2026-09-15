@@ -109,6 +109,12 @@ CREATE TABLE IF NOT EXISTS stock_ledger (
   product_id TEXT NOT NULL REFERENCES stock_products(id) ON DELETE CASCADE,
   zone TEXT NOT NULL,
   related_zone TEXT,
+  -- Which automated process created this entry, and its own id (e.g. source_type='sale',
+  -- source_id=the sales_transactions.id) — lets a later reversal (e.g. a sale refund) find and
+  -- undo exactly the entries it caused, instead of string-matching a free-text comment. NULL for
+  -- every manually-entered movement.
+  source_type TEXT,
+  source_id TEXT,
   quantity_before REAL NOT NULL,
   quantity_delta REAL NOT NULL,
   quantity_after REAL NOT NULL,
@@ -167,6 +173,12 @@ CREATE TABLE IF NOT EXISTS expenses (
   status TEXT NOT NULL,
   comment TEXT,
   attachment TEXT,
+  -- Same automated-source tracking as stock_ledger — e.g. source_type='sale_vat' /
+  -- 'invoice_payment' / 'salary_payment', source_id = the originating record's id. NULL for every
+  -- manually-entered expense. Lets a reversal (sale refund) or a future reconciliation view find
+  -- exactly which expense a given sale/invoice/payment produced.
+  source_type TEXT,
+  source_id TEXT,
   created_at TEXT NOT NULL
 );
 
@@ -239,6 +251,7 @@ CREATE TABLE IF NOT EXISTS employees (
   photo_url TEXT,
   poste TEXT NOT NULL,
   entry_date TEXT NOT NULL,
+  departure_date TEXT,
   status TEXT NOT NULL,
   salary REAL NOT NULL,
   cin_number TEXT NOT NULL,
@@ -298,6 +311,18 @@ CREATE TABLE IF NOT EXISTS financial_records (
 CREATE TABLE IF NOT EXISTS monthly_sales_targets (
   month TEXT PRIMARY KEY,
   target_amount REAL NOT NULL,
+  updated_at TEXT NOT NULL,
+  updated_by TEXT NOT NULL
+);
+
+-- Business-tunable settings (alert thresholds, commission/margin rates) that used to be hardcoded
+-- constants scattered across the codebase. Simple key/value store — one row per setting key, only
+-- ever written through PUT /settings so every read gets a consistent, validated value. A missing
+-- key means "use the app's built-in default" (see src/data/settingsModel.ts), so this table can
+-- stay empty forever on installs that never touch the Paramètres screen.
+CREATE TABLE IF NOT EXISTS app_settings (
+  key TEXT PRIMARY KEY,
+  value TEXT NOT NULL,
   updated_at TEXT NOT NULL,
   updated_by TEXT NOT NULL
 );

@@ -6,7 +6,10 @@ import { RestoTicketCounts, RESTO_TICKET_DENOMINATIONS, computeRestoTicketsColle
 // "Calcul du quotidien" — daily cash/card/ticket-resto reconciliation. See PUBLIC note in
 // server/db/schema.sql's cash_verifications table for the persistence model this mirrors.
 
-export const RESTO_DEDUCTION_RATE = 0.1;
+// Runtime-configurable via Paramètres (see src/data/settingsModel.ts) — a live `let` so every
+// caller that reads this constant directly picks up a changed commission rate without a reload.
+export let RESTO_DEDUCTION_RATE = 0.1;
+export const setRestoDeductionRate = (rate: number): void => { RESTO_DEDUCTION_RATE = rate; };
 
 export const computeRestoGross = (counts: RestoTicketCounts): number => computeRestoTicketsCollected(counts);
 export const computeRestoNet = (counts: RestoTicketCounts): number => computeRestoGross(counts) * (1 - RESTO_DEDUCTION_RATE);

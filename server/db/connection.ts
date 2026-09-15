@@ -61,3 +61,19 @@ if (!catalogArticleColumns.has('vat_rate')) {
 if (!catalogArticleColumns.has('price_includes_tax')) {
   db.exec('ALTER TABLE catalog_articles ADD COLUMN price_includes_tax INTEGER');
 }
+
+// One-time, idempotent migration: stock_ledger and expenses gained source_type/source_id tracking
+// columns (so an automated entry, e.g. the stock deduction or VAT expense a sale creates, can be
+// found and reversed by a later refund) after the original schema shipped.
+const stockLedgerColumns = new Set((db.pragma('table_info(stock_ledger)') as { name: string }[]).map((c) => c.name));
+if (!stockLedgerColumns.has('source_type')) db.exec('ALTER TABLE stock_ledger ADD COLUMN source_type TEXT');
+if (!stockLedgerColumns.has('source_id')) db.exec('ALTER TABLE stock_ledger ADD COLUMN source_id TEXT');
+
+const expenseColumns = new Set((db.pragma('table_info(expenses)') as { name: string }[]).map((c) => c.name));
+if (!expenseColumns.has('source_type')) db.exec('ALTER TABLE expenses ADD COLUMN source_type TEXT');
+if (!expenseColumns.has('source_id')) db.exec('ALTER TABLE expenses ADD COLUMN source_id TEXT');
+
+// One-time, idempotent migration: employees gained an optional departure_date after the original
+// schema shipped (an employee's "Inactif" status previously had no associated date at all).
+const employeeColumns = new Set((db.pragma('table_info(employees)') as { name: string }[]).map((c) => c.name));
+if (!employeeColumns.has('departure_date')) db.exec('ALTER TABLE employees ADD COLUMN departure_date TEXT');

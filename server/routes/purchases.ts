@@ -22,6 +22,7 @@ import {
 } from '../../src/data/purchasesModel.js';
 import { normalizeKey } from '../../src/data/textUtils.js';
 import type { ProductAlias } from '../../src/data/productAliases.js';
+import { STOCK_ZONES, type StockZone } from '../../src/data/stockModel.js';
 
 const nowIso = () => new Date().toISOString();
 
@@ -105,8 +106,13 @@ purchasesRouter.put('/suppliers/:id', asyncHandler((req, res) => {
 purchasesRouter.delete('/suppliers/:id', asyncHandler((req, res) => {
   const existing = db.prepare('SELECT * FROM suppliers WHERE id = ?').get(req.params.id) as SupplierRow | undefined;
   if (!existing) throw notFound('Fournisseur');
-  const usage = db.prepare('SELECT COUNT(*) as c FROM purchase_orders WHERE supplier_id = ?').get(req.params.id) as { c: number };
-  if (usage.c > 0) throw new ApiError(409, 'Ce fournisseur a des commandes et ne peut pas être supprimé.');
+  // Checks both commandes AND factures — a supplier referenced only by a manually-entered invoice
+  // (no linked order) used to be deletable, silently orphaning that invoice's supplier_id.
+  const orderUsage = db.prepare('SELECT COUNT(*) as c FROM purchase_orders WHERE supplier_id = ?').get(req.params.id) as { c: number };
+  const invoiceUsage = db.prepare('SELECT COUNT(*) as c FROM supplier_invoices WHERE supplier_id = ?').get(req.params.id) as { c: number };
+  if (orderUsage.c > 0 || invoiceUsage.c > 0) {
+    throw new ApiError(409, 'Ce fournisseur a des commandes ou des factures et ne peut pas être supprimé.');
+  }
   db.prepare('DELETE FROM suppliers WHERE id = ?').run(req.params.id);
   recordActivity('Achats', 'Suppression', `Fournisseur supprimé — ${existing.name}`, req.user!.fullName);
   res.status(204).end();
@@ -173,6 +179,13 @@ purchasesRouter.patch('/orders/:id/status', asyncHandler((req, res) => {
 purchasesRouter.delete('/orders/:id', asyncHandler((req, res) => {
   const existing = db.prepare('SELECT * FROM purchase_orders WHERE id = ?').get(req.params.id) as OrderRow | undefined;
   if (!existing) throw notFound('Commande');
+  // The UI only ever offers this action on a Brouillon order — enforce the same rule here, so a
+  // direct API call can't delete a sent/received order (which would also silently orphan any
+  // supplier invoice already linked to it, since supplier_invoices.purchase_order_id has no
+  // ON DELETE CASCADE/SET NULL and foreign_keys=ON would otherwise surface a raw SQLite error).
+  if (existing.status !== 'Brouillon') {
+    throw new ApiError(409, 'Seule une commande au statut Brouillon peut être supprimée.');
+  }
   db.prepare('DELETE FROM purchase_orders WHERE id = ?').run(req.params.id);
   recordActivity('Achats', 'Suppression', `Commande supprimée — ${existing.order_number}`, req.user!.fullName);
   res.status(204).end();
@@ -183,7 +196,9 @@ purchasesRouter.delete('/orders/:id', asyncHandler((req, res) => {
 const receptionLineSchema = z.object({ lineId: z.string(), quantityReceived: z.number().min(0) });
 const receptionSchema = z.object({
   receptionDate: z.string().min(1),
-  zone: z.enum(['Réserve principale', 'Dépôt']),
+  // Reuses the app's single list of stock zones (src/data/stockModel.ts) rather than a separately
+  // hardcoded enum, so a zone added/renamed there never silently falls out of sync here.
+  zone: z.enum(STOCK_ZONES as [StockZone, ...StockZone[]]),
   lines: z.array(receptionLineSchema).min(1),
   performedBy: z.string().min(1),
 });
@@ -195,8 +210,42 @@ purchasesRouter.post('/orders/:id/receive', asyncHandler((req, res) => {
   const order = rowToOrder(orderRow);
   if (order.status === 'Annulée') throw new ApiError(409, 'Une commande annulée ne peut pas être réceptionnée.');
 
+  // Previously only the UI capped a reception at the remaining ordered quantity — a direct API call
+  // could push receivedQuantity past quantity with nothing to stop it. Enforce the same ceiling here.
+  for (const rl of body.lines) {
+    const orderLine = order.lines.find((l) => l.id === rl.lineId);
+    if (!orderLine) continue;
+    const remaining = orderLine.quantity - orderLine.receivedQuantity;
+    if (rl.quantityReceived > remaining + 1e-9) {
+      throw new ApiError(400, `Quantité reçue (${rl.quantityReceived}) supérieure à la quantité restante à recevoir (${remaining}) pour cette ligne.`);
+    }
+  }
+
   const tx = db.transaction(() => {
-    const products = getAllProducts();
+    // Recompute each received product's coût moyen pondéré (weighted-average cost) BEFORE building
+    // the ledger entries below, so this reception's own valueImpact already reflects the freshly
+    // recalculated cost. Weighted by total stock (both zones combined) against the order line's
+    // actual unit price — what was really paid — never against the product's own stale average.
+    // Previously `average_cost` was only ever set once, manually, at product creation; every
+    // reception since then silently left it stale.
+    const productMap = new Map(getAllProducts().map((p) => [p.id, { ...p }]));
+    const updateCost = db.prepare('UPDATE stock_products SET average_cost = ? WHERE id = ?');
+    body.lines.forEach((rl) => {
+      if (rl.quantityReceived <= 0) return;
+      const orderLine = order.lines.find((l) => l.id === rl.lineId);
+      const product = orderLine ? productMap.get(orderLine.productId) : undefined;
+      if (!orderLine || !product) return;
+      const oldTotalQty = product.reserveQty + product.depotQty;
+      const newTotalQty = oldTotalQty + rl.quantityReceived;
+      const newCmp = newTotalQty > 0
+        ? (oldTotalQty * product.averageCost + rl.quantityReceived * orderLine.unitPrice) / newTotalQty
+        : orderLine.unitPrice;
+      const rounded = Math.round(newCmp * 1000) / 1000;
+      updateCost.run(rounded, product.id);
+      product.averageCost = rounded; // keep the local map in sync in case the same product appears twice in this reception
+    });
+
+    const products = getAllProducts(); // re-fetch so downstream ledger entries see the recalculated costs
     const receptionId = randomUUID();
     const createdAt = nowIso();
     const reception: PurchaseReception = { id: receptionId, purchaseOrderId: order.id, receptionDate: body.receptionDate, zone: body.zone, lines: body.lines, performedBy: body.performedBy, createdAt };
