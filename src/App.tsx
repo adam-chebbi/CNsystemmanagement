@@ -1098,6 +1098,7 @@ export default function App() {
                   onNavigateToStock={() => setActiveSubItem('stock_overview')}
                   onPostImportedStock={handlePostImportedStock}
                   onImportIngredients={handleImportIngredients}
+                  onPostEntries={handlePostStockEntries}
                 />
               </Suspense>
             ) : activeTab === 'products_recipes_mgmt' && activeSubItem === 'prm_products' ? (
@@ -1213,6 +1214,7 @@ export default function App() {
                   }}
                   onNavigateToProducts={() => setActiveSubItem('prm_products')}
                   onImportProducts={handleImportProducts}
+                  onImportSubRecipes={handleImportSubRecipes}
                 />
               </Suspense>
             ) : activeTab === 'expenses_mgmt' && activeSubItem === 'expenses' ? (

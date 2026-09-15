@@ -1,36 +1,12 @@
-import React, { useMemo, useRef, useState } from 'react';
-import {
-  UploadCloud,
-  FileSpreadsheet,
-  Download,
-  X,
-  AlertCircle,
-  AlertTriangle,
-  CheckCircle2,
-  Loader2,
-  ShieldCheck,
-  ChevronDown,
-  ChevronUp,
-  ChevronsDownUp,
-  ChevronsUpDown,
-  Info,
-  RotateCcw,
-  History,
-} from 'lucide-react';
+import React, { useState } from 'react';
+import { ChefHat, BookOpen, ChevronRight, UploadCloud, ArrowLeft, History } from 'lucide-react';
 import { CatalogArticle, CatalogExtra } from '../data/manualSalesCatalog';
 import { StockProduct, StockUnit } from '../data/stockModel';
 import { ProductCategory, ProductSubCategory, SubRecipe } from '../data/productsModel';
-import {
-  PRODUCT_IMPORT_COLUMNS,
-  MAX_IMPORT_FILE_SIZE_BYTES,
-  ImportedProductRowDraft,
-  ImportFileError,
-  parseProductImportFile,
-  recomputeProductRowIssues,
-  buildCatalogArticlesFromImportRows,
-  downloadProductImportTemplateCsv,
-} from '../data/importProductsParser';
-import { collapseValidRows, toggleInSet } from '../data/importReviewUtils';
+import { ProductsCsvImportForm } from './ProductsCsvImportForm';
+import { SubRecipesImportForm } from './SubRecipesImportForm';
+
+type ImportType = 'products' | 'subrecipes';
 
 interface ProductsImportPageProps {
   categories: ProductCategory[];
@@ -43,20 +19,26 @@ interface ProductsImportPageProps {
   onNavigateToDashboard: () => void;
   onNavigateToProducts: () => void;
   onImportProducts: (articles: CatalogArticle[]) => void;
+  onImportSubRecipes: (subRecipes: Omit<SubRecipe, 'id' | 'createdAt'>[]) => void;
   isDarkMode?: boolean;
 }
 
-type Step = 'upload' | 'preview' | 'success';
-
-const inputBaseClass =
-  'w-full px-3.5 py-2 text-xs rounded-xl border bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-1 transition';
-const inputValidClass = 'border-gray-200 dark:border-gray-700 focus:border-emerald-500 focus:ring-emerald-500';
-const inputErrorClass = 'border-red-400 dark:border-red-500/70 focus:border-red-500 focus:ring-red-500';
-const labelClass = 'text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1.5 block';
-const primaryButtonClass =
-  'inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shadow-2xs transition active:scale-98 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed';
-const secondaryButtonClass =
-  'inline-flex items-center justify-center gap-2 px-3.5 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700/80 text-xs font-semibold text-gray-700 dark:text-gray-200 shadow-2xs transition active:scale-98 cursor-pointer';
+const CARDS: { id: ImportType; icon: React.ComponentType<{ size?: number; className?: string }>; title: string; description: string; accent: string }[] = [
+  {
+    id: 'products',
+    icon: ChefHat,
+    title: 'Produits',
+    description: 'Importez plusieurs produits en une fois, avec leurs variantes, extras et fiches techniques.',
+    accent: 'bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 border-emerald-100 dark:border-emerald-900/40',
+  },
+  {
+    id: 'subrecipes',
+    icon: BookOpen,
+    title: 'Sous-recettes',
+    description: 'Importez plusieurs sous-recettes réutilisables (pâtes, sauces...) avec leurs ingrédients.',
+    accent: 'bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 border-blue-100 dark:border-blue-900/40',
+  },
+];
 
 export const ProductsImportPage: React.FC<ProductsImportPageProps> = ({
   categories,
@@ -69,382 +51,117 @@ export const ProductsImportPage: React.FC<ProductsImportPageProps> = ({
   onNavigateToDashboard,
   onNavigateToProducts,
   onImportProducts,
+  onImportSubRecipes,
 }) => {
-  const [step, setStep] = useState<Step>('upload');
-  const [file, setFile] = useState<File | null>(null);
-  const [isDragOver, setIsDragOver] = useState(false);
-  const [isParsing, setIsParsing] = useState(false);
-  const [fileError, setFileError] = useState<string | null>(null);
-  const [unknownColumns, setUnknownColumns] = useState<string[]>([]);
-  const [rows, setRows] = useState<ImportedProductRowDraft[]>([]);
-  const [isSaving, setIsSaving] = useState(false);
-  const [saveError, setSaveError] = useState<string | null>(null);
-  const [savedCount, setSavedCount] = useState(0);
-  const [collapsedRows, setCollapsedRows] = useState<Set<string>>(new Set());
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [type, setType] = useState<ImportType | null>(null);
 
-  const invalidRows = useMemo(() => rows.filter((r) => r.issues.length > 0), [rows]);
-  const validRows = useMemo(() => rows.filter((r) => r.issues.length === 0), [rows]);
-  const totalErrors = useMemo(() => rows.reduce((sum, r) => sum + r.issues.length, 0), [rows]);
-  const canConfirm = rows.length > 0 && totalErrors === 0;
-  const allRowsCollapsed = rows.length > 0 && rows.every((r) => collapsedRows.has(r.id));
-  const toggleRowCollapsed = (id: string) => setCollapsedRows((prev) => toggleInSet(prev, id));
-  const toggleCollapseAll = () => setCollapsedRows(allRowsCollapsed ? new Set() : new Set(rows.map((r) => r.id)));
-
-  const buildRowSummaryLine = (row: ImportedProductRowDraft): string => {
-    const category = categories.find((c) => c.id === row.categoryId);
-    const parts: string[] = [];
-    if (row.price.trim()) parts.push(`${row.price} DT`);
-    if (category) parts.push(category.name);
-    if (row.variants.length > 0) parts.push(`${row.variants.length} variante(s)`);
-    if (row.extraIds.length > 0) parts.push(`${row.extraIds.length} extra(s)`);
-    return `${row.name || 'Sans nom'}${parts.length ? ` — ${parts.join(' • ')}` : ''}`;
-  };
-
-  const resetImportState = () => {
-    setFile(null);
-    setFileError(null);
-    setUnknownColumns([]);
-    setRows([]);
-    setCollapsedRows(new Set());
-  };
-
-  const processFile = async (candidate: File) => {
-    setIsParsing(true);
-    setFileError(null);
-    try {
-      const result = await parseProductImportFile(candidate, categories, subCategories, ingredients, units, subRecipes, extras, articles);
-      setFile(candidate);
-      setRows(result.rows);
-      setUnknownColumns(result.unknownColumns);
-      setCollapsedRows(collapseValidRows(result.rows, (r) => r.id, (r) => r.issues.length > 0));
-      setStep('preview');
-    } catch (err) {
-      setFile(candidate);
-      setRows([]);
-      setFileError(err instanceof ImportFileError || err instanceof Error ? err.message : 'Impossible de lire ce fichier.');
-    } finally {
-      setIsParsing(false);
-    }
-  };
-
-  const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const chosen = e.target.files?.[0];
-    if (chosen) processFile(chosen);
-    e.target.value = '';
-  };
-  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    setIsDragOver(false);
-    const dropped = e.dataTransfer.files?.[0];
-    if (dropped) processFile(dropped);
-  };
-  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => { e.preventDefault(); setIsDragOver(true); };
-  const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => { e.preventDefault(); setIsDragOver(false); };
-  const handleRemoveFile = () => resetImportState();
-  const handleReplaceFile = () => setStep('upload');
-
-  const updateRow = (rowId: string, patch: Partial<ImportedProductRowDraft>) => {
-    setRows((prev) =>
-      prev.map((r) => {
-        if (r.id !== rowId) return r;
-        const next = { ...r, ...patch };
-        return { ...next, issues: recomputeProductRowIssues(next, subCategories) };
-      })
-    );
-  };
-
-  const handleConfirmSave = async () => {
-    if (isSaving || !canConfirm) return;
-    setIsSaving(true);
-    setSaveError(null);
-    try {
-      const newArticles = buildCatalogArticlesFromImportRows(rows, categories, subCategories);
-      await new Promise((resolve) => setTimeout(resolve, 700));
-      onImportProducts(newArticles);
-      setSavedCount(newArticles.length);
-      setStep('success');
-    } catch (err) {
-      setSaveError(err instanceof Error ? err.message : "Une erreur est survenue lors de l'enregistrement. Veuillez réessayer.");
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  const handleStartNewImport = () => {
-    resetImportState();
-    setSaveError(null);
-    setStep('upload');
-  };
-
-  const handleCancel = () => {
-    if ((file || rows.length > 0) && !window.confirm("Voulez-vous quitter l'import ? Les données non enregistrées seront perdues.")) return;
-    resetImportState();
-    onNavigateToProducts();
-  };
-
-  const StatChip: React.FC<{ label: string; value: React.ReactNode; tone?: 'emerald' | 'red' | 'gray' }> = ({ label, value, tone = 'gray' }) => {
-    const toneClass =
-      tone === 'emerald'
-        ? 'bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800/60'
-        : tone === 'red'
-        ? 'bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-300 border-red-200 dark:border-red-800/60'
-        : 'bg-gray-50 dark:bg-gray-800/60 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-700';
+  if (type) {
+    const activeCard = CARDS.find((c) => c.id === type)!;
     return (
-      <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-[11px] font-semibold ${toneClass}`}>
-        <span>{label}</span><span className="font-black">{value}</span>
-      </span>
+      <div className="space-y-5 animate-in fade-in duration-200">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1">
+          <div>
+            <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-gray-900 dark:text-white flex items-center gap-2">
+              <span>Import Excel/CSV</span>
+              <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60">
+                {activeCard.title}
+              </span>
+            </h1>
+            <p className="text-xs text-gray-500 dark:text-gray-400">{activeCard.description}</p>
+          </div>
+          <div className="flex items-center gap-2 self-start sm:self-auto">
+            <button
+              onClick={() => setType(null)}
+              className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700/80 text-xs font-semibold text-gray-700 dark:text-gray-200 shadow-2xs transition active:scale-98 cursor-pointer"
+            >
+              <ArrowLeft size={14} className="text-gray-500 dark:text-gray-400" />
+              <span>Changer de type</span>
+            </button>
+            <button onClick={onNavigateToProducts} className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700/80 text-xs font-semibold text-gray-700 dark:text-gray-200 shadow-2xs transition active:scale-98 cursor-pointer">
+              <History size={14} className="text-gray-500 dark:text-gray-400" />
+              <span>Voir les produits</span>
+            </button>
+            <button
+              onClick={onNavigateToDashboard}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-emerald-300 dark:border-emerald-700/80 bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 text-xs font-semibold text-emerald-700 dark:text-emerald-300 transition active:scale-98 cursor-pointer"
+            >
+              <span>Tableau de bord</span>
+            </button>
+          </div>
+        </div>
+
+        {type === 'subrecipes' ? (
+          <SubRecipesImportForm
+            subRecipes={subRecipes}
+            ingredients={ingredients}
+            units={units}
+            onImportSubRecipes={onImportSubRecipes}
+            onClose={() => setType(null)}
+          />
+        ) : (
+          <ProductsCsvImportForm
+            categories={categories}
+            subCategories={subCategories}
+            ingredients={ingredients}
+            units={units}
+            subRecipes={subRecipes}
+            extras={extras}
+            articles={articles}
+            onNavigateToProducts={onNavigateToProducts}
+            onImportProducts={onImportProducts}
+          />
+        )}
+      </div>
     );
-  };
+  }
 
   return (
     <div className="space-y-5 animate-in fade-in duration-200">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1">
         <div>
           <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-gray-900 dark:text-white flex items-center gap-2">
-            <span>Import Excel/CSV — Produits</span>
+            <span>Import Excel/CSV</span>
             <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60">
               Produits, recettes & marges
             </span>
           </h1>
-          <p className="text-xs text-gray-500 dark:text-gray-400">Importez plusieurs produits, avec leurs variantes, extras et fiches techniques.</p>
+          <p className="text-xs text-gray-500 dark:text-gray-400">Que souhaitez-vous importer ?</p>
         </div>
-        <div className="flex items-center gap-2 self-start sm:self-auto">
-          <button onClick={onNavigateToProducts} className={secondaryButtonClass}>
-            <History size={14} className="text-gray-500 dark:text-gray-400" />
-            <span>Voir les produits</span>
-          </button>
-          <button
-            onClick={onNavigateToDashboard}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-emerald-300 dark:border-emerald-700/80 bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 text-xs font-semibold text-emerald-700 dark:text-emerald-300 transition active:scale-98 cursor-pointer"
-          >
-            <span>Tableau de bord</span>
-          </button>
-        </div>
+        <button
+          onClick={onNavigateToDashboard}
+          className="self-start sm:self-auto inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-emerald-300 dark:border-emerald-700/80 bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 text-xs font-semibold text-emerald-700 dark:text-emerald-300 transition active:scale-98 cursor-pointer"
+        >
+          <span>Tableau de bord</span>
+        </button>
       </div>
 
-      {step === 'success' ? (
-        <div className="p-8 sm:p-12 rounded-2xl bg-white dark:bg-[#151D2A] border border-gray-100 dark:border-gray-800 shadow-2xs flex flex-col items-center text-center gap-3">
-          <div className="w-14 h-14 rounded-full bg-emerald-50 dark:bg-emerald-950/50 flex items-center justify-center text-emerald-500">
-            <CheckCircle2 size={30} />
-          </div>
-          <h2 className="text-lg font-bold text-gray-900 dark:text-white">Import réussi</h2>
-          <p className="text-xs text-gray-500 dark:text-gray-400 max-w-md">
-            {savedCount} produit{savedCount > 1 ? 's ont été ajoutés' : ' a été ajouté'} au catalogue.
-          </p>
-          <div className="flex items-center gap-2 pt-2">
-            <button onClick={handleStartNewImport} className={secondaryButtonClass}><UploadCloud size={14} /><span>Importer un autre fichier</span></button>
-            <button onClick={onNavigateToProducts} className={primaryButtonClass}><History size={14} /><span>Voir les produits</span></button>
-          </div>
-        </div>
-      ) : step === 'preview' ? (
-        <>
-          <div className={`p-4 rounded-2xl border flex items-start gap-3 ${canConfirm ? 'bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800/60' : 'bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-800/60'}`}>
-            {canConfirm ? <ShieldCheck size={20} className="text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" /> : <AlertTriangle size={20} className="text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />}
-            <div>
-              <p className={`text-sm font-bold ${canConfirm ? 'text-emerald-800 dark:text-emerald-300' : 'text-amber-800 dark:text-amber-300'}`}>
-                {totalErrors > 0 ? `${totalErrors} erreur${totalErrors > 1 ? 's' : ''} doivent être corrigées avant l'enregistrement` : 'Vérifiez les informations avant confirmation'}
-              </p>
-              <p className={`text-xs ${canConfirm ? 'text-emerald-700/80 dark:text-emerald-400/80' : 'text-amber-700/80 dark:text-amber-400/80'}`}>
-                Aucun produit n'est encore créé. Les erreurs de variantes/extras/fiche technique se corrigent en remplaçant le fichier.
-              </p>
-            </div>
-          </div>
-
-          <div className="p-4 rounded-2xl bg-white dark:bg-[#151D2A] border border-gray-100 dark:border-gray-800 shadow-2xs flex flex-col lg:flex-row lg:items-center justify-between gap-3">
-            <div className="flex flex-wrap gap-2">
-              <StatChip label="Produits détectés" value={rows.length} />
-              <StatChip label="Valides" value={validRows.length} tone="emerald" />
-              <StatChip label="Invalides" value={invalidRows.length} tone={invalidRows.length ? 'red' : 'gray'} />
-            </div>
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="inline-flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400"><FileSpreadsheet size={13} className="text-gray-400" />{file?.name}</span>
-              {rows.length > 1 && (
-                <button onClick={toggleCollapseAll} className={secondaryButtonClass}>
-                  {allRowsCollapsed ? <ChevronsUpDown size={13} /> : <ChevronsDownUp size={13} />}
-                  <span>{allRowsCollapsed ? 'Tout développer' : 'Tout réduire'}</span>
-                </button>
-              )}
-              <button onClick={handleReplaceFile} className={secondaryButtonClass}><RotateCcw size={13} /><span>Remplacer le fichier</span></button>
-            </div>
-          </div>
-
-          {unknownColumns.length > 0 && (
-            <div className="p-3 rounded-xl bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800/50 text-xs text-blue-700 dark:text-blue-300 flex items-center gap-2">
-              <Info size={14} className="shrink-0" /><span>Colonnes ignorées (non reconnues) : {unknownColumns.join(', ')}</span>
-            </div>
-          )}
-
-          <div className="space-y-3">
-            {rows.map((row) => {
-              const rowHasError = row.issues.length > 0;
-              const fieldsWithError = new Set(row.issues.map((i) => i.field));
-              const availableSubCats = subCategories.filter((s) => s.categoryId === row.categoryId);
-              const isCollapsed = collapsedRows.has(row.id);
-              return (
-                <div key={row.id} className={`p-4 sm:p-5 rounded-2xl border shadow-2xs space-y-3 ${rowHasError ? 'bg-red-50/40 dark:bg-red-950/10 border-red-200 dark:border-red-800/50' : 'bg-white dark:bg-[#151D2A] border-gray-100 dark:border-gray-800'}`}>
-                  <div className="flex items-center justify-between gap-2">
-                    <button type="button" onClick={() => toggleRowCollapsed(row.id)} className="flex items-center gap-2 text-left flex-1 min-w-0 cursor-pointer">
-                      {rowHasError ? <AlertCircle size={15} className="text-red-500 shrink-0" /> : <CheckCircle2 size={15} className="text-emerald-500 shrink-0" />}
-                      <div className="min-w-0">
-                        <h3 className="text-sm font-bold text-gray-900 dark:text-white">Ligne {row.rowNumber}</h3>
-                        {isCollapsed && (
-                          <p className="text-[11px] text-gray-400 dark:text-gray-500 truncate" title={buildRowSummaryLine(row)}>
-                            {buildRowSummaryLine(row)}
-                          </p>
-                        )}
-                      </div>
-                    </button>
-                    <button
-                      onClick={() => toggleRowCollapsed(row.id)}
-                      title={isCollapsed ? 'Développer cette ligne' : 'Réduire cette ligne'}
-                      className="p-1.5 rounded-lg text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition cursor-pointer shrink-0"
-                    >
-                      {isCollapsed ? <ChevronDown size={15} /> : <ChevronUp size={15} />}
-                    </button>
-                  </div>
-
-                  {!isCollapsed && (
-                    <>
-                  {rowHasError && (
-                    <ul className="text-[11px] text-red-600 dark:text-red-400 space-y-1 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800/40 rounded-lg p-2.5 list-disc list-inside">
-                      {row.issues.map((issue, i) => (<li key={i}>{issue.message}</li>))}
-                    </ul>
-                  )}
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div>
-                      <label className={labelClass}>Nom *</label>
-                      <input type="text" value={row.name} onChange={(e) => updateRow(row.id, { name: e.target.value })} className={`${inputBaseClass} ${fieldsWithError.has('nom') ? inputErrorClass : inputValidClass}`} />
-                    </div>
-                    <div>
-                      <label className={labelClass}>Prix (DT) *</label>
-                      <input type="number" min={0} step="any" value={row.price} onChange={(e) => updateRow(row.id, { price: e.target.value })} className={`${inputBaseClass} ${fieldsWithError.has('prix') ? inputErrorClass : inputValidClass}`} />
-                    </div>
-                    <div>
-                      <label className={labelClass}>Catégorie *</label>
-                      <div className="relative">
-                        <select value={row.categoryId} onChange={(e) => updateRow(row.id, { categoryId: e.target.value, subCategoryId: '' })} className={`${inputBaseClass} appearance-none cursor-pointer ${fieldsWithError.has('categorie') ? inputErrorClass : inputValidClass}`}>
-                          <option value="">Choisir une catégorie</option>
-                          {categories.map((c) => (<option key={c.id} value={c.id}>{c.name}</option>))}
-                        </select>
-                        <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
-                      </div>
-                    </div>
-                    <div>
-                      <label className={labelClass}>Sous-catégorie</label>
-                      <div className="relative">
-                        <select value={row.subCategoryId} onChange={(e) => updateRow(row.id, { subCategoryId: e.target.value })} disabled={availableSubCats.length === 0} className={`${inputBaseClass} appearance-none cursor-pointer ${fieldsWithError.has('sous_categorie') ? inputErrorClass : inputValidClass} disabled:opacity-50`}>
-                          <option value="">Aucune</option>
-                          {availableSubCats.map((s) => (<option key={s.id} value={s.id}>{s.name}</option>))}
-                        </select>
-                        <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
-                      </div>
-                    </div>
-                    <div className="sm:col-span-2">
-                      <button
-                        onClick={() => updateRow(row.id, { isAvailable: !row.isAvailable })}
-                        className={`px-3.5 py-2 rounded-xl text-xs font-semibold border transition cursor-pointer ${row.isAvailable ? 'bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800/70' : 'bg-gray-100 dark:bg-gray-800 text-gray-500 border-gray-200 dark:border-gray-700'}`}
-                      >
-                        {row.isAvailable ? 'Disponible à la vente' : 'Indisponible'}
-                      </button>
-                    </div>
-                  </div>
-
-                  {(row.variants.length > 0 || row.extraIds.length > 0 || row.recipe.length > 0) && (
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-[11px] text-gray-500 dark:text-gray-400">
-                      {row.variants.length > 0 && <div>Variantes : {row.variants.map((v) => v.label).join(', ')}</div>}
-                      {row.extraIds.length > 0 && <div>Extras : {row.extraIds.length}</div>}
-                      {row.recipe.length > 0 && <div>Fiche technique : {row.recipe.length} ligne(s)</div>}
-                    </div>
-                  )}
-                    </>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-
-          {saveError && (
-            <div className="p-4 rounded-2xl bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800/60 flex items-start gap-3">
-              <AlertCircle size={18} className="text-red-500 shrink-0 mt-0.5" />
-              <div className="flex-1"><p className="text-sm font-bold text-red-700 dark:text-red-300">Échec de l'enregistrement</p><p className="text-xs text-red-600/90 dark:text-red-400/90">{saveError}</p></div>
-            </div>
-          )}
-
-          <div className="p-4 rounded-2xl bg-white dark:bg-[#151D2A] border border-gray-100 dark:border-gray-800 shadow-2xs flex flex-col sm:flex-row items-center justify-between gap-3 sticky bottom-4">
-            <div className="text-xs">
-              {canConfirm ? (
-                <span className="font-semibold text-emerald-600 dark:text-emerald-400">Toutes les lignes sont valides — prêt pour l'enregistrement.</span>
-              ) : (
-                <span className="font-semibold text-red-600 dark:text-red-400">{totalErrors} erreur{totalErrors > 1 ? 's' : ''} {totalErrors > 1 ? 'doivent' : 'doit'} être corrigée{totalErrors > 1 ? 's' : ''} avant l'enregistrement.</span>
-              )}
-            </div>
-            <div className="flex items-center gap-2 w-full sm:w-auto">
-              <button onClick={handleCancel} className={`${secondaryButtonClass} flex-1 sm:flex-none`}><span>Annuler</span></button>
-              <button onClick={handleConfirmSave} disabled={!canConfirm || isSaving} className={`${primaryButtonClass} flex-1 sm:flex-none`}>
-                {isSaving ? <Loader2 size={14} className="animate-spin" /> : <ShieldCheck size={14} />}
-                <span>{isSaving ? 'Enregistrement…' : 'Confirmer et importer'}</span>
-              </button>
-            </div>
-          </div>
-        </>
-      ) : (
-        <>
-          <div
-            onDragOver={handleDragOver}
-            onDragLeave={handleDragLeave}
-            onDrop={handleDrop}
-            className={`rounded-2xl border-2 border-dashed p-10 sm:p-14 text-center transition ${isDragOver ? 'border-emerald-400 bg-emerald-50/60 dark:bg-emerald-950/20' : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-[#151D2A]'}`}
-          >
-            <div className="w-14 h-14 rounded-2xl bg-emerald-50 dark:bg-emerald-950/50 flex items-center justify-center text-emerald-500 mx-auto mb-3"><UploadCloud size={26} /></div>
-            <p className="text-sm font-bold text-gray-900 dark:text-white">Glissez-déposez votre fichier Excel ou CSV ici</p>
-            <p className="text-xs text-gray-400 my-2">ou</p>
-            <button onClick={() => fileInputRef.current?.click()} className={`${primaryButtonClass} mx-auto`}><FileSpreadsheet size={14} /><span>Cliquer pour sélectionner un fichier</span></button>
-            <input ref={fileInputRef} type="file" accept=".csv,.xlsx,.xls" className="hidden" onChange={handleFileInputChange} />
-            <p className="text-[11px] text-gray-400 mt-4">Formats acceptés : .xlsx, .xls, .csv — Taille max {(MAX_IMPORT_FILE_SIZE_BYTES / (1024 * 1024)).toFixed(0)} Mo</p>
-
-            {isParsing && <div className="mt-4 inline-flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400"><Loader2 size={14} className="animate-spin" /> Lecture du fichier…</div>}
-
-            {file && !isParsing && (
-              <div className="mt-4 inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-gray-50 dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700 text-xs">
-                <FileSpreadsheet size={13} className="text-gray-400" />
-                <span className="font-medium text-gray-700 dark:text-gray-200">{file.name}</span>
-                <span className="text-gray-400">({(file.size / 1024).toFixed(0)} Ko)</span>
-                <button onClick={handleRemoveFile} className="text-gray-400 hover:text-red-600 cursor-pointer"><X size={13} /></button>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        {CARDS.map((card) => {
+          const Icon = card.icon;
+          return (
+            <button
+              key={card.id}
+              onClick={() => setType(card.id)}
+              className="group text-left p-5 rounded-2xl bg-white dark:bg-[#151D2A] border border-gray-100 dark:border-gray-800 shadow-2xs hover:shadow-md hover:-translate-y-0.5 transition-all cursor-pointer flex flex-col gap-3"
+            >
+              <div className={`w-11 h-11 rounded-xl border flex items-center justify-center shrink-0 transition-transform group-hover:scale-105 ${card.accent}`}>
+                <Icon size={20} />
               </div>
-            )}
-          </div>
-
-          {fileError && (
-            <div className="p-4 rounded-2xl bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800/60 flex items-start gap-3">
-              <AlertCircle size={18} className="text-red-500 shrink-0 mt-0.5" />
-              <div><p className="text-sm font-bold text-red-700 dark:text-red-300">Le fichier n'a pas pu être importé</p><p className="text-xs text-red-600/90 dark:text-red-400/90">{fileError}</p></div>
-            </div>
-          )}
-
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <div className="p-5 rounded-2xl bg-white dark:bg-[#151D2A] border border-gray-100 dark:border-gray-800 shadow-2xs space-y-3">
-              <h3 className="text-sm font-bold text-gray-900 dark:text-white">Template d'import</h3>
-              <p className="text-xs text-gray-500 dark:text-gray-400">
-                Chaque ligne représente un produit complet : informations générales, variantes, extras et fiche technique.
-              </p>
-              <button onClick={downloadProductImportTemplateCsv} className={primaryButtonClass}><Download size={14} /><span>Télécharger le template CSV</span></button>
-            </div>
-            <div className="p-5 rounded-2xl bg-white dark:bg-[#151D2A] border border-gray-100 dark:border-gray-800 shadow-2xs space-y-2">
-              <h3 className="text-sm font-bold text-gray-900 dark:text-white">Comment structurer votre fichier</h3>
-              <ul className="text-xs text-gray-600 dark:text-gray-300 space-y-1.5">
-                {PRODUCT_IMPORT_COLUMNS.map((col) => (
-                  <li key={col.key} className="flex gap-1.5">
-                    <code className="shrink-0 px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-800 text-[11px] font-mono text-gray-700 dark:text-gray-300">{col.key}</code>
-                    <span><span className={col.required ? 'text-red-500 font-semibold' : 'text-gray-400 font-semibold'}>{col.required ? '(obligatoire)' : '(optionnel)'}</span> {col.description}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </div>
-        </>
-      )}
+              <div className="flex-1">
+                <h3 className="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-1.5">
+                  {card.title}
+                  <ChevronRight size={14} className="text-gray-300 dark:text-gray-600 group-hover:text-emerald-500 group-hover:translate-x-0.5 transition-all" />
+                </h3>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 leading-relaxed">{card.description}</p>
+              </div>
+              <div className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">
+                <UploadCloud size={12} />
+                Importer un fichier
+              </div>
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 };
