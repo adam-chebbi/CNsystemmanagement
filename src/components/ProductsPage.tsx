@@ -103,7 +103,7 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({
   const enriched = useMemo(
     () =>
       articles.map((article) => {
-        const recipeResult = article.recipe && article.recipe.length > 0 ? computeRecipeCost(article.recipe, ingredients, subRecipes) : null;
+        const recipeResult = article.recipe && article.recipe.length > 0 ? computeRecipeCost(article.recipe, ingredients, subRecipes, articles) : null;
         const cost = recipeResult?.cost ?? 0;
         const margin = computeMargin(article.price, cost);
         return { article, cost, hasRecipe: Boolean(recipeResult), ...margin };
@@ -468,6 +468,7 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({
       {viewingArticle && (
         <ProductDetailModal
           article={viewingArticle}
+          articles={articles}
           ingredients={ingredients}
           subRecipes={subRecipes}
           extras={extras}
@@ -514,12 +515,13 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({
 
 const ProductDetailModal: React.FC<{
   article: CatalogArticle;
+  articles: CatalogArticle[];
   ingredients: StockProduct[];
   subRecipes: SubRecipe[];
   extras: CatalogExtra[];
   onClose: () => void;
-}> = ({ article, ingredients, subRecipes, extras: catalogExtras, onClose }) => {
-  const recipeResult = article.recipe && article.recipe.length > 0 ? computeRecipeCost(article.recipe, ingredients, subRecipes) : null;
+}> = ({ article, articles, ingredients, subRecipes, extras: catalogExtras, onClose }) => {
+  const recipeResult = article.recipe && article.recipe.length > 0 ? computeRecipeCost(article.recipe, ingredients, subRecipes, articles) : null;
   const cost = recipeResult?.cost ?? 0;
   const { grossMargin, marginRate } = computeMargin(article.price, cost);
   const targetRate = article.targetMarginRate ?? DEFAULT_TARGET_MARGIN_RATE;

@@ -114,7 +114,7 @@ const estimateMargin = (
       revenue += item.price * item.qty;
       const article = articles.find((a) => normalizeKey(a.name) === normalizeKey(item.name));
       if (article?.recipe) {
-        const { cost: unitCost } = computeRecipeCost(article.recipe, stockProducts, subRecipes);
+        const { cost: unitCost } = computeRecipeCost(article.recipe, stockProducts, subRecipes, articles);
         cost += unitCost * item.qty;
       }
     });
@@ -247,7 +247,7 @@ export const buildProductRankings = (
     let marginPercent: number | undefined;
     let costPrice: string | undefined;
     if (article?.recipe) {
-      const { cost } = computeRecipeCost(article.recipe, stockProducts, subRecipes);
+      const { cost } = computeRecipeCost(article.recipe, stockProducts, subRecipes, articles);
       const price = article.price || (v.qty > 0 ? v.revenue / v.qty : 0);
       const { marginRate } = computeMargin(price, cost);
       marginPercent = Math.round(marginRate * 100);

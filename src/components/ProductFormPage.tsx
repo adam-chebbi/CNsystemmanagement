@@ -98,8 +98,8 @@ export const ProductFormPage: React.FC<ProductFormPageProps> = ({
   );
 
   const issues = useMemo(
-    () => validateDraftProduct(draft, categories, subCategories, ingredients, subRecipes, extras),
-    [draft, categories, subCategories, ingredients, subRecipes, extras]
+    () => validateDraftProduct(draft, categories, subCategories, ingredients, subRecipes, extras, articles),
+    [draft, categories, subCategories, ingredients, subRecipes, extras, articles]
   );
   const issuesByField = useMemo(() => {
     const map = new Map<string, string>();
@@ -108,7 +108,10 @@ export const ProductFormPage: React.FC<ProductFormPageProps> = ({
   }, [issues]);
   const showErrors = hasAttemptedVerify;
 
-  const recipeCostResult = useMemo(() => computeRecipeCost(draft.recipe, ingredients, subRecipes), [draft.recipe, ingredients, subRecipes]);
+  const recipeCostResult = useMemo(
+    () => computeRecipeCost(draft.recipe, ingredients, subRecipes, articles),
+    [draft.recipe, ingredients, subRecipes, articles]
+  );
   const priceNum = Number(draft.price) || 0;
   const margin = computeMargin(priceNum, recipeCostResult.cost);
   const targetRate = draft.targetMarginRate.trim() !== '' ? Number(draft.targetMarginRate) : DEFAULT_TARGET_MARGIN_RATE;
@@ -307,6 +310,15 @@ export const ProductFormPage: React.FC<ProductFormPageProps> = ({
                       <div key={line.id} className="flex justify-between px-2.5 py-1.5 rounded-lg bg-gray-50 dark:bg-gray-800/50">
                         <span>{ing?.name}</span>
                         <span className="font-semibold">{line.quantity} {line.unit}</span>
+                      </div>
+                    );
+                  }
+                  if (line.kind === 'product') {
+                    const prod = articles.find((a) => a.id === line.productId);
+                    return (
+                      <div key={line.id} className="flex justify-between px-2.5 py-1.5 rounded-lg bg-purple-50/60 dark:bg-purple-950/20">
+                        <span>Produit : {prod?.name}</span>
+                        <span className="font-semibold">×{line.quantity}</span>
                       </div>
                     );
                   }
@@ -566,6 +578,7 @@ export const ProductFormPage: React.FC<ProductFormPageProps> = ({
                       <div className="flex items-center border border-gray-200 dark:border-gray-700 rounded-lg p-0.5 bg-white dark:bg-gray-900">
                         <button onClick={() => updateRecipeLine(line.id, { kind: 'ingredient' })} className={`px-2.5 py-1 text-[11px] font-semibold rounded-md cursor-pointer ${line.kind === 'ingredient' ? 'bg-[#00A86B] text-white' : 'text-gray-500'}`}>Ingrédient</button>
                         <button onClick={() => updateRecipeLine(line.id, { kind: 'subrecipe' })} className={`px-2.5 py-1 text-[11px] font-semibold rounded-md cursor-pointer ${line.kind === 'subrecipe' ? 'bg-[#00A86B] text-white' : 'text-gray-500'}`}>Sous-recette</button>
+                        <button onClick={() => updateRecipeLine(line.id, { kind: 'product', unit: 'unité' })} className={`px-2.5 py-1 text-[11px] font-semibold rounded-md cursor-pointer ${line.kind === 'product' ? 'bg-[#00A86B] text-white' : 'text-gray-500'}`}>Produit</button>
                       </div>
                       <div className="flex-1" />
                       <button onClick={() => moveRecipeLine(line.id, -1)} disabled={idx === 0} className="p-1 text-gray-400 hover:text-gray-700 disabled:opacity-30 cursor-pointer">▲</button>
@@ -581,6 +594,13 @@ export const ProductFormPage: React.FC<ProductFormPageProps> = ({
                             {ingredients.map((ing) => (<option key={ing.id} value={ing.id}>{ing.name} ({ing.unit})</option>))}
                           </select>
                         </div>
+                      ) : line.kind === 'product' ? (
+                        <div className="sm:col-span-2">
+                          <select value={line.productId ?? ''} onChange={(e) => updateRecipeLine(line.id, { productId: e.target.value })} className={`${inputBaseClass} appearance-none cursor-pointer ${inputValidClass}`}>
+                            <option value="">Choisir un produit</option>
+                            {articles.filter((a) => a.id !== draft.id).map((a) => (<option key={a.id} value={a.id}>{a.name} ({a.price.toFixed(2)} DT)</option>))}
+                          </select>
+                        </div>
                       ) : (
                         <div className="sm:col-span-1">
                           <select value={line.subRecipeId ?? ''} onChange={(e) => updateRecipeLine(line.id, { subRecipeId: e.target.value })} className={`${inputBaseClass} appearance-none cursor-pointer ${inputValidClass}`}>
@@ -590,12 +610,22 @@ export const ProductFormPage: React.FC<ProductFormPageProps> = ({
                         </div>
                       )}
 
-                      <input type="number" min={0} step="any" value={line.quantity || ''} onChange={(e) => updateRecipeLine(line.id, { quantity: Number(e.target.value) || 0 })} placeholder="Quantité" className={`${inputBaseClass} ${inputValidClass}`} />
+                      <input
+                        type="number"
+                        min={0}
+                        step={line.kind === 'product' ? 1 : 'any'}
+                        value={line.quantity || ''}
+                        onChange={(e) => updateRecipeLine(line.id, { quantity: Number(e.target.value) || 0 })}
+                        placeholder={line.kind === 'product' ? 'Quantité (×)' : 'Quantité'}
+                        className={`${inputBaseClass} ${inputValidClass}`}
+                      />
 
-                      <select value={line.unit} onChange={(e) => updateRecipeLine(line.id, { unit: e.target.value })} className={`${inputBaseClass} appearance-none cursor-pointer ${inputValidClass}`}>
-                        <option value="">Unité</option>
-                        {getUnitOptionsForLine(line).map((u) => (<option key={u.id} value={u.name}>{u.name}</option>))}
-                      </select>
+                      {line.kind !== 'product' && (
+                        <select value={line.unit} onChange={(e) => updateRecipeLine(line.id, { unit: e.target.value })} className={`${inputBaseClass} appearance-none cursor-pointer ${inputValidClass}`}>
+                          <option value="">Unité</option>
+                          {getUnitOptionsForLine(line).map((u) => (<option key={u.id} value={u.name}>{u.name}</option>))}
+                        </select>
+                      )}
                     </div>
                     {line.kind === 'subrecipe' && line.subRecipeId && (
                       <p className="text-[11px] text-gray-400">

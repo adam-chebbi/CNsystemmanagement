@@ -59,6 +59,12 @@ const rowToSubRecipe = (r: SubRecipeRow): SubRecipe => ({
   createdAt: r.created_at,
 });
 
+// Reused by sales.ts to resolve a sold item's recipe (ingredients / sub-recipes / composed
+// products) for automatic stock deduction — the same row data the catalog routes themselves read.
+export const getAllArticlesRaw = (): CatalogArticle[] => (db.prepare('SELECT * FROM catalog_articles').all() as ArticleRow[]).map(rowToArticle);
+export const getAllSubRecipesRaw = (): SubRecipe[] =>
+  (db.prepare('SELECT * FROM sub_recipes ORDER BY created_at ASC').all() as SubRecipeRow[]).map(rowToSubRecipe);
+
 export const productCatalogRouter = Router();
 productCatalogRouter.use(requireAuth);
 
@@ -192,9 +198,10 @@ productCatalogRouter.post(
 
 const recipeLineSchema = z.object({
   id: z.string(),
-  kind: z.enum(['ingredient', 'subrecipe']),
+  kind: z.enum(['ingredient', 'subrecipe', 'product']),
   ingredientId: z.string().optional(),
   subRecipeId: z.string().optional(),
+  productId: z.string().optional(),
   quantity: z.number(),
   unit: z.string(),
 });

@@ -251,7 +251,7 @@ export const computeOperationalAlerts = (ctx: AlertsContext): OperationalAlert[]
   ctx.articles
     .filter((a) => a.recipe && a.recipe.length > 0 && a.isAvailable !== false)
     .forEach((a) => {
-      const cost = computeRecipeCost(a.recipe!, ctx.stockProducts, ctx.subRecipes).cost;
+      const cost = computeRecipeCost(a.recipe!, ctx.stockProducts, ctx.subRecipes, ctx.articles).cost;
       const { marginRate } = computeMargin(a.price, cost);
       const target = a.targetMarginRate ?? DEFAULT_TARGET_MARGIN_RATE;
       if (marginRate < target) {

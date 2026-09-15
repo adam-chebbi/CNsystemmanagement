@@ -39,6 +39,7 @@ interface ProductsImportPageProps {
   units: StockUnit[];
   subRecipes: SubRecipe[];
   extras: CatalogExtra[];
+  articles: CatalogArticle[];
   onNavigateToDashboard: () => void;
   onNavigateToProducts: () => void;
   onImportProducts: (articles: CatalogArticle[]) => void;
@@ -64,6 +65,7 @@ export const ProductsImportPage: React.FC<ProductsImportPageProps> = ({
   units,
   subRecipes,
   extras,
+  articles,
   onNavigateToDashboard,
   onNavigateToProducts,
   onImportProducts,
@@ -111,7 +113,7 @@ export const ProductsImportPage: React.FC<ProductsImportPageProps> = ({
     setIsParsing(true);
     setFileError(null);
     try {
-      const result = await parseProductImportFile(candidate, categories, subCategories, ingredients, units, subRecipes, extras);
+      const result = await parseProductImportFile(candidate, categories, subCategories, ingredients, units, subRecipes, extras, articles);
       setFile(candidate);
       setRows(result.rows);
       setUnknownColumns(result.unknownColumns);

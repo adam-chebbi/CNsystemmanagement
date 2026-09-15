@@ -60,7 +60,7 @@ export const PRODUCT_IMPORT_COLUMNS: ProductImportColumnDoc[] = [
     label: 'fiche_technique',
     required: false,
     description:
-      'Composants séparés par "|". Ingrédient : "Ingrédient:Quantité:Unité" (ex: "Café:80:g"). Sous-recette existante (gérée dans Gestion des produits → Sous-recettes) : "SOUSRECETTE:Nom:Quantité:Unité" (ex: "SOUSRECETTE:Pâte à Crêpe Maison:150:g").',
+      'Composants séparés par "|". Ingrédient : "Ingrédient:Quantité:Unité" (ex: "Café:80:g"). Sous-recette existante (gérée dans Gestion des produits → Sous-recettes) : "SOUSRECETTE:Nom:Quantité:Unité" (ex: "SOUSRECETTE:Pâte à Crêpe Maison:150:g"). Produit composé — un produit existant utilisé comme composant (ex: un "Petit Déjeuner" fait de plusieurs produits) : "PRODUIT:Nom:Quantité" (ex: "PRODUIT:Cappuccino:1"), sans unité — la quantité est un simple nombre d\'unités. Le produit référencé doit déjà exister (l\'importer dans un fichier séparé au préalable).',
   },
 ];
 
@@ -103,7 +103,8 @@ const parseProductImportRow = (
   ingredients: StockProduct[],
   units: StockUnit[],
   subRecipes: SubRecipe[],
-  extras: CatalogExtra[]
+  extras: CatalogExtra[],
+  articles: CatalogArticle[]
 ): ImportedProductRowDraft => {
   const issues: ProductImportRowIssue[] = [];
   const rawName = get('nom');
@@ -181,6 +182,29 @@ const parseProductImportRow = (
   const recipe: RecipeLine[] = [];
   parsePipeCell(rawRecipe).forEach((entry) => {
     const parts = entry.split(':').map((s) => s.trim());
+    if (parts[0] && normalizeKey(parts[0]) === 'produit') {
+      const [, prodName, qtyStr] = parts;
+      if (!prodName) {
+        issues.push({ field: 'fiche_technique', value: entry, message: `Produit composé : nom manquant dans « ${entry} ».` });
+        return;
+      }
+      if (normalizeKey(prodName) === normalizeKey(rawName)) {
+        issues.push({ field: 'fiche_technique', value: entry, message: `Un produit ne peut pas se composer de lui-même : « ${prodName} ».` });
+        return;
+      }
+      const product = articles.find((a) => normalizeKey(a.name) === normalizeKey(prodName));
+      if (!product) {
+        issues.push({ field: 'fiche_technique', value: entry, message: `Produit composé introuvable : « ${prodName} ». Il doit déjà exister (importez-le dans un fichier séparé au préalable).` });
+        return;
+      }
+      const qty = Number(qtyStr);
+      if (!qtyStr || Number.isNaN(qty) || qty <= 0) {
+        issues.push({ field: 'fiche_technique', value: entry, message: `Produit composé « ${prodName} » : quantité invalide « ${qtyStr ?? ''} ».` });
+        return;
+      }
+      recipe.push({ id: generateProductId('rline'), kind: 'product', productId: product.id, quantity: qty, unit: 'unité' });
+      return;
+    }
     if (parts[0] && normalizeKey(parts[0]) === 'sousrecette') {
       const [, subName, qtyStr, unitName] = parts;
       if (!subName) {
@@ -265,7 +289,8 @@ export const parseProductImportFile = async (
   ingredients: StockProduct[],
   units: StockUnit[],
   subRecipes: SubRecipe[],
-  extras: CatalogExtra[]
+  extras: CatalogExtra[],
+  articles: CatalogArticle[]
 ): Promise<ProductImportParseResult> => {
   const sheet = await readSheetFromFile(file);
   const { indexMap, missingColumns, unknownColumns } = resolveColumns(sheet.headers, REQUIRED_COLUMN_KEYS, KNOWN_COLUMN_KEYS);
@@ -276,7 +301,7 @@ export const parseProductImportFile = async (
   if (sheet.rows.length > MAX_IMPORT_ROWS) throw new ImportFileError(`Le fichier contient trop de lignes (${sheet.rows.length}). Maximum autorisé : ${MAX_IMPORT_ROWS}.`);
 
   const rows = sheet.rows.map((rawCells, i) =>
-    parseProductImportRow(buildRowGetter(indexMap, rawCells), i + 2, categories, subCategories, ingredients, units, subRecipes, extras)
+    parseProductImportRow(buildRowGetter(indexMap, rawCells), i + 2, categories, subCategories, ingredients, units, subRecipes, extras, articles)
   );
 
   return { rows, unknownColumns };

@@ -118,6 +118,7 @@ const computeRecipeLineCost = (
   line: RecipeLine,
   ingredients: StockProduct[],
   subRecipes: SubRecipe[],
+  articles: CatalogArticle[],
   visiting: Set<string>
 ): { cost: number; error?: string } => {
   if (line.kind === 'ingredient') {
@@ -129,12 +130,27 @@ const computeRecipeLineCost = (
     return { cost: converted * ingredient.averageCost };
   }
 
+  if (line.kind === 'product') {
+    if (!line.productId) return { cost: 0, error: 'Produit manquant' };
+    const visitKey = `product:${line.productId}`;
+    if (visiting.has(visitKey)) return { cost: 0, error: 'Référence circulaire détectée' };
+    const product = articles.find((a) => a.id === line.productId);
+    if (!product) return { cost: 0, error: 'Produit introuvable' };
+    if (!product.recipe || product.recipe.length === 0) return { cost: 0 };
+    const nested = computeRecipeCost(product.recipe, ingredients, subRecipes, articles, new Set(visiting).add(visitKey));
+    return {
+      cost: nested.cost * line.quantity,
+      error: nested.errors.length > 0 ? 'Erreur dans le produit composé' : undefined,
+    };
+  }
+
   if (!line.subRecipeId) return { cost: 0, error: 'Sous-recette manquante' };
-  if (visiting.has(line.subRecipeId)) return { cost: 0, error: 'Référence circulaire détectée' };
+  const visitKey = `subrecipe:${line.subRecipeId}`;
+  if (visiting.has(visitKey)) return { cost: 0, error: 'Référence circulaire détectée' };
   const subRecipe = subRecipes.find((sr) => sr.id === line.subRecipeId);
   if (!subRecipe) return { cost: 0, error: 'Sous-recette introuvable' };
 
-  const batchResult = computeRecipeCost(subRecipe.ingredients, ingredients, subRecipes, new Set(visiting).add(line.subRecipeId));
+  const batchResult = computeRecipeCost(subRecipe.ingredients, ingredients, subRecipes, articles, new Set(visiting).add(visitKey));
   const costPerYieldUnit = subRecipe.yieldQuantity > 0 ? batchResult.cost / subRecipe.yieldQuantity : 0;
   const convertedQty = convertQuantity(line.quantity, line.unit, subRecipe.yieldUnit);
   if (convertedQty === null) {
@@ -150,12 +166,13 @@ export const computeRecipeCost = (
   recipe: RecipeLine[],
   ingredients: StockProduct[],
   subRecipes: SubRecipe[],
+  articles: CatalogArticle[] = [],
   visiting: Set<string> = new Set()
 ): RecipeCostResult => {
   let cost = 0;
   const errors: string[] = [];
   recipe.forEach((line) => {
-    const result = computeRecipeLineCost(line, ingredients, subRecipes, visiting);
+    const result = computeRecipeLineCost(line, ingredients, subRecipes, articles, visiting);
     cost += result.cost;
     if (result.error) errors.push(result.error);
   });
@@ -183,16 +200,38 @@ export const detectCircularReference = (
   return false;
 };
 
+// Same guard as detectCircularReference, but for a product's own 'product'-kind recipe lines
+// (a composed bundle referencing itself, directly or through a chain of other bundles).
+export const detectCircularProductReference = (
+  candidateArticleId: string,
+  recipeLines: RecipeLine[],
+  articles: CatalogArticle[],
+  visited: Set<string> = new Set()
+): boolean => {
+  for (const line of recipeLines) {
+    if (line.kind !== 'product' || !line.productId) continue;
+    if (line.productId === candidateArticleId) return true;
+    if (visited.has(line.productId)) continue;
+    const product = articles.find((a) => a.id === line.productId);
+    if (!product?.recipe) continue;
+    const nextVisited = new Set(visited);
+    nextVisited.add(line.productId);
+    if (detectCircularProductReference(candidateArticleId, product.recipe, articles, nextVisited)) return true;
+  }
+  return false;
+};
+
 // --- Theoretical consumption (calculation only — never modifies stock) ---------------------
 
 // Recursively expands sub-recipe lines into their underlying ingredients (a sold "Crêpe" that
 // uses 150g of "Pâte à Crêpe" counts towards flour/milk/etc. consumption too), scaled by how many
 // units of the parent recipe were actually sold.
-const accumulateRecipeConsumption = (
+export const accumulateRecipeConsumption = (
   recipe: RecipeLine[],
   multiplier: number,
   ingredients: StockProduct[],
   subRecipes: SubRecipe[],
+  articles: CatalogArticle[],
   consumption: Map<string, number>,
   visiting: Set<string>
 ): void => {
@@ -206,7 +245,28 @@ const accumulateRecipeConsumption = (
       consumption.set(line.ingredientId, (consumption.get(line.ingredientId) ?? 0) + converted * multiplier);
       return;
     }
-    if (!line.subRecipeId || visiting.has(line.subRecipeId)) return;
+
+    if (line.kind === 'product') {
+      if (!line.productId) return;
+      const visitKey = `product:${line.productId}`;
+      if (visiting.has(visitKey)) return;
+      const product = articles.find((a) => a.id === line.productId);
+      if (!product?.recipe) return;
+      accumulateRecipeConsumption(
+        product.recipe,
+        multiplier * line.quantity,
+        ingredients,
+        subRecipes,
+        articles,
+        consumption,
+        new Set(visiting).add(visitKey)
+      );
+      return;
+    }
+
+    if (!line.subRecipeId) return;
+    const visitKey = `subrecipe:${line.subRecipeId}`;
+    if (visiting.has(visitKey)) return;
     const subRecipe = subRecipes.find((sr) => sr.id === line.subRecipeId);
     if (!subRecipe || subRecipe.yieldQuantity <= 0) return;
     const convertedQty = convertQuantity(line.quantity, line.unit, subRecipe.yieldUnit);
@@ -217,8 +277,9 @@ const accumulateRecipeConsumption = (
       batchFraction,
       ingredients,
       subRecipes,
+      articles,
       consumption,
-      new Set(visiting).add(line.subRecipeId)
+      new Set(visiting).add(visitKey)
     );
   });
 };
@@ -238,7 +299,7 @@ export const computeTheoreticalConsumption = (
         articles.find((a) => normalizeKey(a.name) === normalizeKey(item.name)) ??
         articles.find((a) => normalizeKey(item.name).startsWith(normalizeKey(a.name)));
       if (!article?.recipe) return;
-      accumulateRecipeConsumption(article.recipe, item.qty, ingredients, subRecipes, consumption, new Set());
+      accumulateRecipeConsumption(article.recipe, item.qty, ingredients, subRecipes, articles, consumption, new Set());
     });
   });
   return consumption;
@@ -328,7 +389,8 @@ export const validateDraftProduct = (
   subCategories: ProductSubCategory[],
   ingredients: StockProduct[],
   subRecipes: SubRecipe[],
-  extras: CatalogExtra[]
+  extras: CatalogExtra[],
+  articles: CatalogArticle[] = []
 ): ProductValidationIssue[] => {
   const issues: ProductValidationIssue[] = [];
 
@@ -367,6 +429,18 @@ export const validateDraftProduct = (
             field: `recipe-${line.id}`,
             message: `${label} : l'unité "${line.unit}" est incompatible avec l'unité de stock de cet ingrédient ("${ing.unit}").`,
           });
+        }
+      }
+    } else if (line.kind === 'product') {
+      if (!line.productId) {
+        issues.push({ field: `recipe-${line.id}`, message: `${label} : sélectionnez un produit.` });
+      } else if (line.productId === draft.id) {
+        issues.push({ field: `recipe-${line.id}`, message: `${label} : un produit ne peut pas se composer de lui-même.` });
+      } else {
+        const product = articles.find((a) => a.id === line.productId);
+        if (!product) issues.push({ field: `recipe-${line.id}`, message: `${label} : produit introuvable.` });
+        else if (product.recipe && detectCircularProductReference(draft.id, product.recipe, articles, new Set([product.id]))) {
+          issues.push({ field: `recipe-${line.id}`, message: `${label} : référence circulaire entre produits composés.` });
         }
       }
     } else {

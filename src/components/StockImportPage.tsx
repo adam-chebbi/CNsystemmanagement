@@ -29,6 +29,7 @@ import {
   downloadStockImportTemplateCsv,
 } from '../data/importStockParser';
 import { collapseValidRows, toggleInSet } from '../data/importReviewUtils';
+import { IngredientsImportForm } from './IngredientsImportForm';
 
 interface StockImportPageProps {
   products: StockProduct[];
@@ -37,10 +38,12 @@ interface StockImportPageProps {
   onNavigateToDashboard: () => void;
   onNavigateToStock: () => void;
   onPostImportedStock: (entries: StockLedgerEntry[], lotUpserts: StockLot[], productUpdates: Array<{ id: string; minThreshold?: number; targetStock?: number }>) => void;
+  onImportIngredients: (products: Omit<StockProduct, 'id'>[]) => void;
   isDarkMode?: boolean;
 }
 
 type Step = 'upload' | 'preview' | 'success';
+type ImportMode = 'movements' | 'ingredients';
 
 const inputBaseClass =
   'w-full px-3.5 py-2 text-xs rounded-xl border bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-1 transition';
@@ -59,7 +62,9 @@ export const StockImportPage: React.FC<StockImportPageProps> = ({
   onNavigateToDashboard,
   onNavigateToStock,
   onPostImportedStock,
+  onImportIngredients,
 }) => {
+  const [mode, setMode] = useState<ImportMode>('movements');
   const [step, setStep] = useState<Step>('upload');
   const [file, setFile] = useState<File | null>(null);
   const [isDragOver, setIsDragOver] = useState(false);
@@ -212,7 +217,9 @@ export const StockImportPage: React.FC<StockImportPageProps> = ({
             </span>
           </h1>
           <p className="text-xs text-gray-500 dark:text-gray-400">
-            Importez en masse des quantités, seuils et stocks cibles pour des produits déjà existants.
+            {mode === 'ingredients'
+              ? 'Créez en masse de nouveaux ingrédients dans le catalogue de stock.'
+              : 'Importez en masse des quantités, seuils et stocks cibles pour des produits déjà existants.'}
           </p>
         </div>
         <div className="flex items-center gap-2 self-start sm:self-auto">
@@ -229,7 +236,28 @@ export const StockImportPage: React.FC<StockImportPageProps> = ({
         </div>
       </div>
 
-      {step === 'success' ? (
+      <div className="p-1 rounded-2xl bg-white dark:bg-[#151D2A] border border-gray-100 dark:border-gray-800 shadow-2xs flex items-center gap-1 w-fit">
+        <button
+          onClick={() => setMode('movements')}
+          className={`px-3.5 py-2 rounded-xl text-xs font-semibold transition cursor-pointer ${
+            mode === 'movements' ? 'bg-[#00A86B] text-white shadow-xs' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800/70'
+          }`}
+        >
+          Mouvements de stock
+        </button>
+        <button
+          onClick={() => setMode('ingredients')}
+          className={`px-3.5 py-2 rounded-xl text-xs font-semibold transition cursor-pointer ${
+            mode === 'ingredients' ? 'bg-[#00A86B] text-white shadow-xs' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800/70'
+          }`}
+        >
+          Nouveaux ingrédients
+        </button>
+      </div>
+
+      {mode === 'ingredients' ? (
+        <IngredientsImportForm products={products} units={units} onImportIngredients={onImportIngredients} />
+      ) : step === 'success' ? (
         <div className="p-8 sm:p-12 rounded-2xl bg-white dark:bg-[#151D2A] border border-gray-100 dark:border-gray-800 shadow-2xs flex flex-col items-center text-center gap-3">
           <div className="w-14 h-14 rounded-full bg-emerald-50 dark:bg-emerald-950/50 flex items-center justify-center text-emerald-500">
             <CheckCircle2 size={30} />

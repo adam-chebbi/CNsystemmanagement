@@ -161,7 +161,7 @@ export const estimateCogs = (
       t.items.forEach((it) => {
         const article = articles.find((a) => normalizeKey(a.name) === normalizeKey(it.name));
         if (article?.recipe && article.recipe.length > 0) {
-          const result = computeRecipeCost(article.recipe, stockProducts, subRecipes);
+          const result = computeRecipeCost(article.recipe, stockProducts, subRecipes, articles);
           cogs += result.cost * it.qty;
         } else {
           itemsWithoutRecipeQty += it.qty;
@@ -183,7 +183,7 @@ export const computeLowMarginProducts = (articles: CatalogArticle[], stockProduc
   articles
     .filter((a) => a.recipe && a.recipe.length > 0 && a.isAvailable !== false)
     .map((a) => {
-      const cost = computeRecipeCost(a.recipe!, stockProducts, subRecipes).cost;
+      const cost = computeRecipeCost(a.recipe!, stockProducts, subRecipes, articles).cost;
       const { grossMargin, marginRate } = computeMargin(a.price, cost);
       return { article: a, cost, grossMargin, marginRate, targetRate: a.targetMarginRate ?? DEFAULT_TARGET_MARGIN_RATE };
     })

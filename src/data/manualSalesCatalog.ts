@@ -2,17 +2,21 @@ import { SaleItem } from './salesTransactions';
 
 export type ArticleCategory = SaleItem['category'];
 
-// A recipe line is either a raw ingredient (a stockable StockProduct from the Stock module) or a
+// A recipe line is a raw ingredient (a stockable StockProduct from the Stock module), a
 // sub-recipe (a reusable SubRecipe — e.g. "Pâte à Crêpe" shared by every crêpe product — defined
-// and CRUD-managed in Gestion des produits → Sous-recettes). See productsModel.ts for the
-// cost/margin calculations and circular-reference guard built on top of this shape.
+// and CRUD-managed in Gestion des produits → Sous-recettes), or another sellable product (a
+// "composed" bundle like "Petit Déjeuner Français" = 1 Cappuccino + 2 Croissants + ... — the
+// referenced product's own recipe is resolved recursively for cost/margin/stock purposes). See
+// productsModel.ts for the cost/margin calculations and circular-reference guards built on top of
+// this shape, and server/routes/sales.ts for the recursive stock deduction on sale.
 export interface RecipeLine {
   id: string;
-  kind: 'ingredient' | 'subrecipe';
+  kind: 'ingredient' | 'subrecipe' | 'product';
   ingredientId?: string; // StockProduct.id, when kind === 'ingredient'
   subRecipeId?: string; // SubRecipe.id, when kind === 'subrecipe'
-  quantity: number;
-  unit: string; // a StockUnit name (see stockModel.ts) — the single unit catalog shared app-wide
+  productId?: string; // CatalogArticle.id, when kind === 'product'
+  quantity: number; // for kind === 'product', a plain count (e.g. 2 for "2x Croissant") — no unit conversion applies
+  unit: string; // a StockUnit name (see stockModel.ts) — ignored when kind === 'product'
 }
 
 export interface CatalogArticle {

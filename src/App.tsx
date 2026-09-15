@@ -362,6 +362,13 @@ export default function App() {
     );
   };
 
+  // Stock → Import Excel/CSV → "Nouveaux ingrédients" creates brand-new StockProduct rows —
+  // independent creates, so a simple Promise.all is enough (no shared before/after quantities to
+  // keep atomic, unlike the ledger-based movements import above).
+  const handleImportIngredients = (newProducts: Omit<StockProduct, 'id'>[]) => {
+    runMutation(() => Promise.all(newProducts.map((p) => stockApi.createStockProduct(p))));
+  };
+
   const toArticleInput = (article: CatalogArticle) => ({
     name: article.name, category: article.category, subCategory: article.subCategory, price: article.price,
     description: article.description, imageUrl: article.imageUrl, isAvailable: article.isAvailable,
@@ -1050,6 +1057,7 @@ export default function App() {
                   }}
                   onNavigateToStock={() => setActiveSubItem('stock_overview')}
                   onPostImportedStock={handlePostImportedStock}
+                  onImportIngredients={handleImportIngredients}
                 />
               </Suspense>
             ) : activeTab === 'products_recipes_mgmt' && activeSubItem === 'prm_products' ? (
@@ -1153,6 +1161,7 @@ export default function App() {
                   ingredients={stockProducts}
                   units={stockUnits}
                   subRecipes={subRecipes}
+                  articles={catalogArticles}
                   onNavigateToDashboard={() => {
                     setActiveTab('dashboard');
                     setActiveSubItem('');

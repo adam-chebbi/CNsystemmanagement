@@ -6,6 +6,11 @@ import { asyncHandler } from '../middleware/errors.js';
 import { requireAuth } from '../middleware/auth.js';
 import { recordActivity } from '../lib/activity.js';
 import type { SaleItem, SaleTransaction } from '../../src/data/salesTransactions.js';
+import type { CatalogArticle } from '../../src/data/manualSalesCatalog.js';
+import { accumulateRecipeConsumption } from '../../src/data/productsModel.js';
+import { normalizeKey } from '../../src/data/textUtils.js';
+import { getAllArticlesRaw, getAllSubRecipesRaw } from './productCatalog.js';
+import { getAllProducts, postEntries, type LedgerEntryInput } from './stock.js';
 
 interface SaleRow {
   id: number; sale_number: string; service_type: string; table_or_area: string; items: string;
@@ -54,6 +59,48 @@ const saleSchema = z.object({
   status: z.enum(['Payé', 'Remboursé']).default('Payé'),
 });
 
+// A SaleItem only carries its display name (possibly suffixed with a variant/extra label, e.g.
+// "Cappuccino (Grand, Chantilly)") — not an articleId — so it's matched back to its CatalogArticle
+// the same way computeTheoreticalConsumption already does: exact name match first, then a
+// startsWith fallback for suffixed names.
+const resolveArticleForSaleItem = (item: SaleItem, articles: CatalogArticle[]): CatalogArticle | undefined =>
+  articles.find((a) => normalizeKey(a.name) === normalizeKey(item.name)) ??
+  articles.find((a) => normalizeKey(item.name).startsWith(normalizeKey(a.name)));
+
+// Recursively expands every sold item's recipe (ingredients, sub-recipes, and composed products —
+// see manualSalesCatalog.RecipeLine) into raw ingredient quantities, then posts a single 'Sortie'
+// stock movement per ingredient via the exact same postEntries() the manual Stock module uses.
+// Deliberately defensive: a product with no recipe, or an ingredient that no longer exists, is
+// silently skipped rather than thrown — a sale must never fail because of a stock/recipe data gap.
+const deductStockForSale = (items: SaleItem[], performedBy: string): void => {
+  const articles = getAllArticlesRaw();
+  const subRecipes = getAllSubRecipesRaw();
+  const products = getAllProducts();
+
+  const consumption = new Map<string, number>();
+  items.forEach((item) => {
+    const article = resolveArticleForSaleItem(item, articles);
+    if (!article?.recipe || article.recipe.length === 0) return;
+    accumulateRecipeConsumption(article.recipe, item.qty, products, subRecipes, articles, consumption, new Set());
+  });
+  if (consumption.size === 0) return;
+
+  const inputs: LedgerEntryInput[] = [];
+  consumption.forEach((qty, productId) => {
+    if (qty <= 0) return;
+    if (!products.some((p) => p.id === productId)) return;
+    inputs.push({
+      type: 'Sortie',
+      productId,
+      zone: 'Réserve principale',
+      quantityDelta: -qty,
+      reason: 'Vente',
+      performedBy,
+    });
+  });
+  if (inputs.length > 0) postEntries(inputs);
+};
+
 export const salesRouter = Router();
 salesRouter.use(requireAuth);
 
@@ -80,6 +127,7 @@ salesRouter.post('/transactions', asyncHandler((req, res) => {
         items_count: t.itemsCount, items_summary: t.itemsSummary, payment_method: t.paymentMethod, barista: t.barista,
         total_amount: t.totalAmount, date: t.date, time: t.time, month: t.month, year: t.year, status: t.status,
       });
+      if (t.status === 'Payé') deductStockForSale(t.items, req.user!.fullName);
       created.push({ ...t, id });
     }
     return created;
