@@ -13,6 +13,9 @@ export const renameProductSubCategory = (id: string, categoryId: string, name: s
 export const deleteProductSubCategory = (id: string) => apiDelete<void>(`/product-subcategories/${id}`);
 
 export const getCatalogExtras = () => apiGet<CatalogExtra[]>('/catalog-extras');
+export const createCatalogExtra = (extra: Omit<CatalogExtra, 'id'>) => apiPost<CatalogExtra>('/catalog-extras', extra);
+export const updateCatalogExtra = (id: string, extra: Omit<CatalogExtra, 'id'>) => apiPut<CatalogExtra>(`/catalog-extras/${id}`, extra);
+export const deleteCatalogExtra = (id: string) => apiDelete<void>(`/catalog-extras/${id}`);
 
 export const getCatalogArticles = () => apiGet<CatalogArticle[]>('/catalog-articles');
 export const createCatalogArticle = (article: Omit<CatalogArticle, 'id' | 'createdAt'> & { id?: string }) => apiPost<CatalogArticle>('/catalog-articles', article);

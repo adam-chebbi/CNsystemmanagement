@@ -15,8 +15,9 @@ import {
   ChevronDown,
   FolderTree,
   Tag,
+  Sparkles,
 } from 'lucide-react';
-import { CatalogArticle } from '../data/manualSalesCatalog';
+import { CatalogArticle, CatalogExtra } from '../data/manualSalesCatalog';
 import {
   ProductCategory,
   ProductSubCategory,
@@ -31,6 +32,7 @@ interface ProductCatalogPageProps {
   categories: ProductCategory[];
   subCategories: ProductSubCategory[];
   articles: CatalogArticle[];
+  extras: CatalogExtra[];
   onNavigateToDashboard: () => void;
   onNavigateToProducts: () => void;
   onCreateCategory: (category: ProductCategory) => void;
@@ -39,10 +41,13 @@ interface ProductCatalogPageProps {
   onCreateSubCategory: (subCategory: ProductSubCategory) => void;
   onRenameSubCategory: (subCategoryId: string, newName: string, newCategoryId: string) => void;
   onDeleteSubCategory: (subCategoryId: string) => void;
+  onCreateExtra: (extra: Omit<CatalogExtra, 'id'>) => void;
+  onUpdateExtra: (id: string, extra: Omit<CatalogExtra, 'id'>) => void;
+  onDeleteExtra: (id: string) => void;
   isDarkMode?: boolean;
 }
 
-type EntityKind = 'category' | 'subcategory';
+type EntityKind = 'category' | 'subcategory' | 'extra';
 type Mode = 'list' | 'create' | 'edit';
 type Step = 'form' | 'preview' | 'success';
 
@@ -60,6 +65,7 @@ export const ProductCatalogPage: React.FC<ProductCatalogPageProps> = ({
   categories,
   subCategories,
   articles,
+  extras,
   onNavigateToDashboard,
   onNavigateToProducts,
   onCreateCategory,
@@ -68,6 +74,9 @@ export const ProductCatalogPage: React.FC<ProductCatalogPageProps> = ({
   onCreateSubCategory,
   onRenameSubCategory,
   onDeleteSubCategory,
+  onCreateExtra,
+  onUpdateExtra,
+  onDeleteExtra,
 }) => {
   const [activeTab, setActiveTab] = useState<EntityKind>('category');
   const [mode, setMode] = useState<Mode>('list');
@@ -80,6 +89,66 @@ export const ProductCatalogPage: React.FC<ProductCatalogPageProps> = ({
   const [saveError, setSaveError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [deleteTarget, setDeleteTarget] = useState<{ kind: EntityKind; id: string; name: string } | null>(null);
+
+  // --- Suppléments (CatalogExtra) — a self-contained mini-form, kept separate from the
+  // category/subcategory wizard above since extras have a different shape (name + price, no
+  // parent, no usage-guarded delete beyond "is it referenced by a product"). Labelled
+  // "Suppléments" in the UI (not "Extras") to avoid the historical name clash with the
+  // "Extras" *product category* — a real menu category of sellable items like "Extra Fromage" —
+  // which is a completely different concept from these per-ticket add-ons.
+  const [extraFormOpen, setExtraFormOpen] = useState(false);
+  const [editingExtraId, setEditingExtraId] = useState<string | null>(null);
+  const [extraName, setExtraName] = useState('');
+  const [extraPrice, setExtraPrice] = useState('');
+  const [extraSaveError, setExtraSaveError] = useState<string | null>(null);
+  const [extraIsSaving, setExtraIsSaving] = useState(false);
+
+  const filteredExtras = useMemo(
+    () => extras.filter((e) => !searchQuery.trim() || e.name.toLowerCase().includes(searchQuery.trim().toLowerCase())),
+    [extras, searchQuery]
+  );
+
+  const extraIssues = useMemo(() => {
+    const list: string[] = [];
+    if (!extraName.trim()) list.push('Le nom du supplément est obligatoire.');
+    const priceNum = Number(extraPrice);
+    if (extraPrice.trim() === '' || Number.isNaN(priceNum) || priceNum < 0) list.push('Le prix doit être un nombre positif ou nul.');
+    return list;
+  }, [extraName, extraPrice]);
+
+  const handleOpenCreateExtra = () => {
+    setEditingExtraId(null);
+    setExtraName('');
+    setExtraPrice('');
+    setExtraSaveError(null);
+    setExtraFormOpen(true);
+  };
+
+  const handleOpenEditExtra = (extra: CatalogExtra) => {
+    setEditingExtraId(extra.id);
+    setExtraName(extra.name);
+    setExtraPrice(String(extra.price));
+    setExtraSaveError(null);
+    setExtraFormOpen(true);
+  };
+
+  const handleSaveExtra = async () => {
+    if (extraIssues.length > 0) return;
+    setExtraIsSaving(true);
+    setExtraSaveError(null);
+    try {
+      const payload = { name: extraName.trim(), price: Number(extraPrice) };
+      if (editingExtraId) await onUpdateExtra(editingExtraId, payload);
+      else await onCreateExtra(payload);
+      setExtraFormOpen(false);
+    } catch (err) {
+      setExtraSaveError(err instanceof Error ? err.message : "Une erreur est survenue lors de l'enregistrement.");
+    } finally {
+      setExtraIsSaving(false);
+    }
+  };
+
+  const handleRequestDeleteExtra = (extra: CatalogExtra) => setDeleteTarget({ kind: 'extra', id: extra.id, name: extra.name });
 
   const editingCategory = useMemo(() => categories.find((c) => c.id === editingId) ?? null, [categories, editingId]);
   const editingSubCategory = useMemo(() => subCategories.find((s) => s.id === editingId) ?? null, [subCategories, editingId]);
@@ -188,6 +257,10 @@ export const ProductCatalogPage: React.FC<ProductCatalogPageProps> = ({
       if (subCount > 0) return `${subCount} sous-catégorie${subCount > 1 ? 's dépendent' : ' dépend'} de cette catégorie.`;
       return null;
     }
+    if (deleteTarget.kind === 'extra') {
+      const usedByCount = articles.filter((a) => a.extraIds?.includes(deleteTarget.id)).length;
+      return usedByCount > 0 ? `${usedByCount} produit${usedByCount > 1 ? 's proposent' : ' propose'} ce supplément.` : null;
+    }
     const sub = subCategories.find((s) => s.id === deleteTarget.id);
     if (!sub) return null;
     const productCount = getSubCategoryUsageCount(sub, articles);
@@ -197,11 +270,12 @@ export const ProductCatalogPage: React.FC<ProductCatalogPageProps> = ({
   const handleConfirmDelete = () => {
     if (!deleteTarget || deleteBlockedReason) return;
     if (deleteTarget.kind === 'category') onDeleteCategory(deleteTarget.id);
+    else if (deleteTarget.kind === 'extra') onDeleteExtra(deleteTarget.id);
     else onDeleteSubCategory(deleteTarget.id);
     setDeleteTarget(null);
   };
 
-  const entityLabel = activeTab === 'category' ? 'catégorie' : 'sous-catégorie';
+  const entityLabel = activeTab === 'category' ? 'catégorie' : activeTab === 'extra' ? 'supplément' : 'sous-catégorie';
 
   return (
     <div className="space-y-5 animate-in fade-in duration-200">
@@ -213,14 +287,20 @@ export const ProductCatalogPage: React.FC<ProductCatalogPageProps> = ({
               Produits, recettes & marges
             </span>
           </h1>
-          <p className="text-xs text-gray-500 dark:text-gray-400">Gestion des catégories et sous-catégories de produits.</p>
+          <p className="text-xs text-gray-500 dark:text-gray-400">Gestion des catégories, sous-catégories et suppléments de produits.</p>
         </div>
         <div className="flex items-center gap-2 self-start sm:self-auto">
           <button onClick={onNavigateToProducts} className={secondaryButtonClass}>
             <History size={14} className="text-gray-500 dark:text-gray-400" />
             <span>Voir les produits</span>
           </button>
-          {mode === 'list' && (
+          {mode === 'list' && activeTab === 'extra' && (
+            <button onClick={handleOpenCreateExtra} className={primaryButtonClass}>
+              <Plus size={14} />
+              <span>Ajouter un supplément</span>
+            </button>
+          )}
+          {mode === 'list' && activeTab !== 'extra' && (
             <button onClick={handleOpenCreate} className={primaryButtonClass}>
               <Plus size={14} />
               <span>Ajouter {activeTab === 'category' ? 'une catégorie' : 'une sous-catégorie'}</span>
@@ -316,13 +396,16 @@ export const ProductCatalogPage: React.FC<ProductCatalogPageProps> = ({
               <button onClick={() => setActiveTab('subcategory')} className={`px-3.5 py-1.5 text-xs font-semibold rounded-md transition cursor-pointer inline-flex items-center gap-1.5 ${activeTab === 'subcategory' ? 'bg-[#00A86B] text-white shadow-xs' : 'text-gray-600 dark:text-gray-300 hover:bg-white dark:hover:bg-gray-700'}`}>
                 <Tag size={13} /> Sous-catégories
               </button>
+              <button onClick={() => setActiveTab('extra')} className={`px-3.5 py-1.5 text-xs font-semibold rounded-md transition cursor-pointer inline-flex items-center gap-1.5 ${activeTab === 'extra' ? 'bg-[#00A86B] text-white shadow-xs' : 'text-gray-600 dark:text-gray-300 hover:bg-white dark:hover:bg-gray-700'}`}>
+                <Sparkles size={13} /> Suppléments
+              </button>
             </div>
           </div>
 
           <div className="p-3 sm:p-4 rounded-2xl bg-white dark:bg-[#151D2A] border border-gray-100 dark:border-gray-800 shadow-2xs">
             <div className="relative max-w-sm">
               <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
-              <input type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder={`Rechercher une ${entityLabel}...`} className="w-full pl-9 pr-3.5 py-2 text-xs rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-emerald-500" />
+              <input type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder={`Rechercher ${activeTab === 'extra' ? 'un' : 'une'} ${entityLabel}...`} className="w-full pl-9 pr-3.5 py-2 text-xs rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-emerald-500" />
             </div>
           </div>
 
@@ -360,7 +443,7 @@ export const ProductCatalogPage: React.FC<ProductCatalogPageProps> = ({
                     )}
                   </tbody>
                 </table>
-              ) : (
+              ) : activeTab === 'subcategory' ? (
                 <table className="w-full text-left border-collapse">
                   <thead>
                     <tr className="border-b border-gray-100 dark:border-gray-800 text-[11px] font-bold text-gray-400 dark:text-gray-500 bg-gray-50/50 dark:bg-gray-800/30">
@@ -392,10 +475,93 @@ export const ProductCatalogPage: React.FC<ProductCatalogPageProps> = ({
                     )}
                   </tbody>
                 </table>
+              ) : (
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="border-b border-gray-100 dark:border-gray-800 text-[11px] font-bold text-gray-400 dark:text-gray-500 bg-gray-50/50 dark:bg-gray-800/30">
+                      <th className="py-3.5 px-4">Nom</th>
+                      <th className="py-3.5 px-4 text-right">Prix</th>
+                      <th className="py-3.5 px-4 text-center">Produits</th>
+                      <th className="py-3.5 px-4 text-center">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100 dark:divide-gray-800/60 text-xs">
+                    {filteredExtras.length === 0 ? (
+                      <tr><td colSpan={4} className="text-center py-12 text-gray-400"><Sparkles className="w-8 h-8 mx-auto text-gray-300 dark:text-gray-600 mb-2" />Aucun supplément pour cette recherche</td></tr>
+                    ) : (
+                      filteredExtras.map((extra) => {
+                        const usedByCount = articles.filter((a) => a.extraIds?.includes(extra.id)).length;
+                        return (
+                          <tr key={extra.id} className="hover:bg-gray-50/70 dark:hover:bg-gray-800/40 transition-colors">
+                            <td className="py-3.5 px-4 font-semibold text-gray-900 dark:text-white">{extra.name}</td>
+                            <td className="py-3.5 px-4 text-right text-gray-600 dark:text-gray-300">{extra.price.toFixed(2)} DT</td>
+                            <td className="py-3.5 px-4 text-center text-gray-600 dark:text-gray-300">{usedByCount}</td>
+                            <td className="py-3.5 px-4">
+                              <div className="flex items-center justify-center gap-1">
+                                <button onClick={() => handleOpenEditExtra(extra)} title="Modifier" className="p-1.5 rounded-lg text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 transition cursor-pointer"><Pencil size={14} /></button>
+                                <button onClick={() => handleRequestDeleteExtra(extra)} title="Supprimer" className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40 transition cursor-pointer"><Trash2 size={14} /></button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
               )}
             </div>
           </div>
         </>
+      )}
+
+      {/* Supplément create/edit modal */}
+      {extraFormOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="w-full max-w-sm rounded-2xl bg-white dark:bg-[#151D2A] border border-gray-200 dark:border-gray-700 shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className="p-4 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between">
+              <h3 className="font-bold text-sm text-gray-900 dark:text-white flex items-center gap-2">
+                <Sparkles size={16} className="text-emerald-500" />
+                {editingExtraId ? 'Modifier le supplément' : 'Nouveau supplément'}
+              </h3>
+              <button onClick={() => setExtraFormOpen(false)} className="p-1 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 cursor-pointer"><X size={16} /></button>
+            </div>
+            <div className="p-5 space-y-3.5">
+              <div>
+                <label className={labelClass}>Nom *</label>
+                <input
+                  type="text"
+                  value={extraName}
+                  onChange={(e) => setExtraName(e.target.value)}
+                  placeholder="ex : Chantilly, Shot espresso supplémentaire"
+                  className={`${inputBaseClass} ${inputValidClass}`}
+                />
+              </div>
+              <div>
+                <label className={labelClass}>Prix (DT) *</label>
+                <input
+                  type="number"
+                  min={0}
+                  step="0.1"
+                  value={extraPrice}
+                  onChange={(e) => setExtraPrice(e.target.value)}
+                  className={`${inputBaseClass} ${inputValidClass}`}
+                />
+              </div>
+              {extraSaveError && (
+                <div className="p-3 rounded-xl bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800/60 text-xs text-red-600 dark:text-red-400 flex items-center gap-2">
+                  <AlertCircle size={14} /> {extraSaveError}
+                </div>
+              )}
+            </div>
+            <div className="p-4 bg-gray-50 dark:bg-gray-800/50 border-t border-gray-100 dark:border-gray-800 flex items-center justify-end gap-2">
+              <button onClick={() => setExtraFormOpen(false)} className={secondaryButtonClass}><span>Annuler</span></button>
+              <button onClick={handleSaveExtra} disabled={extraIsSaving || extraIssues.length > 0} className={primaryButtonClass}>
+                {extraIsSaving ? <Loader2 size={14} className="animate-spin" /> : <ShieldCheck size={14} />}
+                <span>{extraIsSaving ? 'Enregistrement…' : 'Enregistrer'}</span>
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Delete confirmation modal */}

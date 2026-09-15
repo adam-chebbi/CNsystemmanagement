@@ -450,6 +450,18 @@ export default function App() {
     runMutation(() => productCatalogApi.deleteProductSubCategory(subCategoryId));
   };
 
+  const handleCreateExtra = (extra: Omit<CatalogExtra, 'id'>) => {
+    return runMutation(() => productCatalogApi.createCatalogExtra(extra));
+  };
+
+  const handleUpdateExtra = (id: string, extra: Omit<CatalogExtra, 'id'>) => {
+    return runMutation(() => productCatalogApi.updateCatalogExtra(id, extra));
+  };
+
+  const handleDeleteExtra = (id: string) => {
+    runMutation(() => productCatalogApi.deleteCatalogExtra(id));
+  };
+
   const toExpenseInput = (expense: Expense) => ({
     title: expense.title, amount: expense.amount, date: expense.date, categoryId: expense.categoryId,
     nature: expense.nature, recurrence: expense.recurrence, paymentMethod: expense.paymentMethod,
@@ -1167,6 +1179,7 @@ export default function App() {
                   categories={productCategories}
                   subCategories={productSubCategories}
                   articles={catalogArticles}
+                  extras={catalogExtras}
                   onNavigateToDashboard={() => {
                     setActiveTab('dashboard');
                     setActiveSubItem('');
@@ -1178,6 +1191,9 @@ export default function App() {
                   onCreateSubCategory={handleCreateProductSubCategory}
                   onRenameSubCategory={handleRenameProductSubCategory}
                   onDeleteSubCategory={handleDeleteProductSubCategory}
+                  onCreateExtra={handleCreateExtra}
+                  onUpdateExtra={handleUpdateExtra}
+                  onDeleteExtra={handleDeleteExtra}
                 />
               </Suspense>
             ) : activeTab === 'products_recipes_mgmt' && activeSubItem === 'prm_import' ? (

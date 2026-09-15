@@ -190,7 +190,36 @@ productCatalogRouter.post(
     const body = extraSchema.parse(req.body);
     const row: ExtraRow = { id: randomUUID(), name: body.name, price: body.price };
     db.prepare('INSERT INTO catalog_extras (id, name, price) VALUES (?, ?, ?)').run(row.id, row.name, row.price);
+    recordActivity('Produits', 'Création', `Extra créé — ${row.name}`, req.user!.fullName);
     res.status(201).json(rowToExtra(row));
+  })
+);
+
+productCatalogRouter.put(
+  '/catalog-extras/:id',
+  asyncHandler((req, res) => {
+    const body = extraSchema.parse(req.body);
+    const existing = db.prepare('SELECT * FROM catalog_extras WHERE id = ?').get(req.params.id) as ExtraRow | undefined;
+    if (!existing) throw notFound('Extra');
+    db.prepare('UPDATE catalog_extras SET name = ?, price = ? WHERE id = ?').run(body.name, body.price, req.params.id);
+    recordActivity('Produits', 'Modification', `Extra modifié — ${existing.name} → ${body.name}`, req.user!.fullName);
+    res.json(rowToExtra({ id: req.params.id, name: body.name, price: body.price }));
+  })
+);
+
+productCatalogRouter.delete(
+  '/catalog-extras/:id',
+  asyncHandler((req, res) => {
+    const existing = db.prepare('SELECT * FROM catalog_extras WHERE id = ?').get(req.params.id) as ExtraRow | undefined;
+    if (!existing) throw notFound('Extra');
+    // extra_ids is a JSON array embedded per article — no SQL foreign key can guard it, so usage
+    // is checked here by scanning every article's own extra_ids list.
+    const articleRows = db.prepare('SELECT extra_ids FROM catalog_articles').all() as { extra_ids: string | null }[];
+    const inUse = articleRows.some((r) => (r.extra_ids ? fromJson<string[]>(r.extra_ids, []) : []).includes(req.params.id));
+    if (inUse) throw new ApiError(409, 'Cet extra est utilisé par au moins un produit et ne peut pas être supprimé.');
+    db.prepare('DELETE FROM catalog_extras WHERE id = ?').run(req.params.id);
+    recordActivity('Produits', 'Suppression', `Extra supprimé — ${existing.name}`, req.user!.fullName);
+    res.status(204).end();
   })
 );
 
