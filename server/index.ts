@@ -16,13 +16,17 @@ import { activityLogRouter } from './routes/activityLog.js';
 import { dashboardRouter } from './routes/dashboard.js';
 import { cashVerificationsRouter } from './routes/cashVerifications.js';
 import { publicRouter } from './routes/public.js';
-import { settingsRouter } from './routes/settings.js';
+import { settingsRouter, applyPersistedSettingsAtBoot } from './routes/settings.js';
 import { errorMiddleware } from './middleware/errors.js';
 import { ensureCsrfCookie, csrfProtection } from './middleware/csrf.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 runSeed();
+// Re-applies any setting the server itself enforces (currently maxShifts) from what was last
+// persisted in app_settings — without this, a limit raised via Paramètres would silently reset to
+// its hardcoded default on every server restart/redeploy.
+applyPersistedSettingsAtBoot();
 
 const app = express();
 // nginx sits in front of this process on the same host — trust its X-Forwarded-For so req.ip

@@ -187,9 +187,13 @@ export const buildEmployeeFromDraft = (draft: DraftEmployee): Employee => ({
 export const getEmployeeReferenceCount = (employeeId: string, dayRecords: DayRecord[], financialRecords: FinancialRecord[]): number =>
   dayRecords.filter((r) => r.employeeId === employeeId).length + financialRecords.filter((r) => r.employeeId === employeeId).length;
 
-// --- Shifts (exactly 2, enforced) ---------------------------------------------------------------
+// --- Shifts (capped at a configurable count, enforced) ------------------------------------------
 
-export const MAX_SHIFTS = 2;
+// Runtime-configurable via Paramètres (see src/data/settingsModel.ts) — a live `let` so every
+// caller that reads this constant directly (client validation, and the server's own copy of this
+// same module) picks up a changed limit without a restart. Defaults to 2 (the original hard cap).
+export let MAX_SHIFTS = 2;
+export const setMaxShifts = (n: number): void => { MAX_SHIFTS = n; };
 
 export interface Shift {
   id: string;

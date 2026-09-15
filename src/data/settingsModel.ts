@@ -2,6 +2,7 @@ import { setDefaultExpiryAlertDays } from './stockModel';
 import { setDefaultDiscrepancyThreshold, setDefaultDiscrepancyLookbackDays } from './alertsModel';
 import { setRestoDeductionRate } from './cashCheckModel';
 import { setDefaultTargetMarginRate } from './productsModel';
+import { setMaxShifts } from './hrModel';
 
 // Business-tunable settings that used to be scattered hardcoded constants across the codebase
 // (alert thresholds, the ticket-resto commission rate, the default target margin). Persisted
@@ -13,6 +14,7 @@ export interface AppSettings {
   discrepancyLookbackDays: number;
   restoCommissionRate: number; // 0..1
   defaultTargetMarginRate: number; // 0..1
+  maxShifts: number;
 }
 
 export const DEFAULT_APP_SETTINGS: AppSettings = {
@@ -21,6 +23,7 @@ export const DEFAULT_APP_SETTINGS: AppSettings = {
   discrepancyLookbackDays: 60,
   restoCommissionRate: 0.1,
   defaultTargetMarginRate: 0.65,
+  maxShifts: 2,
 };
 
 export interface AppSettingFieldDoc {
@@ -82,6 +85,15 @@ export const APP_SETTING_FIELDS: AppSettingFieldDoc[] = [
     unit: '%',
     isPercent: true,
   },
+  {
+    key: 'maxShifts',
+    label: 'Nombre maximum de shifts',
+    description: "Nombre de shifts (Matin, Soir...) pouvant être créés dans Gestion du personnel → Planning & Présence. Réduire cette valeur n'affecte jamais les shifts déjà créés.",
+    min: 1,
+    max: 6,
+    step: 1,
+    unit: 'shifts',
+  },
 ];
 
 // Applies a loaded/edited settings object to every module that reads its own runtime-configurable
@@ -94,4 +106,5 @@ export const applySettingsToRuntime = (settings: AppSettings): void => {
   setDefaultDiscrepancyLookbackDays(settings.discrepancyLookbackDays);
   setRestoDeductionRate(settings.restoCommissionRate);
   setDefaultTargetMarginRate(settings.defaultTargetMarginRate);
+  setMaxShifts(settings.maxShifts);
 };

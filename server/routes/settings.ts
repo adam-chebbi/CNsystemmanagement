@@ -5,6 +5,7 @@ import { asyncHandler } from '../middleware/errors.js';
 import { requireAuth } from '../middleware/auth.js';
 import { recordActivity } from '../lib/activity.js';
 import { DEFAULT_APP_SETTINGS, type AppSettings } from '../../src/data/settingsModel.js';
+import { setMaxShifts } from '../../src/data/hrModel.js';
 
 interface SettingRow {
   key: string;
@@ -28,6 +29,22 @@ const getAllSettings = (): AppSettings => {
   return result;
 };
 
+// Settings the server itself enforces (not just the browser) need their live runtime value
+// re-applied here too — otherwise a change made in Paramètres would only ever take effect in the
+// tab that saved it, while the server (and everyone else's already-open tab) kept validating
+// against the old hardcoded default until the next restart. Currently just maxShifts (checked
+// server-side in POST /hr/shifts); the alert thresholds, commission rate and target margin are
+// pure client-side computations and don't need a server-side counterpart.
+const applyServerEnforcedSettings = (settings: AppSettings): void => {
+  setMaxShifts(settings.maxShifts);
+};
+
+// Called once at server boot (see server/index.ts) so a limit persisted from a previous run is
+// honored immediately, instead of silently resetting to the hardcoded default on every restart.
+export const applyPersistedSettingsAtBoot = (): void => {
+  applyServerEnforcedSettings(getAllSettings());
+};
+
 export const settingsRouter = Router();
 settingsRouter.use(requireAuth);
 
@@ -41,6 +58,7 @@ const settingsSchema = z.object({
   discrepancyLookbackDays: z.number().min(1).max(365),
   restoCommissionRate: z.number().min(0).max(0.3),
   defaultTargetMarginRate: z.number().min(0).max(1),
+  maxShifts: z.number().min(1).max(6),
 });
 
 settingsRouter.put('/settings', asyncHandler((req, res) => {
@@ -56,6 +74,7 @@ settingsRouter.put('/settings', asyncHandler((req, res) => {
     });
   });
   tx();
+  applyServerEnforcedSettings(body);
   recordActivity('Paramètres', 'Modification', 'Réglages généraux mis à jour', req.user!.fullName);
   res.json(getAllSettings());
 }));

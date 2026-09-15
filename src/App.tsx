@@ -676,7 +676,7 @@ export default function App() {
     runMutation(() => hrApi.deleteEmployee(employeeId));
   };
 
-  // --- Gestion du personnel: Shifts (exactly 2, enforced) ---
+  // --- Gestion du personnel: Shifts (capped at Paramètres → Nombre maximum de shifts) ---
   const handleCreateShift = (shift: Shift) => {
     runMutation(() => hrApi.createShift({ name: shift.name, startTime: shift.startTime, endTime: shift.endTime, description: shift.description }));
   };
