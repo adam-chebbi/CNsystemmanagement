@@ -307,7 +307,7 @@ export const ManualSalesEntryPage: React.FC<ManualSalesEntryPageProps> = ({
     }));
   };
 
-  const updateQuantityPayment = (patch: Partial<Pick<QuantitySalesFormState, 'paidCash' | 'paidCard' | 'paidRestoTicket'>>) => {
+  const updateQuantityPayment = (patch: Partial<Pick<QuantitySalesFormState, 'paidCash' | 'paidCard' | 'paidRestoTicket' | 'paymentNote'>>) => {
     setQuantityForm((prev) => ({ ...prev, ...patch }));
   };
 

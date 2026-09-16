@@ -34,6 +34,11 @@ export interface QuantitySalesFormState {
   paidCash: number;
   paidCard: number;
   paidRestoTicket: number;
+  // Justification for a gap between "Total encaissé" (paidCash+paidCard+paidRestoTicket) and the
+  // computed sales total — required only when that gap exists (see validateQuantitySalesForm).
+  // Persisted onto every SaleTransaction this entry produces (SaleTransaction.note) so the reason
+  // survives past the entry session.
+  paymentNote: string;
 }
 
 let idCounter = 0;
@@ -61,7 +66,18 @@ export const createEmptyQuantityForm = (): QuantitySalesFormState => ({
   paidCash: 0,
   paidCard: 0,
   paidRestoTicket: 0,
+  paymentNote: '',
 });
+
+// Small, ready-to-click starting points for the payment-mismatch justification — the user can
+// still edit or replace the text after picking one.
+export const PAYMENT_NOTE_SUGGESTIONS: string[] = [
+  'Pourboire laissé en caisse',
+  'Erreur de comptage à vérifier',
+  'Rendu de monnaie non enregistré',
+  'Remise verbale non saisie ligne par ligne',
+  'Écart de caisse à régulariser',
+];
 
 export const clampInt = (value: number, min: number, max: number): number => {
   const n = Math.round(Number.isFinite(value) ? value : 0);
@@ -201,10 +217,10 @@ export const validateQuantitySalesForm = (
   });
 
   const totals = computeQuantitySalesTotals(form, { articles });
-  if (filledRows.length > 0 && Math.abs(totals.remaining) > PAYMENT_EPSILON) {
+  if (filledRows.length > 0 && Math.abs(totals.remaining) > PAYMENT_EPSILON && !form.paymentNote.trim()) {
     issues.push({
       fieldKey: 'qgeneral:payment',
-      message: `La répartition du règlement (${totals.paidTotal.toFixed(2)} DT) doit correspondre au total net des ventes (${totals.totalNet.toFixed(2)} DT).`,
+      message: `Écart entre le total encaissé (${totals.paidTotal.toFixed(2)} DT) et le total des ventes (${totals.totalNet.toFixed(2)} DT) : veuillez saisir une justification ci-dessous.`,
     });
   }
 
@@ -242,12 +258,15 @@ export const buildSaleTransactionsFromQuantityForm = (
   form: QuantitySalesFormState,
   catalog: Pick<SalesCatalogContext, 'articles'>
 ): SaleTransaction[] => {
-  const totals = computeQuantitySalesTotals(form, catalog);
   const amounts = [form.paidCash, form.paidCard, form.paidRestoTicket];
+  const amountsSum = amounts.reduce((a, b) => a + b, 0);
   // The whole-entry payment breakdown applies uniformly to every row — the same three weights are
   // used to split each row's quantity across payment methods, combined with that row's own
-  // service-type (sur place / à emporter) split.
-  const paymentWeights = totals.totalNet > 0 ? amounts.map((a) => a / totals.totalNet) : [1, 0, 0];
+  // service-type (sur place / à emporter) split. Normalized against their own sum (not the sales
+  // total) so the split always adds up correctly even when the two are justified as not matching
+  // (see validateQuantitySalesForm's paymentNote allowance).
+  const paymentWeights = amountsSum > 0 ? amounts.map((a) => a / amountsSum) : [1, 0, 0];
+  const note = form.paymentNote.trim() || undefined;
 
   const buckets: SaleItem[][][] = SERVICE_TYPES.map(() => PAYMENT_METHODS.map(() => [] as SaleItem[]));
 
@@ -322,6 +341,7 @@ export const buildSaleTransactionsFromQuantityForm = (
         month: monthLabel,
         year: dateObj.getFullYear(),
         status: 'Payé',
+        note,
       });
     });
   });

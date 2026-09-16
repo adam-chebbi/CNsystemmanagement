@@ -16,7 +16,7 @@ import { recordAutoExpense } from '../lib/expenses.js';
 interface SaleRow {
   id: number; sale_number: string; service_type: string; table_or_area: string; items: string;
   items_count: number; items_summary: string; payment_method: string; barista: string; total_amount: number;
-  date: string; time: string; month: string; year: number; status: string;
+  date: string; time: string; month: string; year: number; status: string; note: string | null;
 }
 const rowToSale = (r: SaleRow): SaleTransaction => {
   const items = fromJson<SaleItem[]>(r.items, []);
@@ -30,6 +30,7 @@ const rowToSale = (r: SaleRow): SaleTransaction => {
     preciseAmount: items.reduce((s, it) => s + it.qty * it.price, 0),
     date: r.date, time: r.time, month: r.month, year: r.year,
     status: r.status as SaleTransaction['status'],
+    note: r.note ?? undefined,
   };
 };
 
@@ -58,6 +59,7 @@ const saleSchema = z.object({
   month: z.string(),
   year: z.number(),
   status: z.enum(['Payé', 'Remboursé']).default('Payé'),
+  note: z.string().trim().max(1000).optional(),
 });
 
 // A SaleItem only carries its display name (possibly suffixed with a variant/extra label, e.g.
@@ -183,13 +185,14 @@ salesRouter.post('/transactions', requirePermission('sales:create'), asyncHandle
       const id = nextId++;
       db.prepare(
         `INSERT INTO sales_transactions (id, sale_number, service_type, table_or_area, items, items_count, items_summary,
-         payment_method, barista, total_amount, date, time, month, year, status)
+         payment_method, barista, total_amount, date, time, month, year, status, note)
          VALUES (@id, @sale_number, @service_type, @table_or_area, @items, @items_count, @items_summary,
-         @payment_method, @barista, @total_amount, @date, @time, @month, @year, @status)`
+         @payment_method, @barista, @total_amount, @date, @time, @month, @year, @status, @note)`
       ).run({
         id, sale_number: t.saleNumber, service_type: t.serviceType, table_or_area: t.tableOrArea, items: toJson(t.items),
         items_count: t.itemsCount, items_summary: t.itemsSummary, payment_method: t.paymentMethod, barista: t.barista,
         total_amount: t.totalAmount, date: t.date, time: t.time, month: t.month, year: t.year, status: t.status,
+        note: t.note ?? null,
       });
       if (t.status === 'Payé') {
         deductStockForSale(t.items, req.user!.fullName, id);

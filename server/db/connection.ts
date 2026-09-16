@@ -83,3 +83,9 @@ if (!employeeColumns.has('departure_date')) db.exec('ALTER TABLE employees ADD C
 // Admin right after this runs, so no pre-existing account is ever locked out by this migration.
 const userColumns = new Set((db.pragma('table_info(users)') as { name: string }[]).map((c) => c.name));
 if (!userColumns.has('role_id')) db.exec('ALTER TABLE users ADD COLUMN role_id TEXT REFERENCES roles(id)');
+
+// One-time, idempotent migration: sales_transactions gained an optional free-text note after the
+// original schema shipped — currently only ever set by "Par quantités vendues" to justify a
+// payment-breakdown mismatch (see quantitySalesEntryModel.ts).
+const salesTransactionColumns = new Set((db.pragma('table_info(sales_transactions)') as { name: string }[]).map((c) => c.name));
+if (!salesTransactionColumns.has('note')) db.exec('ALTER TABLE sales_transactions ADD COLUMN note TEXT');

@@ -173,7 +173,8 @@ CREATE TABLE IF NOT EXISTS sales_transactions (
   time TEXT NOT NULL,
   month TEXT NOT NULL,
   year INTEGER NOT NULL,
-  status TEXT NOT NULL
+  status TEXT NOT NULL,
+  note TEXT
 );
 
 CREATE TABLE IF NOT EXISTS expense_categories (

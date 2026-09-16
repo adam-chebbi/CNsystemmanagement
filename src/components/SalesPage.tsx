@@ -140,6 +140,11 @@ const buildThermalReceiptDoc = (sale: SaleTransaction): string => {
       <div style="display:flex;justify-content:space-between;margin-bottom:2px;"><span>R&egrave;glement :</span><span style="text-transform:capitalize;">${sale.paymentMethod}</span></div>
       <div style="display:flex;justify-content:space-between;margin-bottom:2px;"><span>Pay&eacute; :</span><span>${sale.totalAmount.toFixed(2)} DT</span></div>
     </div>
+    ${sale.note ? `<div style="border-top:1px dashed #999;margin:8px 0;"></div>
+    <div style="font-size:10px;">
+      <div style="font-weight:bold;margin-bottom:2px;">Note :</div>
+      <div>${escapeHtml(sale.note)}</div>
+    </div>` : ''}
     <div style="border-top:1px dashed #999;margin:8px 0;"></div>
     <div style="text-align:center;font-size:10px;">
       <div>Merci pour votre visite !</div>
@@ -229,6 +234,10 @@ const buildA4ReceiptDoc = (sale: SaleTransaction): string => {
       <div style="display:flex;justify-content:space-between;padding:10px 0;border-top:2px solid #111827;margin-top:6px;font-weight:800;font-size:16px;"><span>TOTAL TTC</span><span>${sale.totalAmount.toFixed(2)} DT</span></div>
     </div>
   </div>
+
+  ${sale.note ? `<div style="margin-top:20px;padding:12px 16px;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;font-size:12px;color:#92400e;">
+    <strong>Note :</strong> ${escapeHtml(sale.note)}
+  </div>` : ''}
 
   <div style="margin-top:40px;padding-top:16px;border-top:1px dashed #d1d5db;text-align:center;font-size:12px;color:#6b7280;">
     Merci pour votre visite ! À bientôt chez Café Noir.
@@ -970,8 +979,13 @@ export const SalesPage: React.FC<SalesPageProps> = ({
                       {/* Café Consumptions & Articles */}
                       <td className="py-3.5 px-4 max-w-[340px]">
                         <div className="space-y-1">
-                          <p className="font-semibold text-gray-900 dark:text-white line-clamp-1">
-                            {tx.itemsSummary}
+                          <p className="font-semibold text-gray-900 dark:text-white line-clamp-1 flex items-center gap-1.5">
+                            <span className="line-clamp-1">{tx.itemsSummary}</span>
+                            {tx.note && (
+                              <span title={tx.note} className="shrink-0 text-amber-500">
+                                <Info size={12} />
+                              </span>
+                            )}
                           </p>
                           <div className="flex items-center gap-2 text-[11px] text-gray-500 dark:text-gray-400">
                             <span className="inline-flex items-center gap-1">
@@ -1286,6 +1300,15 @@ export const SalesPage: React.FC<SalesPageProps> = ({
                         <span>Payé :</span><span>{selectedSaleForModal.totalAmount.toFixed(2)} DT</span>
                       </div>
                     </div>
+                    {selectedSaleForModal.note && (
+                      <>
+                        <div style={{ borderTop: '1px dashed #999', margin: '8px 0' }} />
+                        <div style={{ fontSize: 10 }}>
+                          <div style={{ fontWeight: 600, marginBottom: 2 }}>Note :</div>
+                          <div>{selectedSaleForModal.note}</div>
+                        </div>
+                      </>
+                    )}
                     <div style={{ borderTop: '1px dashed #999', margin: '8px 0' }} />
                     <div style={{ textAlign: 'center', fontSize: 10 }}>
                       <div>Merci pour votre visite !</div>

@@ -43,6 +43,11 @@ export interface SaleTransaction {
   month: string; // 'Jan' | 'Fév' | 'Mar' | 'Avr' | 'Mai' | 'Juin' | 'Juil' | 'Août' | 'Sep' | 'Oct' | 'Nov' | 'Déc'
   year: number;
   status: 'Payé' | 'Remboursé';
+  // Free-text justification, currently only ever set from "Par quantités vendues" when the
+  // whole-entry payment breakdown doesn't exactly match the computed sales total (see
+  // quantitySalesEntryModel.validateQuantitySalesForm) — persisted so the reason for a mismatch
+  // survives past the entry session and shows up wherever this sale is later reviewed or exported.
+  note?: string;
 }
 
 export const MONTHS_LIST = [

@@ -16,6 +16,7 @@ import {
   CheckCircle2,
   ArrowLeft,
   Loader2,
+  MessageSquare,
 } from 'lucide-react';
 import { CatalogArticle, getArticleCategoriesInUse, getArticleById, getArticleTtcPrice } from '../data/manualSalesCatalog';
 import {
@@ -26,6 +27,7 @@ import {
   clampInt,
   computeRowDiscountTotal,
   computeRowNetTotal,
+  PAYMENT_NOTE_SUGGESTIONS,
 } from '../data/quantitySalesEntryModel';
 
 const inputBaseClass =
@@ -50,7 +52,7 @@ interface QuantitySalesFormStepProps {
   onAddRow: () => void;
   onRemoveRow: (rowId: string) => void;
   onChangeRow: (rowId: string, patch: Partial<DraftQuantityRow>) => void;
-  onChangePayment: (patch: Partial<Pick<QuantitySalesFormState, 'paidCash' | 'paidCard' | 'paidRestoTicket'>>) => void;
+  onChangePayment: (patch: Partial<Pick<QuantitySalesFormState, 'paidCash' | 'paidCard' | 'paidRestoTicket' | 'paymentNote'>>) => void;
   onReset: () => void;
   onCancel: () => void;
   onVerify: () => void;
@@ -494,6 +496,43 @@ export const QuantitySalesFormStep: React.FC<QuantitySalesFormStepProps> = ({
             <strong>{totals.totalNet.toFixed(2)} DT</strong>
           </span>
         </div>
+
+        {paymentMismatch && (
+          <div className="space-y-2 pt-1">
+            <label className="text-[11px] font-semibold text-gray-600 dark:text-gray-300 inline-flex items-center gap-1.5">
+              <MessageSquare size={12} className="text-amber-500" />
+              Justification de l'écart *
+            </label>
+            <div className="flex flex-wrap gap-1.5">
+              {PAYMENT_NOTE_SUGGESTIONS.map((suggestion) => (
+                <button
+                  key={suggestion}
+                  type="button"
+                  onClick={() => onChangePayment({ paymentNote: suggestion })}
+                  className={`px-2 py-1 rounded-md text-[10px] font-medium border transition cursor-pointer ${
+                    form.paymentNote === suggestion
+                      ? 'bg-emerald-500 border-emerald-500 text-white'
+                      : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:border-emerald-300'
+                  }`}
+                >
+                  {suggestion}
+                </button>
+              ))}
+            </div>
+            <textarea
+              value={form.paymentNote}
+              onChange={(e) => onChangePayment({ paymentNote: e.target.value })}
+              placeholder="Expliquez l'écart entre le total encaissé et le total des ventes…"
+              rows={2}
+              className={`w-full px-3 py-2 text-xs rounded-lg border bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-1 transition ${
+                showErrors && issuesByKey.has('qgeneral:payment')
+                  ? 'border-red-400 dark:border-red-500/70 focus:border-red-500 focus:ring-red-500'
+                  : 'border-gray-200 dark:border-gray-700 focus:border-emerald-500 focus:ring-emerald-500'
+              }`}
+            />
+          </div>
+        )}
+
         {showErrors && issuesByKey.get('qgeneral:payment') && (
           <p className="text-[11px] text-red-500 flex items-center gap-1">
             <AlertCircle size={11} /> {issuesByKey.get('qgeneral:payment')}
@@ -630,6 +669,16 @@ export const QuantitySalesPreviewStep: React.FC<QuantitySalesPreviewStepProps> =
           <span className="font-bold text-emerald-600 dark:text-emerald-400">{totals.totalNet.toFixed(2)} DT</span>
         </div>
       </div>
+
+      {form.paymentNote.trim() && (
+        <div className="p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/50 flex items-start gap-3">
+          <MessageSquare size={16} className="text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+          <div>
+            <p className="text-xs font-bold text-amber-800 dark:text-amber-300">Justification de l'écart de règlement</p>
+            <p className="text-xs text-amber-700/90 dark:text-amber-400/90">{form.paymentNote}</p>
+          </div>
+        </div>
+      )}
 
       {saveError && (
         <div className="p-4 rounded-2xl bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800/60 flex items-start gap-3">

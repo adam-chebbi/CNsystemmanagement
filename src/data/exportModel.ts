@@ -61,8 +61,8 @@ export const buildExportDatasets = (bag: ExportDataBag): ExportDataset[] => {
       count: bag.transactions.length,
       filename: 'ventes.csv',
       rows: [
-        ['N° Ticket', 'Date', 'Heure', 'Service', 'Emplacement', 'Articles', 'Mode de paiement', 'Barista', 'Total (DT)', 'Statut'],
-        ...bag.transactions.map((t) => [t.saleNumber, t.date, t.time, t.serviceType, t.tableOrArea, t.itemsSummary, t.paymentMethod, t.barista, t.totalAmount.toFixed(2), t.status]),
+        ['N° Ticket', 'Date', 'Heure', 'Service', 'Emplacement', 'Articles', 'Mode de paiement', 'Barista', 'Total (DT)', 'Statut', 'Note'],
+        ...bag.transactions.map((t) => [t.saleNumber, t.date, t.time, t.serviceType, t.tableOrArea, t.itemsSummary, t.paymentMethod, t.barista, t.totalAmount.toFixed(2), t.status, t.note ?? '']),
       ],
     },
     {
