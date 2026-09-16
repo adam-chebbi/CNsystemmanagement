@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { db } from '../db/connection.js';
 import { asyncHandler, ApiError } from '../middleware/errors.js';
-import { requireAuth } from '../middleware/auth.js';
+import { requireAuth, requirePermission } from '../middleware/auth.js';
 import { recordActivity } from '../lib/activity.js';
 
 interface MonthlyTargetRow {
@@ -24,6 +24,7 @@ dashboardRouter.use(requireAuth);
 
 dashboardRouter.get(
   '/monthly-targets',
+  requirePermission('dashboard:view'),
   asyncHandler((_req, res) => {
     const rows = db.prepare('SELECT * FROM monthly_sales_targets').all() as MonthlyTargetRow[];
     res.json(rows.map(rowToTarget));
@@ -35,6 +36,7 @@ const MONTH_PATTERN = /^\d{4}-\d{2}$/;
 
 dashboardRouter.put(
   '/monthly-targets/:month',
+  requirePermission('dashboard:manage'),
   asyncHandler((req, res) => {
     const { month } = req.params;
     if (!MONTH_PATTERN.test(month)) throw new ApiError(400, 'Mois invalide (format attendu : AAAA-MM).');

@@ -10,7 +10,31 @@ interface UserRow {
   id: string;
   full_name: string;
   cin: string;
+  role_id: string | null;
+  role_name: string | null;
+  is_system: number | null;
 }
+
+interface PermissionRow {
+  permission_key: string;
+}
+
+// Login's response shape mirrors requireAuth's req.user exactly, so the client's AuthContext can
+// use the same AuthUser type for both the initial /auth/me fetch and the result of login().
+const buildAuthResponseUser = (row: UserRow) => {
+  const permissions = row.role_id
+    ? (db.prepare('SELECT permission_key FROM role_permissions WHERE role_id = ?').all(row.role_id) as PermissionRow[]).map((r) => r.permission_key)
+    : [];
+  return {
+    id: row.id,
+    fullName: row.full_name,
+    cin: row.cin,
+    roleId: row.role_id ?? '',
+    roleName: row.role_name ?? '',
+    isSuperAdmin: row.is_system === 1,
+    permissions,
+  };
+};
 
 const CIN_PATTERN = /^\d{8}$/;
 const loginSchema = z.object({ cin: z.string().regex(CIN_PATTERN, 'Le numéro CIN doit comporter 8 chiffres.') });
@@ -47,7 +71,13 @@ authRouter.post(
   '/login',
   asyncHandler((req, res) => {
     const { cin } = loginSchema.parse(req.body);
-    const user = db.prepare('SELECT id, full_name, cin FROM users WHERE cin = ?').get(cin) as UserRow | undefined;
+    const user = db
+      .prepare(
+        `SELECT u.id, u.full_name, u.cin, u.role_id, r.name AS role_name, r.is_system
+         FROM users u LEFT JOIN roles r ON r.id = u.role_id
+         WHERE u.cin = ?`
+      )
+      .get(cin) as UserRow | undefined;
     if (!user) throw new ApiError(401, 'Numéro CIN incorrect.');
 
     const token = randomUUID();
@@ -70,7 +100,7 @@ authRouter.post(
       path: '/',
       maxAge: SESSION_MAX_AGE_MS,
     });
-    res.json({ user: { id: user.id, fullName: user.full_name, cin: user.cin } });
+    res.json({ user: buildAuthResponseUser(user) });
   })
 );
 

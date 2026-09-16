@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { db } from '../db/connection.js';
 import { fromJson, toJson } from '../db/json.js';
 import { asyncHandler, ApiError, notFound } from '../middleware/errors.js';
-import { requireAuth } from '../middleware/auth.js';
+import { requireAuth, requirePermission } from '../middleware/auth.js';
 import { recordActivity } from '../lib/activity.js';
 import { getAllProducts, postEntries } from './stock.js';
 import {
@@ -74,11 +74,11 @@ const supplierSchema = z.object({
   notes: z.string().optional(),
 });
 
-purchasesRouter.get('/suppliers', asyncHandler((_req, res) => {
+purchasesRouter.get('/suppliers', requirePermission('purchases:view'), asyncHandler((_req, res) => {
   res.json((db.prepare('SELECT * FROM suppliers ORDER BY created_at ASC').all() as SupplierRow[]).map(rowToSupplier));
 }));
 
-purchasesRouter.post('/suppliers', asyncHandler((req, res) => {
+purchasesRouter.post('/suppliers', requirePermission('purchases:suppliers'), asyncHandler((req, res) => {
   const body = supplierSchema.parse(req.body);
   const id = randomUUID();
   const createdAt = nowIso().slice(0, 10);
@@ -91,7 +91,7 @@ purchasesRouter.post('/suppliers', asyncHandler((req, res) => {
   res.status(201).json({ id, createdAt, ...body });
 }));
 
-purchasesRouter.put('/suppliers/:id', asyncHandler((req, res) => {
+purchasesRouter.put('/suppliers/:id', requirePermission('purchases:suppliers'), asyncHandler((req, res) => {
   const body = supplierSchema.parse(req.body);
   const existing = db.prepare('SELECT * FROM suppliers WHERE id = ?').get(req.params.id) as SupplierRow | undefined;
   if (!existing) throw notFound('Fournisseur');
@@ -104,7 +104,7 @@ purchasesRouter.put('/suppliers/:id', asyncHandler((req, res) => {
   res.json(rowToSupplier({ ...existing, name: body.name }));
 }));
 
-purchasesRouter.delete('/suppliers/:id', asyncHandler((req, res) => {
+purchasesRouter.delete('/suppliers/:id', requirePermission('purchases:delete'), asyncHandler((req, res) => {
   const existing = db.prepare('SELECT * FROM suppliers WHERE id = ?').get(req.params.id) as SupplierRow | undefined;
   if (!existing) throw notFound('Fournisseur');
   // Checks both commandes AND factures — a supplier referenced only by a manually-entered invoice
@@ -132,11 +132,11 @@ const orderSchema = z.object({
   lines: z.array(orderLineSchema).min(1),
 });
 
-purchasesRouter.get('/orders', asyncHandler((_req, res) => {
+purchasesRouter.get('/orders', requirePermission('purchases:view'), asyncHandler((_req, res) => {
   res.json(getAllOrders());
 }));
 
-purchasesRouter.post('/orders', asyncHandler((req, res) => {
+purchasesRouter.post('/orders', requirePermission('purchases:create'), asyncHandler((req, res) => {
   const body = orderSchema.parse(req.body);
   const supplier = db.prepare('SELECT id FROM suppliers WHERE id = ?').get(body.supplierId);
   if (!supplier) throw new ApiError(400, 'Fournisseur invalide.');
@@ -153,7 +153,7 @@ purchasesRouter.post('/orders', asyncHandler((req, res) => {
     expected_date: body.expectedDate ?? null, status: 'Brouillon', lines: toJson(lines)!, notes: body.notes ?? null, created_at: createdAt, created_by: body.createdBy }));
 }));
 
-purchasesRouter.put('/orders/:id', asyncHandler((req, res) => {
+purchasesRouter.put('/orders/:id', requirePermission('purchases:edit'), asyncHandler((req, res) => {
   const body = orderSchema.parse(req.body);
   const existing = db.prepare('SELECT * FROM purchase_orders WHERE id = ?').get(req.params.id) as OrderRow | undefined;
   if (!existing) throw notFound('Commande');
@@ -166,7 +166,7 @@ purchasesRouter.put('/orders/:id', asyncHandler((req, res) => {
   res.json(rowToOrder({ ...existing, supplier_id: body.supplierId, order_date: body.orderDate, expected_date: body.expectedDate ?? null, lines: toJson(lines)!, notes: body.notes ?? null }));
 }));
 
-purchasesRouter.patch('/orders/:id/status', asyncHandler((req, res) => {
+purchasesRouter.patch('/orders/:id/status', requirePermission('purchases:cancel'), asyncHandler((req, res) => {
   const body = z.object({ status: z.enum(['Brouillon', 'Commandée', 'Partiellement reçue', 'Reçue', 'Annulée']) }).parse(req.body);
   const existing = db.prepare('SELECT * FROM purchase_orders WHERE id = ?').get(req.params.id) as OrderRow | undefined;
   if (!existing) throw notFound('Commande');
@@ -177,7 +177,7 @@ purchasesRouter.patch('/orders/:id/status', asyncHandler((req, res) => {
   res.json(rowToOrder({ ...existing, status: body.status }));
 }));
 
-purchasesRouter.delete('/orders/:id', asyncHandler((req, res) => {
+purchasesRouter.delete('/orders/:id', requirePermission('purchases:delete'), asyncHandler((req, res) => {
   const existing = db.prepare('SELECT * FROM purchase_orders WHERE id = ?').get(req.params.id) as OrderRow | undefined;
   if (!existing) throw notFound('Commande');
   // The UI only ever offers this action on a Brouillon order — enforce the same rule here, so a
@@ -204,7 +204,7 @@ const receptionSchema = z.object({
   performedBy: z.string().min(1),
 });
 
-purchasesRouter.post('/orders/:id/receive', asyncHandler((req, res) => {
+purchasesRouter.post('/orders/:id/receive', requirePermission('purchases:receive'), asyncHandler((req, res) => {
   const body = receptionSchema.parse(req.body);
   const orderRow = db.prepare('SELECT * FROM purchase_orders WHERE id = ?').get(req.params.id) as OrderRow | undefined;
   if (!orderRow) throw notFound('Commande');
@@ -274,7 +274,7 @@ purchasesRouter.post('/orders/:id/receive', asyncHandler((req, res) => {
   res.status(201).json(result);
 }));
 
-purchasesRouter.get('/receptions', asyncHandler((_req, res) => {
+purchasesRouter.get('/receptions', requirePermission('purchases:view'), asyncHandler((_req, res) => {
   res.json((db.prepare('SELECT * FROM purchase_receptions ORDER BY created_at DESC').all() as ReceptionRow[]).map(rowToReception));
 }));
 
@@ -293,11 +293,11 @@ const invoiceSchema = z.object({
   paymentMethod: z.enum(['Espèces', 'Carte bancaire', 'Chèque', 'Virement bancaire']),
 });
 
-purchasesRouter.get('/invoices', asyncHandler((_req, res) => {
+purchasesRouter.get('/invoices', requirePermission('purchases:view'), asyncHandler((_req, res) => {
   res.json((db.prepare('SELECT * FROM supplier_invoices ORDER BY created_at DESC').all() as InvoiceRow[]).map(rowToInvoice));
 }));
 
-purchasesRouter.post('/invoices', asyncHandler((req, res) => {
+purchasesRouter.post('/invoices', requirePermission('purchases:invoices'), asyncHandler((req, res) => {
   const body = invoiceSchema.parse(req.body);
   if (body.amountPaid > body.amountTTC) throw new ApiError(400, 'Le montant payé ne peut pas dépasser le montant TTC.');
   const id = randomUUID();
@@ -312,7 +312,7 @@ purchasesRouter.post('/invoices', asyncHandler((req, res) => {
     amount_paid: body.amountPaid, payment_method: body.paymentMethod, created_at: createdAt }));
 }));
 
-purchasesRouter.put('/invoices/:id', asyncHandler((req, res) => {
+purchasesRouter.put('/invoices/:id', requirePermission('purchases:invoices'), asyncHandler((req, res) => {
   const body = invoiceSchema.parse(req.body);
   const existing = db.prepare('SELECT * FROM supplier_invoices WHERE id = ?').get(req.params.id) as InvoiceRow | undefined;
   if (!existing) throw notFound('Facture');
@@ -325,7 +325,7 @@ purchasesRouter.put('/invoices/:id', asyncHandler((req, res) => {
   res.json(rowToInvoice({ ...existing, invoice_number: body.invoiceNumber, amount_paid: body.amountPaid }));
 }));
 
-purchasesRouter.post('/invoices/:id/payment', asyncHandler((req, res) => {
+purchasesRouter.post('/invoices/:id/payment', requirePermission('purchases:pay'), asyncHandler((req, res) => {
   const body = z.object({ amount: z.number().gt(0) }).parse(req.body);
   const existing = db.prepare('SELECT * FROM supplier_invoices WHERE id = ?').get(req.params.id) as InvoiceRow | undefined;
   if (!existing) throw notFound('Facture');
@@ -354,7 +354,7 @@ purchasesRouter.post('/invoices/:id/payment', asyncHandler((req, res) => {
   res.json(updated);
 }));
 
-purchasesRouter.delete('/invoices/:id', asyncHandler((req, res) => {
+purchasesRouter.delete('/invoices/:id', requirePermission('purchases:delete'), asyncHandler((req, res) => {
   const existing = db.prepare('SELECT * FROM supplier_invoices WHERE id = ?').get(req.params.id) as InvoiceRow | undefined;
   if (!existing) throw notFound('Facture');
   db.prepare('DELETE FROM supplier_invoices WHERE id = ?').run(req.params.id);
@@ -369,13 +369,13 @@ const rowToAlias = (r: AliasRow): ProductAlias => ({
   id: r.id, rawLabel: r.raw_label, normalizedLabel: r.normalized_label, productId: r.product_id, createdAt: r.created_at,
 });
 
-purchasesRouter.get('/product-aliases', asyncHandler((_req, res) => {
+purchasesRouter.get('/product-aliases', requirePermission('purchases:view'), asyncHandler((_req, res) => {
   res.json((db.prepare('SELECT * FROM invoice_product_aliases ORDER BY created_at ASC').all() as AliasRow[]).map(rowToAlias));
 }));
 
 const aliasSchema = z.object({ rawLabel: z.string().trim().min(1), productId: z.string().min(1) });
 
-purchasesRouter.post('/product-aliases', asyncHandler((req, res) => {
+purchasesRouter.post('/product-aliases', requirePermission('purchases:ocr'), asyncHandler((req, res) => {
   const body = aliasSchema.parse(req.body);
   const product = db.prepare('SELECT id FROM stock_products WHERE id = ?').get(body.productId);
   if (!product) throw new ApiError(400, 'Produit invalide.');

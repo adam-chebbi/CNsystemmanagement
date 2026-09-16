@@ -5,6 +5,10 @@ export interface AuthUser {
   id: string;
   fullName: string;
   cin: string;
+  roleId: string;
+  roleName: string;
+  isSuperAdmin: boolean;
+  permissions: string[];
 }
 
 interface AuthContextValue {
@@ -12,6 +16,10 @@ interface AuthContextValue {
   isReady: boolean;
   login: (cin: string) => Promise<void>;
   logout: () => void;
+  // Super Admin always passes, regardless of what's actually in permissions — mirrors the same
+  // bypass enforced server-side in server/middleware/auth.ts's requirePermission. This is only a
+  // UX nicety (hiding/showing buttons and menu items); the real gate is always the server's.
+  hasPermission: (key: string) => boolean;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -39,7 +47,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setUser(null);
   }, []);
 
-  return <AuthContext.Provider value={{ user, isReady, login, logout }}>{children}</AuthContext.Provider>;
+  const hasPermission = useCallback(
+    (key: string) => Boolean(user) && (user!.isSuperAdmin || user!.permissions.includes(key)),
+    [user]
+  );
+
+  return <AuthContext.Provider value={{ user, isReady, login, logout, hasPermission }}>{children}</AuthContext.Provider>;
 };
 
 export const useAuth = (): AuthContextValue => {

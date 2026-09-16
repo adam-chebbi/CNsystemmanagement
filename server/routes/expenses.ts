@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { db } from '../db/connection.js';
 import { fromJson, toJson } from '../db/json.js';
 import { asyncHandler, ApiError, notFound } from '../middleware/errors.js';
-import { requireAuth } from '../middleware/auth.js';
+import { requireAuth, requirePermission } from '../middleware/auth.js';
 import { recordActivity } from '../lib/activity.js';
 import { getExpenseCategoryUsageCount, type Expense, type ExpenseAttachment, type ExpenseCategory } from '../../src/data/expensesModel.js';
 
@@ -34,11 +34,11 @@ expensesRouter.use(requireAuth);
 
 const categorySchema = z.object({ name: z.string().trim().min(1) });
 
-expensesRouter.get('/expense-categories', asyncHandler((_req, res) => {
+expensesRouter.get('/expense-categories', requirePermission('expenses:view'), asyncHandler((_req, res) => {
   res.json((db.prepare('SELECT * FROM expense_categories ORDER BY created_at ASC').all() as CategoryRow[]).map(rowToCategory));
 }));
 
-expensesRouter.post('/expense-categories', asyncHandler((req, res) => {
+expensesRouter.post('/expense-categories', requirePermission('expenses:categories'), asyncHandler((req, res) => {
   const body = categorySchema.parse(req.body);
   const row: CategoryRow = { id: randomUUID(), name: body.name, created_at: nowIso().slice(0, 10) };
   db.prepare('INSERT INTO expense_categories (id, name, created_at) VALUES (?, ?, ?)').run(row.id, row.name, row.created_at);
@@ -46,7 +46,7 @@ expensesRouter.post('/expense-categories', asyncHandler((req, res) => {
   res.status(201).json(rowToCategory(row));
 }));
 
-expensesRouter.put('/expense-categories/:id', asyncHandler((req, res) => {
+expensesRouter.put('/expense-categories/:id', requirePermission('expenses:categories'), asyncHandler((req, res) => {
   const body = categorySchema.parse(req.body);
   const existing = db.prepare('SELECT * FROM expense_categories WHERE id = ?').get(req.params.id) as CategoryRow | undefined;
   if (!existing) throw notFound('Catégorie de dépense');
@@ -55,7 +55,7 @@ expensesRouter.put('/expense-categories/:id', asyncHandler((req, res) => {
   res.json(rowToCategory({ ...existing, name: body.name }));
 }));
 
-expensesRouter.delete('/expense-categories/:id', asyncHandler((req, res) => {
+expensesRouter.delete('/expense-categories/:id', requirePermission('expenses:categories'), asyncHandler((req, res) => {
   const existing = db.prepare('SELECT * FROM expense_categories WHERE id = ?').get(req.params.id) as CategoryRow | undefined;
   if (!existing) throw notFound('Catégorie de dépense');
   if (getExpenseCategoryUsageCount(rowToCategory(existing), getAllExpenses()) > 0) {
@@ -82,11 +82,11 @@ const expenseSchema = z.object({
   attachment: attachmentSchema.optional(),
 });
 
-expensesRouter.get('/expenses', asyncHandler((_req, res) => {
+expensesRouter.get('/expenses', requirePermission('expenses:view'), asyncHandler((_req, res) => {
   res.json(getAllExpenses());
 }));
 
-expensesRouter.post('/expenses', asyncHandler((req, res) => {
+expensesRouter.post('/expenses', requirePermission('expenses:create'), asyncHandler((req, res) => {
   const body = expenseSchema.parse(req.body);
   const category = db.prepare('SELECT * FROM expense_categories WHERE id = ?').get(body.categoryId) as CategoryRow | undefined;
   if (!category) throw new ApiError(400, 'Catégorie invalide.');
@@ -108,7 +108,7 @@ expensesRouter.post('/expenses', asyncHandler((req, res) => {
   }));
 }));
 
-expensesRouter.put('/expenses/:id', asyncHandler((req, res) => {
+expensesRouter.put('/expenses/:id', requirePermission('expenses:create'), asyncHandler((req, res) => {
   const body = expenseSchema.parse(req.body);
   const existing = db.prepare('SELECT * FROM expenses WHERE id = ?').get(req.params.id) as ExpenseRow | undefined;
   if (!existing) throw notFound('Dépense');
@@ -126,7 +126,7 @@ expensesRouter.put('/expenses/:id', asyncHandler((req, res) => {
     attachment: toJson(body.attachment) }));
 }));
 
-expensesRouter.patch('/expenses/:id/status', asyncHandler((req, res) => {
+expensesRouter.patch('/expenses/:id/status', requirePermission('expenses:approve'), asyncHandler((req, res) => {
   const body = z.object({ status: z.enum(['En attente', 'Approuvé', 'Rejeté']) }).parse(req.body);
   const existing = db.prepare('SELECT * FROM expenses WHERE id = ?').get(req.params.id) as ExpenseRow | undefined;
   if (!existing) throw notFound('Dépense');
@@ -135,7 +135,7 @@ expensesRouter.patch('/expenses/:id/status', asyncHandler((req, res) => {
   res.json(rowToExpense({ ...existing, status: body.status }));
 }));
 
-expensesRouter.delete('/expenses/:id', asyncHandler((req, res) => {
+expensesRouter.delete('/expenses/:id', requirePermission('expenses:delete'), asyncHandler((req, res) => {
   const existing = db.prepare('SELECT * FROM expenses WHERE id = ?').get(req.params.id) as ExpenseRow | undefined;
   if (!existing) throw notFound('Dépense');
   db.prepare('DELETE FROM expenses WHERE id = ?').run(req.params.id);

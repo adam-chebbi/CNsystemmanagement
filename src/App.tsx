@@ -91,6 +91,7 @@ const SubRecipesPage = lazy(() => import('./components/SubRecipesPage').then((m)
 const ActivityLogPage = lazy(() => import('./components/ActivityLogPage').then((m) => ({ default: m.ActivityLogPage })));
 const SettingsPage = lazy(() => import('./components/SettingsPage').then((m) => ({ default: m.SettingsPage })));
 const SessionsPage = lazy(() => import('./components/SessionsPage').then((m) => ({ default: m.SessionsPage })));
+const RolesPermissionsPage = lazy(() => import('./components/RolesPermissionsPage').then((m) => ({ default: m.RolesPermissionsPage })));
 
 // Lazy-loaded: the "Achat et dépenses" → Dépenses module (2 pages).
 const ExpensesPage = lazy(() => import('./components/ExpensesPage').then((m) => ({ default: m.ExpensesPage })));
@@ -181,8 +182,19 @@ export default function App() {
   const [modalType, setModalType] = useState<
     'upgrade' | 'restock' | 'sales_returns' | 'purchase_returns' | 'products' | 'clients' | 'vendors' | null
   >(null);
-  const { user, logout } = useAuth();
+  const { user, logout, hasPermission } = useAuth();
   const performedBy = user?.fullName ?? 'Utilisateur';
+
+  // Defense in depth only — the real gate is server-side (every /roles, /users and /permissions
+  // request requires roles:manage, see server/middleware/auth.ts). This just prevents a user
+  // without the permission from sitting on a blank/erroring screen if they land here directly
+  // (e.g. a stale bookmark from before their role was downgraded).
+  useEffect(() => {
+    if (activeTab === 'roles_permissions' && !hasPermission('roles:manage')) {
+      setActiveTab('dashboard');
+      setActiveSubItem('');
+    }
+  }, [activeTab, hasPermission, setActiveTab, setActiveSubItem]);
 
   const [salesTransactions, setSalesTransactions] = useState<SaleTransaction[]>([]);
   const [stockProducts, setStockProducts] = useState<StockProduct[]>([]);
@@ -1577,6 +1589,15 @@ export default function App() {
                   }}
                   onCurrentSessionRevoked={() => {
                     logout();
+                    setActiveTab('dashboard');
+                    setActiveSubItem('');
+                  }}
+                />
+              </Suspense>
+            ) : activeTab === 'roles_permissions' ? (
+              <Suspense fallback={<StockPageLoadingFallback />}>
+                <RolesPermissionsPage
+                  onNavigateToDashboard={() => {
                     setActiveTab('dashboard');
                     setActiveSubItem('');
                   }}

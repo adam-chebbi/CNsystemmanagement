@@ -77,3 +77,9 @@ if (!expenseColumns.has('source_id')) db.exec('ALTER TABLE expenses ADD COLUMN s
 // schema shipped (an employee's "Inactif" status previously had no associated date at all).
 const employeeColumns = new Set((db.pragma('table_info(employees)') as { name: string }[]).map((c) => c.name));
 if (!employeeColumns.has('departure_date')) db.exec('ALTER TABLE employees ADD COLUMN departure_date TEXT');
+
+// One-time, idempotent migration: users gained a role_id (RBAC) after the original schema shipped.
+// Left NULL here on purpose — server/rbac/bootstrap.ts backfills every NULL-role user to Super
+// Admin right after this runs, so no pre-existing account is ever locked out by this migration.
+const userColumns = new Set((db.pragma('table_info(users)') as { name: string }[]).map((c) => c.name));
+if (!userColumns.has('role_id')) db.exec('ALTER TABLE users ADD COLUMN role_id TEXT REFERENCES roles(id)');

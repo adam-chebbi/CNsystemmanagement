@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { db } from '../db/connection.js';
 import { asyncHandler } from '../middleware/errors.js';
-import { requireAuth } from '../middleware/auth.js';
+import { requireAuth, requirePermission } from '../middleware/auth.js';
 import { recordActivity } from '../lib/activity.js';
 import { DEFAULT_APP_SETTINGS, type AppSettings } from '../../src/data/settingsModel.js';
 import { setMaxShifts } from '../../src/data/hrModel.js';
@@ -61,7 +61,7 @@ const settingsSchema = z.object({
   maxShifts: z.number().min(1).max(6),
 });
 
-settingsRouter.put('/settings', asyncHandler((req, res) => {
+settingsRouter.put('/settings', requirePermission('settings:manage'), asyncHandler((req, res) => {
   const body = settingsSchema.parse(req.body);
   const now = new Date().toISOString();
   const upsert = db.prepare(

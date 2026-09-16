@@ -15,10 +15,15 @@ import {
   PanelLeft,
   ChefHat,
 } from 'lucide-react';
+import { useAuth } from '../auth/AuthContext';
 
 interface SubMenuItem {
   id: string;
   label: string;
+  // Which permission gates this page — a sub-item with none is always shown (nothing sensitive
+  // behind it). The real enforcement is always server-side (requirePermission); this only keeps
+  // the nav from listing pages a user's every request to would 403 on.
+  permission?: string;
 }
 
 interface MenuItem {
@@ -26,6 +31,7 @@ interface MenuItem {
   label: string;
   icon: React.ComponentType<{ className?: string; size?: number }>;
   subItems?: SubMenuItem[];
+  permission?: string;
 }
 
 interface MenuSection {
@@ -57,6 +63,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   activeSubItem: propActiveSubItem,
   setActiveSubItem: propSetActiveSubItem,
 }) => {
+  const { hasPermission } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
   // No section is force-open by default — a section only expands because the user toggled it, or
   // because it's the one currently active (see isMenuOpen below), never as a hardcoded default.
@@ -80,8 +87,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
     {
       heading: "Vue d'ensemble",
       items: [
-        { id: 'dashboard', label: 'Tableau de bord', icon: LayoutDashboard },
-        { id: 'notifications', label: 'Notifications & Alertes', icon: Bell },
+        { id: 'dashboard', label: 'Tableau de bord', icon: LayoutDashboard, permission: 'dashboard:view' },
+        { id: 'notifications', label: 'Notifications & Alertes', icon: Bell, permission: 'notifications:view' },
       ],
     },
     {
@@ -92,10 +99,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
           label: 'Gestion des ventes',
           icon: Receipt,
           subItems: [
-            { id: 'sales', label: 'Ventes' },
-            { id: 'sales_manual_add', label: 'Ajoute Manuelle Ventes' },
-            { id: 'sales_import', label: 'Import Excel/CSV' },
-            { id: 'sales_cash_check', label: 'Calcul du quotidien' },
+            { id: 'sales', label: 'Ventes', permission: 'sales:view' },
+            { id: 'sales_manual_add', label: 'Ajoute Manuelle Ventes', permission: 'sales:create' },
+            { id: 'sales_import', label: 'Import Excel/CSV', permission: 'sales:create' },
+            { id: 'sales_cash_check', label: 'Calcul du quotidien', permission: 'sales:cash_check' },
           ],
         },
         {
@@ -103,13 +110,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
           label: 'Stock',
           icon: Boxes,
           subItems: [
-            { id: 'stock_overview', label: 'Stock' },
-            { id: 'stock_movements', label: 'Mouvements' },
-            { id: 'stock_inventory', label: 'Inventaires' },
-            { id: 'stock_losses', label: 'Pertes & ajustements' },
-            { id: 'stock_lots', label: 'Lots & péremptions' },
-            { id: 'stock_units', label: 'Unités' },
-            { id: 'stock_import', label: 'Import Excel/CSV' },
+            { id: 'stock_overview', label: 'Stock', permission: 'stock:view' },
+            { id: 'stock_movements', label: 'Mouvements', permission: 'stock:manage' },
+            { id: 'stock_inventory', label: 'Inventaires', permission: 'stock:manage' },
+            { id: 'stock_losses', label: 'Pertes & ajustements', permission: 'stock:manage' },
+            { id: 'stock_lots', label: 'Lots & péremptions', permission: 'stock:view' },
+            { id: 'stock_units', label: 'Unités', permission: 'stock:manage' },
+            { id: 'stock_import', label: 'Import Excel/CSV', permission: 'stock:import' },
           ],
         },
         {
@@ -117,11 +124,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
           label: 'Gestion des produits',
           icon: ChefHat,
           subItems: [
-            { id: 'prm_products', label: 'Produits' },
-            { id: 'prm_add_product', label: 'Ajout produits' },
-            { id: 'prm_subrecipes', label: 'Sous-recettes' },
-            { id: 'prm_catalog', label: 'Catalogue' },
-            { id: 'prm_import', label: 'Import Excel/CSV' },
+            { id: 'prm_products', label: 'Produits', permission: 'products:view' },
+            { id: 'prm_add_product', label: 'Ajout produits', permission: 'products:manage' },
+            { id: 'prm_subrecipes', label: 'Sous-recettes', permission: 'products:manage' },
+            { id: 'prm_catalog', label: 'Catalogue', permission: 'products:view' },
+            { id: 'prm_import', label: 'Import Excel/CSV', permission: 'products:import' },
           ],
         },
       ],
@@ -134,8 +141,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
           label: 'Gestion des dépenses',
           icon: Receipt,
           subItems: [
-            { id: 'expenses', label: 'Dépenses' },
-            { id: 'expenses_categories', label: 'Catégories de dépenses' },
+            { id: 'expenses', label: 'Dépenses', permission: 'expenses:view' },
+            { id: 'expenses_categories', label: 'Catégories de dépenses', permission: 'expenses:categories' },
           ],
         },
         {
@@ -143,11 +150,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
           label: 'Gestion des achats',
           icon: ShoppingCart,
           subItems: [
-            { id: 'purchases_acquisitions', label: 'Achats et acquisitions' },
-            { id: 'purchases_suppliers', label: 'Listes des fournisseurs' },
-            { id: 'purchases_invoices', label: 'Factures' },
-            { id: 'purchases_ocr', label: 'OCR des factures' },
-            { id: 'purchases_import', label: 'Import Excel/CSV' },
+            { id: 'purchases_acquisitions', label: 'Achats et acquisitions', permission: 'purchases:view' },
+            { id: 'purchases_suppliers', label: 'Listes des fournisseurs', permission: 'purchases:suppliers' },
+            { id: 'purchases_invoices', label: 'Factures', permission: 'purchases:view' },
+            { id: 'purchases_ocr', label: 'OCR des factures', permission: 'purchases:ocr' },
+            { id: 'purchases_import', label: 'Import Excel/CSV', permission: 'purchases:import' },
           ],
         },
       ],
@@ -160,14 +167,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
           label: 'Rapports de gestion',
           icon: BarChart3,
           subItems: [
-            { id: 'report_monthly', label: 'Rapport mensuel de gestion' },
-            { id: 'report_sales', label: 'Rapport sur les ventes' },
-            { id: 'report_purchases', label: 'Rapport achats & fournisseurs' },
-            { id: 'report_expenses', label: 'Rapport sur les dépenses' },
-            { id: 'report_stocks', label: 'Rapport sur les stocks' },
-            { id: 'report_finance', label: 'Rapport financier' },
-            { id: 'report_tax', label: 'Rapport fiscal' },
-            { id: 'report_export', label: 'Export' },
+            { id: 'report_monthly', label: 'Rapport mensuel de gestion', permission: 'reports:view' },
+            { id: 'report_sales', label: 'Rapport sur les ventes', permission: 'reports:view' },
+            { id: 'report_purchases', label: 'Rapport achats & fournisseurs', permission: 'reports:view' },
+            { id: 'report_expenses', label: 'Rapport sur les dépenses', permission: 'reports:view' },
+            { id: 'report_stocks', label: 'Rapport sur les stocks', permission: 'reports:view' },
+            { id: 'report_finance', label: 'Rapport financier', permission: 'reports:financial' },
+            { id: 'report_tax', label: 'Rapport fiscal', permission: 'reports:financial' },
+            { id: 'report_export', label: 'Export', permission: 'reports:view' },
           ],
         },
       ],
@@ -180,9 +187,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
           label: 'Gestion du personnel',
           icon: Users,
           subItems: [
-            { id: 'staff_employees', label: 'Employés' },
-            { id: 'staff_schedule', label: 'Planning & Présence' },
-            { id: 'staff_finance', label: 'Suivi financier' },
+            { id: 'staff_employees', label: 'Employés', permission: 'hr:view' },
+            { id: 'staff_schedule', label: 'Planning & Présence', permission: 'hr:view' },
+            { id: 'staff_finance', label: 'Suivi financier', permission: 'hr:financial' },
           ],
         },
       ],
@@ -194,10 +201,22 @@ export const Sidebar: React.FC<SidebarProps> = ({
           id: 'activity_log',
           label: "Journal d'activité",
           icon: History,
+          permission: 'activity_log:view',
         },
       ],
     },
   ];
+
+  // Purely a UX nicety (declutters the nav of pages every request to would 403 on) — the actual
+  // enforcement is always server-side, see requirePermission in server/middleware/auth.ts.
+  const isMenuItemVisible = (item: MenuItem): boolean => {
+    if (item.subItems && item.subItems.length > 0) {
+      return item.subItems.some((sub) => !sub.permission || hasPermission(sub.permission));
+    }
+    return !item.permission || hasPermission(item.permission);
+  };
+  const visibleSubItems = (item: MenuItem): SubMenuItem[] =>
+    (item.subItems ?? []).filter((sub) => !sub.permission || hasPermission(sub.permission));
 
   // "Ventes" is the one subitem routed via its own top-level tab id ('sales') rather than its
   // parent's ('sales_mgmt') — every other parent routes all of its subitems through its own id.
@@ -221,6 +240,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   }, [activeTab]);
 
   // Collapsed items flattened
+  const allMenuItemsById = new Map(menuSections.flatMap((s) => s.items).map((item) => [item.id, item]));
   const collapsedItems = [
     { id: 'dashboard', label: 'Tableau de bord', icon: LayoutDashboard },
     { id: 'notifications', label: 'Notifications & Alertes', icon: Bell },
@@ -232,16 +252,20 @@ export const Sidebar: React.FC<SidebarProps> = ({
     { id: 'reports_mgmt', label: 'Rapports de gestion', icon: BarChart3 },
     { id: 'staff_mgmt', label: 'Gestion du personnel', icon: Users },
     { id: 'activity_log', label: "Journal d'activité", icon: History },
-  ];
+  ].filter((item) => {
+    const source = allMenuItemsById.get(item.id);
+    return source ? isMenuItemVisible(source) : true;
+  });
 
-  // Filtering by search query
+  // Filtering by permission, then by search query
   const query = searchQuery.trim().toLowerCase();
   const filteredSections = menuSections
+    .map((sec) => ({ ...sec, items: sec.items.filter(isMenuItemVisible) }))
     .map((sec) => {
       if (!query) return sec;
       const matchingItems = sec.items.filter((item) => {
         const itemMatches = item.label.toLowerCase().includes(query);
-        const matchingSubs = item.subItems?.some((sub) =>
+        const matchingSubs = visibleSubItems(item).some((sub) =>
           sub.label.toLowerCase().includes(query)
         );
         return itemMatches || Boolean(matchingSubs);
@@ -455,7 +479,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                               data-sidebar="menu-sub"
                               className="border-sidebar-border mx-3.5 flex min-w-0 translate-x-px flex-col gap-1 border-l px-2.5 py-0.5 group-data-[collapsible=icon]:hidden mt-0.5"
                             >
-                              {item.subItems.map((sub) => {
+                              {visibleSubItems(item).map((sub) => {
                                 const isSubActive = isSubItemActive(item.id, sub.id);
                                 return (
                                   <div key={sub.id}>

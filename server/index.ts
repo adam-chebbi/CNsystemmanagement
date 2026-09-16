@@ -17,6 +17,8 @@ import { dashboardRouter } from './routes/dashboard.js';
 import { cashVerificationsRouter } from './routes/cashVerifications.js';
 import { publicRouter } from './routes/public.js';
 import { settingsRouter, applyPersistedSettingsAtBoot } from './routes/settings.js';
+import { rolesRouter } from './routes/roles.js';
+import { bootstrapRbac } from './rbac/bootstrap.js';
 import { errorMiddleware } from './middleware/errors.js';
 import { ensureCsrfCookie, csrfProtection } from './middleware/csrf.js';
 
@@ -27,6 +29,10 @@ runSeed();
 // persisted in app_settings — without this, a limit raised via Paramètres would silently reset to
 // its hardcoded default on every server restart/redeploy.
 applyPersistedSettingsAtBoot();
+// Ensures the Super Admin/Compte Saisie roles exist and every user has a role (see
+// server/rbac/bootstrap.ts) before any request is served — requireAuth depends on every user
+// having a role_id.
+bootstrapRbac();
 
 const app = express();
 // nginx sits in front of this process on the same host — trust its X-Forwarded-For so req.ip
@@ -52,6 +58,7 @@ app.use('/api/dashboard', dashboardRouter);
 app.use('/api/cash-verifications', cashVerificationsRouter);
 app.use('/api/public', publicRouter);
 app.use('/api', settingsRouter);
+app.use('/api', rolesRouter);
 
 app.use(errorMiddleware);
 

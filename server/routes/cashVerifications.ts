@@ -3,7 +3,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { db } from '../db/connection.js';
 import { asyncHandler } from '../middleware/errors.js';
-import { requireAuth } from '../middleware/auth.js';
+import { requireAuth, requirePermission } from '../middleware/auth.js';
 import { toJson, fromJson } from '../db/json.js';
 import { recordActivity } from '../lib/activity.js';
 
@@ -58,6 +58,7 @@ cashVerificationsRouter.use(requireAuth);
 
 cashVerificationsRouter.get(
   '/',
+  requirePermission('sales:cash_check'),
   asyncHandler((_req, res) => {
     const rows = db.prepare('SELECT * FROM cash_verifications ORDER BY confirmed_at DESC').all() as CashVerificationRow[];
     res.json(rows.map(rowToVerification));
@@ -102,6 +103,7 @@ const verificationSchema = z.object({
 
 cashVerificationsRouter.post(
   '/',
+  requirePermission('sales:cash_check'),
   asyncHandler((req, res) => {
     const body = verificationSchema.parse(req.body);
     const id = randomUUID();

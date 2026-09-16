@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { db } from '../db/connection.js';
 import { fromJson, toJson, toBool, fromBool } from '../db/json.js';
 import { asyncHandler, ApiError, notFound } from '../middleware/errors.js';
-import { requireAuth } from '../middleware/auth.js';
+import { requireAuth, requirePermission } from '../middleware/auth.js';
 import { recordActivity } from '../lib/activity.js';
 import type { ProductCategory, ProductSubCategory } from '../../src/data/productsModel.js';
 import { getCategoryUsageCount, getSubCategoryUsageCount, getSubRecipeUsageCount, detectCircularReference, type SubRecipe } from '../../src/data/productsModel.js';
@@ -74,6 +74,7 @@ const categorySchema = z.object({ name: z.string().trim().min(1) });
 
 productCatalogRouter.get(
   '/product-categories',
+  requirePermission('products:view'),
   asyncHandler((_req, res) => {
     const rows = db.prepare('SELECT * FROM product_categories ORDER BY created_at ASC').all() as CategoryRow[];
     res.json(rows.map(rowToCategory));
@@ -82,6 +83,7 @@ productCatalogRouter.get(
 
 productCatalogRouter.post(
   '/product-categories',
+  requirePermission('products:manage'),
   asyncHandler((req, res) => {
     const body = categorySchema.parse(req.body);
     const row: CategoryRow = { id: randomUUID(), name: body.name, created_at: nowIso() };
@@ -93,6 +95,7 @@ productCatalogRouter.post(
 
 productCatalogRouter.put(
   '/product-categories/:id',
+  requirePermission('products:manage'),
   asyncHandler((req, res) => {
     const body = categorySchema.parse(req.body);
     const existing = db.prepare('SELECT * FROM product_categories WHERE id = ?').get(req.params.id) as CategoryRow | undefined;
@@ -106,6 +109,7 @@ productCatalogRouter.put(
 
 productCatalogRouter.delete(
   '/product-categories/:id',
+  requirePermission('products:manage'),
   asyncHandler((req, res) => {
     const existing = db.prepare('SELECT * FROM product_categories WHERE id = ?').get(req.params.id) as CategoryRow | undefined;
     if (!existing) throw notFound('Catégorie');
@@ -125,6 +129,7 @@ const subCategorySchema = z.object({ categoryId: z.string().min(1), name: z.stri
 
 productCatalogRouter.get(
   '/product-subcategories',
+  requirePermission('products:view'),
   asyncHandler((_req, res) => {
     const rows = db.prepare('SELECT * FROM product_subcategories ORDER BY created_at ASC').all() as SubCategoryRow[];
     res.json(rows.map(rowToSubCategory));
@@ -133,6 +138,7 @@ productCatalogRouter.get(
 
 productCatalogRouter.post(
   '/product-subcategories',
+  requirePermission('products:manage'),
   asyncHandler((req, res) => {
     const body = subCategorySchema.parse(req.body);
     const category = db.prepare('SELECT * FROM product_categories WHERE id = ?').get(body.categoryId) as CategoryRow | undefined;
@@ -146,6 +152,7 @@ productCatalogRouter.post(
 
 productCatalogRouter.put(
   '/product-subcategories/:id',
+  requirePermission('products:manage'),
   asyncHandler((req, res) => {
     const body = subCategorySchema.parse(req.body);
     const existing = db.prepare('SELECT * FROM product_subcategories WHERE id = ?').get(req.params.id) as SubCategoryRow | undefined;
@@ -159,6 +166,7 @@ productCatalogRouter.put(
 
 productCatalogRouter.delete(
   '/product-subcategories/:id',
+  requirePermission('products:manage'),
   asyncHandler((req, res) => {
     const existing = db.prepare('SELECT * FROM product_subcategories WHERE id = ?').get(req.params.id) as SubCategoryRow | undefined;
     if (!existing) throw notFound('Sous-catégorie');
@@ -178,6 +186,7 @@ const extraSchema = z.object({ name: z.string().trim().min(1), price: z.number()
 
 productCatalogRouter.get(
   '/catalog-extras',
+  requirePermission('products:view'),
   asyncHandler((_req, res) => {
     const rows = db.prepare('SELECT * FROM catalog_extras ORDER BY rowid ASC').all() as ExtraRow[];
     res.json(rows.map(rowToExtra));
@@ -186,6 +195,7 @@ productCatalogRouter.get(
 
 productCatalogRouter.post(
   '/catalog-extras',
+  requirePermission('products:manage'),
   asyncHandler((req, res) => {
     const body = extraSchema.parse(req.body);
     const row: ExtraRow = { id: randomUUID(), name: body.name, price: body.price };
@@ -197,6 +207,7 @@ productCatalogRouter.post(
 
 productCatalogRouter.put(
   '/catalog-extras/:id',
+  requirePermission('products:manage'),
   asyncHandler((req, res) => {
     const body = extraSchema.parse(req.body);
     const existing = db.prepare('SELECT * FROM catalog_extras WHERE id = ?').get(req.params.id) as ExtraRow | undefined;
@@ -209,6 +220,7 @@ productCatalogRouter.put(
 
 productCatalogRouter.delete(
   '/catalog-extras/:id',
+  requirePermission('products:manage'),
   asyncHandler((req, res) => {
     const existing = db.prepare('SELECT * FROM catalog_extras WHERE id = ?').get(req.params.id) as ExtraRow | undefined;
     if (!existing) throw notFound('Extra');
@@ -274,6 +286,7 @@ const articleToRow = (a: CatalogArticle): ArticleRow => ({
 
 productCatalogRouter.get(
   '/catalog-articles',
+  requirePermission('products:view'),
   asyncHandler((_req, res) => {
     const rows = db.prepare('SELECT * FROM catalog_articles ORDER BY created_at ASC').all() as ArticleRow[];
     res.json(rows.map(rowToArticle));
@@ -282,6 +295,7 @@ productCatalogRouter.get(
 
 productCatalogRouter.post(
   '/catalog-articles',
+  requirePermission('products:manage'),
   asyncHandler((req, res) => {
     const body = articleSchema.parse(req.body);
     const article: CatalogArticle = { ...body, id: body.id ?? randomUUID(), createdAt: nowIso() };
@@ -297,6 +311,7 @@ productCatalogRouter.post(
 
 productCatalogRouter.put(
   '/catalog-articles/:id',
+  requirePermission('products:manage'),
   asyncHandler((req, res) => {
     const body = articleSchema.parse(req.body);
     const existing = db.prepare('SELECT * FROM catalog_articles WHERE id = ?').get(req.params.id) as ArticleRow | undefined;
@@ -316,6 +331,7 @@ productCatalogRouter.put(
 
 productCatalogRouter.patch(
   '/catalog-articles/:id/availability',
+  requirePermission('products:manage'),
   asyncHandler((req, res) => {
     const body = z.object({ isAvailable: z.boolean() }).parse(req.body);
     const existing = db.prepare('SELECT * FROM catalog_articles WHERE id = ?').get(req.params.id) as ArticleRow | undefined;
@@ -328,6 +344,7 @@ productCatalogRouter.patch(
 
 productCatalogRouter.delete(
   '/catalog-articles/:id',
+  requirePermission('products:manage'),
   asyncHandler((req, res) => {
     const existing = db.prepare('SELECT * FROM catalog_articles WHERE id = ?').get(req.params.id) as ArticleRow | undefined;
     if (!existing) throw notFound('Produit');
@@ -350,6 +367,7 @@ const subRecipeSchema = z.object({
 
 productCatalogRouter.get(
   '/sub-recipes',
+  requirePermission('products:view'),
   asyncHandler((_req, res) => {
     const rows = db.prepare('SELECT * FROM sub_recipes ORDER BY created_at ASC').all() as SubRecipeRow[];
     res.json(rows.map(rowToSubRecipe));
@@ -358,6 +376,7 @@ productCatalogRouter.get(
 
 productCatalogRouter.post(
   '/sub-recipes',
+  requirePermission('products:manage'),
   asyncHandler((req, res) => {
     const body = subRecipeSchema.parse(req.body);
     const id = body.id ?? randomUUID();
@@ -375,6 +394,7 @@ productCatalogRouter.post(
 
 productCatalogRouter.put(
   '/sub-recipes/:id',
+  requirePermission('products:manage'),
   asyncHandler((req, res) => {
     const body = subRecipeSchema.parse(req.body);
     const existing = db.prepare('SELECT * FROM sub_recipes WHERE id = ?').get(req.params.id) as SubRecipeRow | undefined;
@@ -393,6 +413,7 @@ productCatalogRouter.put(
 
 productCatalogRouter.delete(
   '/sub-recipes/:id',
+  requirePermission('products:manage'),
   asyncHandler((req, res) => {
     const existing = db.prepare('SELECT * FROM sub_recipes WHERE id = ?').get(req.params.id) as SubRecipeRow | undefined;
     if (!existing) throw notFound('Sous-recette');

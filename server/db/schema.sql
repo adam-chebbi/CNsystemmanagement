@@ -2,10 +2,31 @@
 -- treats as opaque (recipe lines, variants, order/reception/invoice line items, weekly HR
 -- patterns) -- these are never queried relationally, only read/written whole.
 
+-- --- RBAC (Roles & Permissions) -----------------------------------------------------------------
+-- Permissions themselves are a fixed catalog defined in code (src/data/rbacModel.ts), not a table
+-- here — adding a new permission is just appending to that array, no migration needed. Only the
+-- ASSIGNMENT of permissions to a role is persisted (role_permissions). is_system marks a role that
+-- can never be renamed/edited/deleted via the API (Super Admin only) so the app can never end up
+-- with nobody able to manage roles.
+CREATE TABLE IF NOT EXISTS roles (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL UNIQUE,
+  description TEXT,
+  is_system INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS role_permissions (
+  role_id TEXT NOT NULL REFERENCES roles(id) ON DELETE CASCADE,
+  permission_key TEXT NOT NULL,
+  PRIMARY KEY (role_id, permission_key)
+);
+
 CREATE TABLE IF NOT EXISTS users (
   id TEXT PRIMARY KEY,
   full_name TEXT NOT NULL,
   cin TEXT NOT NULL UNIQUE,
+  role_id TEXT REFERENCES roles(id),
   created_at TEXT NOT NULL
 );
 

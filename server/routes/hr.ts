@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { db } from '../db/connection.js';
 import { fromJson, toJson } from '../db/json.js';
 import { asyncHandler, ApiError, notFound } from '../middleware/errors.js';
-import { requireAuth } from '../middleware/auth.js';
+import { requireAuth, requirePermission } from '../middleware/auth.js';
 import { recordActivity } from '../lib/activity.js';
 import {
   MAX_SHIFTS,
@@ -78,9 +78,9 @@ const employeeSchema = z.object({
   cinDocument: z.object({ name: z.string(), mimeType: z.string(), dataUrl: z.string() }).optional(),
 });
 
-hrRouter.get('/employees', asyncHandler((_req, res) => res.json(getAllEmployees())));
+hrRouter.get('/employees', requirePermission('hr:view'), asyncHandler((_req, res) => res.json(getAllEmployees())));
 
-hrRouter.post('/employees', asyncHandler((req, res) => {
+hrRouter.post('/employees', requirePermission('hr:manage'), asyncHandler((req, res) => {
   const body = employeeSchema.parse(req.body);
   const duplicate = getAllEmployees().find((e) => e.cinNumber === body.cinNumber);
   if (duplicate) throw new ApiError(409, `Ce numéro CIN est déjà utilisé par ${getEmployeeFullName(duplicate)}.`);
@@ -96,7 +96,7 @@ hrRouter.post('/employees', asyncHandler((req, res) => {
     cin_number: body.cinNumber, cin_issue_date: body.cinIssueDate, cin_document: toJson(body.cinDocument) }));
 }));
 
-hrRouter.put('/employees/:id', asyncHandler((req, res) => {
+hrRouter.put('/employees/:id', requirePermission('hr:manage'), asyncHandler((req, res) => {
   const body = employeeSchema.parse(req.body);
   const existing = db.prepare('SELECT * FROM employees WHERE id = ?').get(req.params.id) as EmployeeRow | undefined;
   if (!existing) throw notFound('Employé');
@@ -111,7 +111,7 @@ hrRouter.put('/employees/:id', asyncHandler((req, res) => {
   res.json(rowToEmployee({ ...existing, first_name: body.firstName, last_name: body.lastName, cin_number: body.cinNumber }));
 }));
 
-hrRouter.delete('/employees/:id', asyncHandler((req, res) => {
+hrRouter.delete('/employees/:id', requirePermission('hr:manage'), asyncHandler((req, res) => {
   const existing = db.prepare('SELECT * FROM employees WHERE id = ?').get(req.params.id) as EmployeeRow | undefined;
   if (!existing) throw notFound('Employé');
   const tx = db.transaction(() => {
@@ -129,9 +129,9 @@ hrRouter.delete('/employees/:id', asyncHandler((req, res) => {
 
 const shiftSchema = z.object({ name: z.string().trim().min(1), startTime: z.string().min(1), endTime: z.string().min(1), description: z.string().optional() });
 
-hrRouter.get('/shifts', asyncHandler((_req, res) => res.json(getAllShifts())));
+hrRouter.get('/shifts', requirePermission('hr:view'), asyncHandler((_req, res) => res.json(getAllShifts())));
 
-hrRouter.post('/shifts', asyncHandler((req, res) => {
+hrRouter.post('/shifts', requirePermission('hr:manage'), asyncHandler((req, res) => {
   const body = shiftSchema.parse(req.body);
   const existingShifts = getAllShifts();
   if (existingShifts.length >= MAX_SHIFTS) throw new ApiError(409, `La plateforme ne supporte que ${MAX_SHIFTS} shifts.`);
@@ -143,7 +143,7 @@ hrRouter.post('/shifts', asyncHandler((req, res) => {
   res.status(201).json(rowToShift({ id, name: body.name, start_time: body.startTime, end_time: body.endTime, description: body.description ?? null, created_at: createdAt }));
 }));
 
-hrRouter.put('/shifts/:id', asyncHandler((req, res) => {
+hrRouter.put('/shifts/:id', requirePermission('hr:manage'), asyncHandler((req, res) => {
   const body = shiftSchema.parse(req.body);
   const existing = db.prepare('SELECT * FROM shifts WHERE id = ?').get(req.params.id) as ShiftRow | undefined;
   if (!existing) throw notFound('Shift');
@@ -153,7 +153,7 @@ hrRouter.put('/shifts/:id', asyncHandler((req, res) => {
   res.json(rowToShift({ ...existing, name: body.name, start_time: body.startTime, end_time: body.endTime, description: body.description ?? null }));
 }));
 
-hrRouter.delete('/shifts/:id', asyncHandler((req, res) => {
+hrRouter.delete('/shifts/:id', requirePermission('hr:manage'), asyncHandler((req, res) => {
   const existing = db.prepare('SELECT * FROM shifts WHERE id = ?').get(req.params.id) as ShiftRow | undefined;
   if (!existing) throw notFound('Shift');
   const usage = getAllDayRecords().filter((r) => r.shiftIds.includes(req.params.id)).length;
@@ -174,9 +174,9 @@ const dayRecordSchema = z.object({
   performedBy: z.string().min(1),
 });
 
-hrRouter.get('/day-records', asyncHandler((_req, res) => res.json(getAllDayRecords())));
+hrRouter.get('/day-records', requirePermission('hr:view'), asyncHandler((_req, res) => res.json(getAllDayRecords())));
 
-hrRouter.put('/day-records', asyncHandler((req, res) => {
+hrRouter.put('/day-records', requirePermission('hr:manage'), asyncHandler((req, res) => {
   const body = dayRecordSchema.parse(req.body);
   const existing = db.prepare('SELECT * FROM day_records WHERE employee_id = ? AND date = ?').get(body.employeeId, body.date) as DayRecordRow | undefined;
   const id = existing?.id ?? randomUUID();
@@ -193,7 +193,7 @@ hrRouter.put('/day-records', asyncHandler((req, res) => {
     recurring_plan_id: existing?.recurring_plan_id ?? null, note: body.note ?? null, updated_at: updatedAt, updated_by: body.performedBy }));
 }));
 
-hrRouter.delete('/day-records/:id', asyncHandler((req, res) => {
+hrRouter.delete('/day-records/:id', requirePermission('hr:manage'), asyncHandler((req, res) => {
   const body = z.object({ scope: z.enum(['day', 'recurrence']).default('day') }).parse(req.query);
   const existing = db.prepare('SELECT * FROM day_records WHERE id = ?').get(req.params.id) as DayRecordRow | undefined;
   if (!existing) throw notFound('Jour de planning');
@@ -224,11 +224,11 @@ const planningSchema = z.object({
   isRecurring: z.boolean().default(true),
 });
 
-hrRouter.get('/recurring-plans', asyncHandler((_req, res) => {
+hrRouter.get('/recurring-plans', requirePermission('hr:view'), asyncHandler((_req, res) => {
   res.json((db.prepare('SELECT * FROM recurring_plans').all() as RecurringPlanRow[]).map(rowToRecurringPlan));
 }));
 
-hrRouter.post('/planning', asyncHandler((req, res) => {
+hrRouter.post('/planning', requirePermission('hr:manage'), asyncHandler((req, res) => {
   const body = planningSchema.parse(req.body);
   const employee = db.prepare('SELECT id FROM employees WHERE id = ?').get(body.employeeId);
   if (!employee) throw new ApiError(400, 'Employé invalide.');
@@ -298,11 +298,11 @@ const recordSalaryPaymentExpense = (employeeId: string, amountDelta: number, per
   });
 };
 
-hrRouter.get('/financial-records', asyncHandler((_req, res) => {
+hrRouter.get('/financial-records', requirePermission('hr:financial'), asyncHandler((_req, res) => {
   res.json((db.prepare('SELECT * FROM financial_records').all() as FinancialRow[]).map(rowToFinancial));
 }));
 
-hrRouter.post('/financial-records', asyncHandler((req, res) => {
+hrRouter.post('/financial-records', requirePermission('hr:financial'), asyncHandler((req, res) => {
   const body = financialSchema.parse(req.body);
   const duplicate = db.prepare('SELECT id FROM financial_records WHERE employee_id = ? AND period_month_index = ? AND period_year = ?').get(body.employeeId, body.periodMonthIndex, body.periodYear);
   if (duplicate) throw new ApiError(409, 'Un suivi financier existe déjà pour cet employé sur cette période.');
@@ -319,7 +319,7 @@ hrRouter.post('/financial-records', asyncHandler((req, res) => {
     payment_date: body.paymentDate ?? null, created_at: createdAt }));
 }));
 
-hrRouter.put('/financial-records/:id', asyncHandler((req, res) => {
+hrRouter.put('/financial-records/:id', requirePermission('hr:financial'), asyncHandler((req, res) => {
   const body = financialSchema.parse(req.body);
   const existing = db.prepare('SELECT * FROM financial_records WHERE id = ?').get(req.params.id) as FinancialRow | undefined;
   if (!existing) throw notFound('Suivi financier');
@@ -332,7 +332,7 @@ hrRouter.put('/financial-records/:id', asyncHandler((req, res) => {
   res.json(rowToFinancial({ ...existing, base_salary: body.baseSalary, amount_paid: body.amountPaid, payment_date: body.paymentDate ?? null }));
 }));
 
-hrRouter.delete('/financial-records/:id', asyncHandler((req, res) => {
+hrRouter.delete('/financial-records/:id', requirePermission('hr:financial'), asyncHandler((req, res) => {
   const existing = db.prepare('SELECT * FROM financial_records WHERE id = ?').get(req.params.id) as FinancialRow | undefined;
   if (!existing) throw notFound('Suivi financier');
   db.prepare('DELETE FROM financial_records WHERE id = ?').run(req.params.id);

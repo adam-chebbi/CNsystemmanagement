@@ -3,7 +3,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { db } from '../db/connection.js';
 import { asyncHandler, ApiError, notFound } from '../middleware/errors.js';
-import { requireAuth } from '../middleware/auth.js';
+import { requireAuth, requirePermission } from '../middleware/auth.js';
 import { recordActivity } from '../lib/activity.js';
 import {
   applyLedgerEntries,
@@ -214,11 +214,11 @@ stockRouter.use(requireAuth);
 
 const unitSchema = z.object({ name: z.string().trim().min(1) });
 
-stockRouter.get('/units', asyncHandler((_req, res) => {
+stockRouter.get('/units', requirePermission('stock:view'), asyncHandler((_req, res) => {
   res.json((db.prepare('SELECT * FROM stock_units ORDER BY created_at ASC').all() as UnitRow[]).map(rowToUnit));
 }));
 
-stockRouter.post('/units', asyncHandler((req, res) => {
+stockRouter.post('/units', requirePermission('stock:manage'), asyncHandler((req, res) => {
   const body = unitSchema.parse(req.body);
   const row: UnitRow = { id: randomUUID(), name: body.name, created_at: nowIso() };
   db.prepare('INSERT INTO stock_units (id, name, created_at) VALUES (?, ?, ?)').run(row.id, row.name, row.created_at);
@@ -226,7 +226,7 @@ stockRouter.post('/units', asyncHandler((req, res) => {
   res.status(201).json(rowToUnit(row));
 }));
 
-stockRouter.put('/units/:id', asyncHandler((req, res) => {
+stockRouter.put('/units/:id', requirePermission('stock:manage'), asyncHandler((req, res) => {
   const body = unitSchema.parse(req.body);
   const existing = db.prepare('SELECT * FROM stock_units WHERE id = ?').get(req.params.id) as UnitRow | undefined;
   if (!existing) throw notFound('Unité');
@@ -240,7 +240,7 @@ stockRouter.put('/units/:id', asyncHandler((req, res) => {
   res.json(rowToUnit({ ...existing, name: body.name }));
 }));
 
-stockRouter.delete('/units/:id', asyncHandler((req, res) => {
+stockRouter.delete('/units/:id', requirePermission('stock:manage'), asyncHandler((req, res) => {
   const existing = db.prepare('SELECT * FROM stock_units WHERE id = ?').get(req.params.id) as UnitRow | undefined;
   if (!existing) throw notFound('Unité');
   if (getUnitUsageCount(rowToUnit(existing), getAllProducts()) > 0) {
@@ -266,11 +266,11 @@ const productSchema = z.object({
   depotQty: z.number(),
 });
 
-stockRouter.get('/products', asyncHandler((_req, res) => {
+stockRouter.get('/products', requirePermission('stock:view'), asyncHandler((_req, res) => {
   res.json(getAllProducts());
 }));
 
-stockRouter.post('/products', asyncHandler((req, res) => {
+stockRouter.post('/products', requirePermission('stock:manage'), asyncHandler((req, res) => {
   const body = productSchema.parse(req.body);
   const row: ProductRow = {
     id: randomUUID(), name: body.name, sku: body.sku, category: body.category, unit: body.unit,
@@ -285,7 +285,7 @@ stockRouter.post('/products', asyncHandler((req, res) => {
   res.status(201).json(rowToProduct(row));
 }));
 
-stockRouter.put('/products/:id', asyncHandler((req, res) => {
+stockRouter.put('/products/:id', requirePermission('stock:manage'), asyncHandler((req, res) => {
   const body = productSchema.parse(req.body);
   const existing = db.prepare('SELECT * FROM stock_products WHERE id = ?').get(req.params.id) as ProductRow | undefined;
   if (!existing) throw notFound('Produit de stock');
@@ -308,18 +308,18 @@ stockRouter.put('/products/:id', asyncHandler((req, res) => {
 
 // --- Lots (read-only via API; mutated only through ledger postings) ----------------------------
 
-stockRouter.get('/lots', asyncHandler((_req, res) => {
+stockRouter.get('/lots', requirePermission('stock:view'), asyncHandler((_req, res) => {
   res.json(getAllLots());
 }));
 
 // --- Ledger ----------------------------------------------------------------------------------
 
-stockRouter.get('/ledger', asyncHandler((_req, res) => {
+stockRouter.get('/ledger', requirePermission('stock:view'), asyncHandler((_req, res) => {
   const rows = db.prepare('SELECT * FROM stock_ledger ORDER BY timestamp DESC').all() as LedgerRow[];
   res.json(rows.map(rowToLedger));
 }));
 
-stockRouter.post('/ledger/post', asyncHandler((req, res) => {
+stockRouter.post('/ledger/post', requirePermission('stock:manage'), asyncHandler((req, res) => {
   const body = z.object({ entries: z.array(ledgerEntryInputSchema).min(1) }).parse(req.body);
   const tx = db.transaction(() => postEntries(body.entries));
   const result = tx();
@@ -327,7 +327,7 @@ stockRouter.post('/ledger/post', asyncHandler((req, res) => {
   res.status(201).json(result);
 }));
 
-stockRouter.post('/import', asyncHandler((req, res) => {
+stockRouter.post('/import', requirePermission('stock:import'), asyncHandler((req, res) => {
   const body = z.object({
     entries: z.array(ledgerEntryInputSchema),
     productUpdates: z.array(z.object({ id: z.string(), minThreshold: z.number().optional(), targetStock: z.number().optional() })).optional(),
@@ -346,7 +346,7 @@ stockRouter.post('/import', asyncHandler((req, res) => {
   res.status(201).json(result);
 }));
 
-stockRouter.post('/ledger/:id/cancel', asyncHandler((req, res) => {
+stockRouter.post('/ledger/:id/cancel', requirePermission('stock:manage'), asyncHandler((req, res) => {
   const body = z.object({ cancelledBy: z.string().min(1), cancelReason: z.string().optional() }).parse(req.body);
   const row = db.prepare('SELECT * FROM stock_ledger WHERE id = ?').get(req.params.id) as LedgerRow | undefined;
   if (!row) throw notFound('Mouvement de stock');

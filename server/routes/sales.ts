@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { db } from '../db/connection.js';
 import { fromJson, toJson } from '../db/json.js';
 import { asyncHandler, ApiError, notFound } from '../middleware/errors.js';
-import { requireAuth } from '../middleware/auth.js';
+import { requireAuth, requirePermission } from '../middleware/auth.js';
 import { recordActivity } from '../lib/activity.js';
 import type { SaleItem, SaleTransaction } from '../../src/data/salesTransactions.js';
 import { DEFAULT_VAT_RATE, type CatalogArticle } from '../../src/data/manualSalesCatalog.js';
@@ -168,12 +168,12 @@ const reverseSaleSideEffects = (saleId: number, performedBy: string, saleNumber:
 export const salesRouter = Router();
 salesRouter.use(requireAuth);
 
-salesRouter.get('/transactions', asyncHandler((_req, res) => {
+salesRouter.get('/transactions', requirePermission('sales:view'), asyncHandler((_req, res) => {
   const rows = db.prepare('SELECT * FROM sales_transactions ORDER BY id DESC').all() as SaleRow[];
   res.json(rows.map(rowToSale));
 }));
 
-salesRouter.post('/transactions', asyncHandler((req, res) => {
+salesRouter.post('/transactions', requirePermission('sales:create'), asyncHandler((req, res) => {
   const body = z.object({ tickets: z.array(saleSchema).min(1) }).parse(req.body);
   const tx = db.transaction(() => {
     const maxRow = db.prepare('SELECT MAX(id) as maxId FROM sales_transactions').get() as { maxId: number | null };
@@ -208,7 +208,7 @@ salesRouter.post('/transactions', asyncHandler((req, res) => {
 // flips its status to Remboursé — the three side effects of a sale (revenue, stock, tax expense)
 // are undone together, never piecemeal, so a refunded sale can never leave stock/expenses
 // overstated even though the sale itself was reversed.
-salesRouter.post('/transactions/:id/refund', asyncHandler((req, res) => {
+salesRouter.post('/transactions/:id/refund', requirePermission('sales:refund'), asyncHandler((req, res) => {
   const id = Number(req.params.id);
   if (!Number.isFinite(id)) throw notFound('Vente');
   const row = db.prepare('SELECT * FROM sales_transactions WHERE id = ?').get(id) as SaleRow | undefined;
