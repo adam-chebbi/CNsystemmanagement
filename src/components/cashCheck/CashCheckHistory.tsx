@@ -3,7 +3,6 @@ import { History, ChevronDown, ChevronUp, CheckCircle2, AlertTriangle, MessageSq
 import {
   CashVerification,
   CASH_DENOMINATIONS,
-  RESTO_TICKET_DENOMINATIONS,
   isSignificantDifference,
   sortVerificationsByConfirmedAtDesc,
 } from '../../data/cashCheckModel';
@@ -114,13 +113,7 @@ export const CashCheckHistory: React.FC<CashCheckHistoryProps> = ({ verification
                       </div>
                       <div className="p-3 rounded-xl bg-white dark:bg-gray-800/60 border border-gray-100 dark:border-gray-800">
                         <p className="text-[11px] font-bold text-gray-600 dark:text-gray-300 mb-1.5">Tickets restaurant</p>
-                        <div className="flex gap-3 text-[10px] text-gray-400">
-                          {RESTO_TICKET_DENOMINATIONS.map((d) => (
-                            <span key={d.id}>
-                              {d.label} × {v.restoCounts[d.id]}
-                            </span>
-                          ))}
-                        </div>
+                        <p className="text-[10px] text-gray-400">Montant compté : {formatDT(v.restoCountedGross)}</p>
                         <p className="text-xs font-bold text-gray-900 dark:text-white mt-1.5">
                           Système {formatDT(v.restoSystemAmount)} (net) → Net {formatDT(v.restoCountedNet)}
                         </p>

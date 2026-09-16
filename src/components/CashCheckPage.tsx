@@ -7,7 +7,6 @@ import {
   CashVerification,
   CashVerificationInput,
   CASH_DENOMINATIONS,
-  RESTO_TICKET_DENOMINATIONS,
   computeCashKpis,
   computeDaySystemTotals,
   buildCashCheckCalendar,
@@ -140,7 +139,7 @@ export const CashCheckPage: React.FC<CashCheckPageProps> = ({
             <span className="text-xs font-semibold text-gray-500 dark:text-gray-400">Tickets restaurant</span>
           </div>
           <p className="text-xl font-bold text-gray-900 dark:text-white">{formatDT(kpis.restoNet)}</p>
-          <p className="text-[11px] text-gray-400 mt-0.5">{kpis.restoTicketCount} ticket(s) papier concernés</p>
+          <p className="text-[11px] text-gray-400 mt-0.5">Montant net, après déduction</p>
         </div>
       </div>
 
@@ -202,39 +201,20 @@ export const CashCheckPage: React.FC<CashCheckPageProps> = ({
         </div>
       </div>
 
-      {/* 4. Tickets restaurant papier */}
+      {/* 4. Tickets restaurant */}
       <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-[#151D2A] border border-gray-100 dark:border-gray-800 shadow-2xs space-y-3">
         <h2 className="text-sm font-bold text-gray-900 dark:text-white inline-flex items-center gap-2">
-          <Ticket size={15} className="text-amber-500" /> Tickets restaurant papier
+          <Ticket size={15} className="text-amber-500" /> Tickets restaurant
         </h2>
         {!dayVerification ? (
           <p className="text-xs text-gray-400 flex items-center gap-2">
             <AlertCircle size={13} /> Aucune vérification confirmée pour ce jour.
           </p>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-xs">
-              <thead>
-                <tr className="text-left text-gray-400 dark:text-gray-500">
-                  <th className="py-1 font-semibold">Valeur</th>
-                  <th className="py-1 font-semibold text-right">Nombre</th>
-                  <th className="py-1 font-semibold text-right">Montant</th>
-                </tr>
-              </thead>
-              <tbody>
-                {RESTO_TICKET_DENOMINATIONS.map((d) => {
-                  const count = dayVerification.restoCounts[d.id] || 0;
-                  return (
-                    <tr key={d.id} className="border-t border-gray-100 dark:border-gray-800">
-                      <td className="py-1 text-gray-600 dark:text-gray-300">{d.label}</td>
-                      <td className="py-1 text-right text-gray-600 dark:text-gray-300">{count}</td>
-                      <td className="py-1 text-right font-semibold text-gray-800 dark:text-gray-200">{formatDT(count * d.value)}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+          <p className="text-xs text-gray-500 dark:text-gray-400">
+            Montant compté (espèces ou carte confondus) :{' '}
+            <span className="font-semibold text-gray-800 dark:text-gray-200">{formatDT(dayVerification.restoCountedGross)}</span>
+          </p>
         )}
         <div className="grid grid-cols-3 gap-2 pt-2 border-t border-gray-100 dark:border-gray-800 text-xs">
           <div>

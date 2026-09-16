@@ -17,10 +17,6 @@ import {
   CashCounts,
   createEmptyCashCounts,
   computeCashTotal,
-  RESTO_TICKET_DENOMINATIONS,
-  RestoTicketCounts,
-  createEmptyRestoCounts,
-  computeRestoGross,
   computeRestoNet,
   DiscrepancyCategory,
   DiscrepancyJustification,
@@ -68,7 +64,7 @@ export const CashVerificationPanel: React.FC<CashVerificationPanelProps> = ({
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [cashCounts, setCashCounts] = useState<CashCounts>(() => createEmptyCashCounts());
-  const [restoCounts, setRestoCounts] = useState<RestoTicketCounts>(() => createEmptyRestoCounts());
+  const [restoCountedAmount, setRestoCountedAmount] = useState<number>(0);
   const [cardVerifiedAmount, setCardVerifiedAmount] = useState<number>(0);
   const [cardVerifiedCountInput, setCardVerifiedCountInput] = useState<string>('');
   const [comments, setComments] = useState<Record<DiscrepancyCategory, string>>({
@@ -79,8 +75,8 @@ export const CashVerificationPanel: React.FC<CashVerificationPanelProps> = ({
   const [showValidation, setShowValidation] = useState(false);
 
   const cashCounted = computeCashTotal(cashCounts);
-  const restoGross = computeRestoGross(restoCounts);
-  const restoNet = computeRestoNet(restoCounts);
+  const restoGross = restoCountedAmount;
+  const restoNet = computeRestoNet(restoCountedAmount);
 
   const diffRows: DiffRow[] = useMemo(
     () => [
@@ -100,7 +96,7 @@ export const CashVerificationPanel: React.FC<CashVerificationPanelProps> = ({
 
   const handleOpen = () => {
     setCashCounts(createEmptyCashCounts());
-    setRestoCounts(createEmptyRestoCounts());
+    setRestoCountedAmount(0);
     setCardVerifiedAmount(cardSystemAmount);
     setCardVerifiedCountInput(cardSystemCount > 0 ? String(cardSystemCount) : '');
     setComments({ 'Espèces': '', 'Ticket resto': '', 'Carte bancaire': '' });
@@ -131,7 +127,6 @@ export const CashVerificationPanel: React.FC<CashVerificationPanelProps> = ({
       cashCounts,
       cashSystemAmount,
       cashCountedAmount: cashCounted,
-      restoCounts,
       restoSystemAmount: restoSystemGross,
       restoCountedGross: restoGross,
       restoCountedNet: restoNet,
@@ -220,26 +215,22 @@ export const CashVerificationPanel: React.FC<CashVerificationPanelProps> = ({
           </div>
         </div>
 
-        {/* 6.2 Tickets resto */}
+        {/* 6.2 Tickets resto — a plain counted amount, not physical note denominations: ticket
+            resto can now also be settled by card, which has nothing to "count" the way cash does. */}
         <div className="space-y-2 pt-1 border-t border-gray-100 dark:border-gray-800">
           <h3 className="text-xs font-bold text-gray-700 dark:text-gray-300 inline-flex items-center gap-1.5 pt-3">
-            <Ticket size={13} className="text-amber-500" /> Comptage des tickets restaurant
+            <Ticket size={13} className="text-amber-500" /> Vérification tickets restaurant
           </h3>
-          <div className="grid grid-cols-3 gap-2 max-w-md">
-            {RESTO_TICKET_DENOMINATIONS.map((d) => (
-              <div key={d.id} className="p-2 rounded-lg bg-gray-50 dark:bg-gray-800/50 border border-gray-100 dark:border-gray-800 space-y-1">
-                <p className="text-[10px] font-semibold text-gray-500 dark:text-gray-400 text-center">{d.label}</p>
-                <input
-                  type="number"
-                  min={0}
-                  value={restoCounts[d.id]}
-                  onChange={(e) =>
-                    setRestoCounts((prev) => ({ ...prev, [d.id]: Math.max(0, Math.round(Number(e.target.value)) || 0) }))
-                  }
-                  className={inputBaseClass}
-                />
-              </div>
-            ))}
+          <div>
+            <label className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 mb-1 block">Montant compté (DT)</label>
+            <input
+              type="number"
+              min={0}
+              step={0.1}
+              value={restoCountedAmount}
+              onChange={(e) => setRestoCountedAmount(Math.max(0, Number(e.target.value) || 0))}
+              className={`${inputBaseClass} w-32`}
+            />
           </div>
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1 p-2.5 rounded-lg bg-gray-50 dark:bg-gray-800/50 text-xs">
             <span className="text-gray-500 dark:text-gray-400">

@@ -1,23 +1,20 @@
 import { SaleTransaction } from './salesTransactions';
 import { Expense } from './expensesModel';
 import { SupplierInvoice } from './purchasesModel';
-import { RestoTicketCounts, RESTO_TICKET_DENOMINATIONS, computeRestoTicketsCollected } from './quantitySalesEntryModel';
 
 // "Calcul du quotidien" — daily cash/card/ticket-resto reconciliation. See PUBLIC note in
 // server/db/schema.sql's cash_verifications table for the persistence model this mirrors.
+//
+// Ticket resto is counted as a plain amount, not a breakdown of physical note denominations
+// (5/7/10 DT) — it can now also be settled by card, which has no "notes" to count, so the
+// verification step is just "how much did you count/receive", the same shape as the card check.
 
 // Runtime-configurable via Paramètres (see src/data/settingsModel.ts) — a live `let` so every
 // caller that reads this constant directly picks up a changed commission rate without a reload.
 export let RESTO_DEDUCTION_RATE = 0.1;
 export const setRestoDeductionRate = (rate: number): void => { RESTO_DEDUCTION_RATE = rate; };
 
-export const computeRestoGross = (counts: RestoTicketCounts): number => computeRestoTicketsCollected(counts);
-export const computeRestoNet = (counts: RestoTicketCounts): number => computeRestoGross(counts) * (1 - RESTO_DEDUCTION_RATE);
-export const computeRestoTicketCount = (counts: RestoTicketCounts): number => counts.count5 + counts.count7 + counts.count10;
-
-export { RESTO_TICKET_DENOMINATIONS };
-export type { RestoTicketCounts };
-export const createEmptyRestoCounts = (): RestoTicketCounts => ({ count5: 0, count7: 0, count10: 0 });
+export const computeRestoNet = (grossAmount: number): number => grossAmount * (1 - RESTO_DEDUCTION_RATE);
 
 // --- Cash denominations (billets/pièces en circulation en Tunisie) ---
 
@@ -68,7 +65,6 @@ export interface CashVerification {
   cashCounts: CashCounts;
   cashSystemAmount: number;
   cashCountedAmount: number;
-  restoCounts: RestoTicketCounts;
   restoSystemAmount: number;
   restoCountedGross: number;
   restoCountedNet: number;
@@ -144,7 +140,6 @@ export interface CashKpis {
   especes: number;
   carte: number;
   restoNet: number;
-  restoTicketCount: number;
   lastVerification: CashVerification | null;
 }
 
@@ -160,7 +155,6 @@ export const computeCashKpis = (
   let especes = lastVerification?.cashCountedAmount ?? 0;
   let carte = lastVerification?.cardVerifiedAmount ?? 0;
   let restoNet = lastVerification?.restoCountedNet ?? 0;
-  const restoTicketCount = lastVerification ? computeRestoTicketCount(lastVerification.restoCounts) : 0;
 
   salesTransactions.forEach((t) => {
     if (t.status !== 'Payé') return;
@@ -184,7 +178,7 @@ export const computeCashKpis = (
     else if (inv.paymentMethod === 'Carte bancaire') carte -= inv.amountPaid;
   });
 
-  return { especes, carte, restoNet, restoTicketCount, lastVerification };
+  return { especes, carte, restoNet, lastVerification };
 };
 
 // --- Per-day "système" totals (sections Espèces / Tickets resto / Carte bancaire) ---

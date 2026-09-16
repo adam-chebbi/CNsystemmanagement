@@ -13,7 +13,6 @@ interface CashVerificationRow {
   cash_counts: string;
   cash_system_amount: number;
   cash_counted_amount: number;
-  resto_counts: string;
   resto_system_amount: number;
   resto_counted_gross: number;
   resto_counted_net: number;
@@ -36,7 +35,6 @@ const rowToVerification = (r: CashVerificationRow) => ({
   cashCounts: fromJson<Record<string, number>>(r.cash_counts, {}),
   cashSystemAmount: r.cash_system_amount,
   cashCountedAmount: r.cash_counted_amount,
-  restoCounts: fromJson(r.resto_counts, { count5: 0, count7: 0, count10: 0 }),
   restoSystemAmount: r.resto_system_amount,
   restoCountedGross: r.resto_counted_gross,
   restoCountedNet: r.resto_counted_net,
@@ -65,12 +63,6 @@ cashVerificationsRouter.get(
   })
 );
 
-const restoCountsSchema = z.object({
-  count5: z.number().int().min(0),
-  count7: z.number().int().min(0),
-  count10: z.number().int().min(0),
-});
-
 const justificationSchema = z.object({
   id: z.string(),
   category: z.enum(['Espèces', 'Ticket resto', 'Carte bancaire']),
@@ -86,7 +78,6 @@ const verificationSchema = z.object({
   cashCounts: z.record(z.string(), z.number().int().min(0)),
   cashSystemAmount: z.number(),
   cashCountedAmount: z.number(),
-  restoCounts: restoCountsSchema,
   restoSystemAmount: z.number(),
   restoCountedGross: z.number(),
   restoCountedNet: z.number(),
@@ -124,7 +115,11 @@ cashVerificationsRouter.post(
       toJson(body.cashCounts),
       body.cashSystemAmount,
       body.cashCountedAmount,
-      toJson(body.restoCounts),
+      // resto_counts (physical-note-denomination breakdown) is a retired concept — ticket resto is
+      // now a plain counted amount (resto_counted_gross), since it can also be settled by card,
+      // which has nothing to "count". The NOT NULL column is kept (no migration) and just written
+      // with an empty placeholder; nothing reads it anymore (see rowToVerification above).
+      '{}',
       body.restoSystemAmount,
       body.restoCountedGross,
       body.restoCountedNet,

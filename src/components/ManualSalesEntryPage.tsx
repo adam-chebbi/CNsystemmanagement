@@ -19,6 +19,7 @@ import {
   ShoppingBag,
   ChevronDown,
   ChevronUp,
+  ChevronRight,
   ChevronsDownUp,
   ChevronsUpDown,
   Users,
@@ -54,7 +55,7 @@ import {
 import {
   DraftQuantityRow,
   QuantitySalesFormState,
-  RestoTicketCounts,
+  createEmptyQuantityRow,
   createEmptyQuantityForm,
   computeQuantitySalesTotals,
   validateQuantitySalesForm,
@@ -75,6 +76,25 @@ interface ManualSalesEntryPageProps {
 
 type Step = 'form' | 'preview' | 'success';
 type EntryMode = 'tickets' | 'quantities';
+
+// Same card-grid convention as the Import Excel/CSV hubs (Stock/Produits/Achats) — pick a mode,
+// then work within it (with a "Changer de mode" way back), instead of a tab switcher above the form.
+const ENTRY_MODE_CARDS: { id: EntryMode; icon: React.ComponentType<{ size?: number; className?: string }>; title: string; description: string; accent: string }[] = [
+  {
+    id: 'tickets',
+    icon: Receipt,
+    title: 'Par tickets',
+    description: 'Saisissez chaque ticket séparément : articles, service (sur place / à emporter) et règlement propres à chaque vente.',
+    accent: 'bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 border-emerald-100 dark:border-emerald-900/40',
+  },
+  {
+    id: 'quantities',
+    icon: Package,
+    title: 'Par quantités vendues',
+    description: "Pratique pour une journée entière : indiquez combien de chaque produit a été vendu, puis vérifiez le total encaissé par mode de règlement.",
+    accent: 'bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 border-blue-100 dark:border-blue-900/40',
+  },
+];
 
 const inputBaseClass =
   'w-full px-3.5 py-2 text-xs rounded-xl border bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-1 transition';
@@ -97,9 +117,9 @@ export const ManualSalesEntryPage: React.FC<ManualSalesEntryPageProps> = ({
 }) => {
   const catalog: SalesCatalogContext = { articles, extras, employees, shifts };
   const articleCategories = useMemo(() => getArticleCategoriesInUse(articles), [articles]);
-  const [mode, setMode] = useState<EntryMode>('tickets');
+  const [mode, setMode] = useState<EntryMode | null>(null);
   const [form, setForm] = useState<ManualSalesFormState>(() => createEmptyForm());
-  const [quantityForm, setQuantityForm] = useState<QuantitySalesFormState>(() => createEmptyQuantityForm(articles));
+  const [quantityForm, setQuantityForm] = useState<QuantitySalesFormState>(() => createEmptyQuantityForm());
   const [step, setStep] = useState<Step>('form');
   const [savedMode, setSavedMode] = useState<EntryMode>('tickets');
   const [hasAttemptedVerify, setHasAttemptedVerify] = useState(false);
@@ -157,10 +177,10 @@ export const ManualSalesEntryPage: React.FC<ManualSalesEntryPageProps> = ({
   const qHasAnyData =
     Boolean(quantityForm.shift) ||
     Boolean(quantityForm.employee) ||
-    quantityForm.rows.some((r) => r.qty > 0) ||
-    quantityForm.restoTickets.count5 > 0 ||
-    quantityForm.restoTickets.count7 > 0 ||
-    quantityForm.restoTickets.count10 > 0;
+    quantityForm.rows.some((r) => r.articleId) ||
+    quantityForm.paidCash > 0 ||
+    quantityForm.paidCard > 0 ||
+    quantityForm.paidRestoTicket > 0;
   const activeHasAnyData = mode === 'quantities' ? qHasAnyData : hasAnyData;
 
   // --- Mutators (all immutable updates against the single `form` state) ---
@@ -272,36 +292,23 @@ export const ManualSalesEntryPage: React.FC<ManualSalesEntryPageProps> = ({
     setQuantityForm((prev) => ({ ...prev, ...patch }));
   };
 
-  const updateQuantityRowQty = (articleId: string, qty: number) => {
+  const addQuantityRow = () => {
+    setQuantityForm((prev) => ({ ...prev, rows: [...prev.rows, createEmptyQuantityRow()] }));
+  };
+
+  const removeQuantityRow = (rowId: string) => {
+    setQuantityForm((prev) => ({ ...prev, rows: prev.rows.filter((r) => r.rowId !== rowId) }));
+  };
+
+  const updateQuantityRow = (rowId: string, patch: Partial<DraftQuantityRow>) => {
     setQuantityForm((prev) => ({
       ...prev,
-      rows: prev.rows.map((r) => {
-        if (r.articleId !== articleId) return r;
-        const clamped = Math.max(0, Math.round(qty) || 0);
-        const delta = clamped - r.qty;
-        // Any change in quantity is assumed Espèces by default until the user redistributes it
-        // across the other payment methods — keeps the row's payment split always summing to qty
-        // without overwriting whatever the user already chose for cash/card/resto.
-        return {
-          ...r,
-          qty: clamped,
-          takeawayQty: Math.min(r.takeawayQty, clamped),
-          discountQty: Math.min(r.discountQty, clamped),
-          paidCash: Math.max(0, r.paidCash + delta),
-        };
-      }),
+      rows: prev.rows.map((r) => (r.rowId === rowId ? { ...r, ...patch } : r)),
     }));
   };
 
-  const updateQuantityRow = (articleId: string, patch: Partial<DraftQuantityRow>) => {
-    setQuantityForm((prev) => ({
-      ...prev,
-      rows: prev.rows.map((r) => (r.articleId === articleId ? { ...r, ...patch } : r)),
-    }));
-  };
-
-  const updateRestoTickets = (patch: Partial<RestoTicketCounts>) => {
-    setQuantityForm((prev) => ({ ...prev, restoTickets: { ...prev.restoTickets, ...patch } }));
+  const updateQuantityPayment = (patch: Partial<Pick<QuantitySalesFormState, 'paidCash' | 'paidCard' | 'paidRestoTicket'>>) => {
+    setQuantityForm((prev) => ({ ...prev, ...patch }));
   };
 
   const handleVerify = () => {
@@ -362,7 +369,7 @@ export const ManualSalesEntryPage: React.FC<ManualSalesEntryPageProps> = ({
       if (qHasAnyData && !window.confirm('Voulez-vous réinitialiser la saisie ? Toutes les données non enregistrées seront perdues.')) {
         return;
       }
-      setQuantityForm(createEmptyQuantityForm(articles));
+      setQuantityForm(createEmptyQuantityForm());
       setQHasAttemptedVerify(false);
       return;
     }
@@ -382,7 +389,7 @@ export const ManualSalesEntryPage: React.FC<ManualSalesEntryPageProps> = ({
 
   const handleAddMore = () => {
     setForm(createEmptyForm());
-    setQuantityForm(createEmptyQuantityForm(articles));
+    setQuantityForm(createEmptyQuantityForm());
     setHasAttemptedVerify(false);
     setQHasAttemptedVerify(false);
     setSaveError(null);
@@ -614,37 +621,47 @@ export const ManualSalesEntryPage: React.FC<ManualSalesEntryPageProps> = ({
             </div>
           </div>
         </>
+      ) : mode === null ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {ENTRY_MODE_CARDS.map((card) => {
+            const Icon = card.icon;
+            return (
+              <button
+                key={card.id}
+                onClick={() => setMode(card.id)}
+                className="group text-left p-5 rounded-2xl bg-white dark:bg-[#151D2A] border border-gray-100 dark:border-gray-800 shadow-2xs hover:shadow-md hover:-translate-y-0.5 transition-all cursor-pointer flex flex-col gap-3"
+              >
+                <div className={`w-11 h-11 rounded-xl border flex items-center justify-center shrink-0 transition-transform group-hover:scale-105 ${card.accent}`}>
+                  <Icon size={20} />
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-1.5">
+                    {card.title}
+                    <ChevronRight size={14} className="text-gray-300 dark:text-gray-600 group-hover:text-emerald-500 group-hover:translate-x-0.5 transition-all" />
+                  </h3>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 leading-relaxed">{card.description}</p>
+                </div>
+              </button>
+            );
+          })}
+        </div>
       ) : (
         <>
-          {/* Entry mode switch */}
-          <div className="p-1 rounded-2xl bg-white dark:bg-[#151D2A] border border-gray-100 dark:border-gray-800 shadow-2xs flex items-center gap-1 w-fit">
-            <button
-              onClick={() => setMode('tickets')}
-              className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold transition cursor-pointer ${
-                mode === 'tickets'
-                  ? 'bg-[#00A86B] text-white shadow-xs'
-                  : 'text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800/70'
-              }`}
-            >
-              <Receipt size={14} />
-              <span>Par tickets</span>
-            </button>
-            <button
-              onClick={() => setMode('quantities')}
-              className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold transition cursor-pointer ${
-                mode === 'quantities'
-                  ? 'bg-[#00A86B] text-white shadow-xs'
-                  : 'text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800/70'
-              }`}
-            >
-              <Package size={14} />
-              <span>Par quantités vendues</span>
+          {/* Current mode + switch back to the card selection */}
+          <div className="flex items-center justify-between gap-2">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#00A86B] text-white text-xs font-semibold shadow-xs">
+              {mode === 'tickets' ? <Receipt size={14} /> : <Package size={14} />}
+              <span>{mode === 'tickets' ? 'Par tickets' : 'Par quantités vendues'}</span>
+            </span>
+            <button onClick={() => setMode(null)} className={secondaryButtonClass}>
+              <ArrowLeft size={14} className="text-gray-500 dark:text-gray-400" />
+              <span>Changer de mode</span>
             </button>
           </div>
           {mode === 'quantities' && (
             <p className="text-[11px] text-gray-400 -mt-2">
               Pratique quand la journée ne se prête pas à une saisie détaillée : indiquez simplement combien de
-              chaque produit a été vendu, avec les remises et règlements associés.
+              chaque produit a été vendu, puis vérifiez le total encaissé par mode de règlement.
             </p>
           )}
 
@@ -658,9 +675,10 @@ export const ManualSalesEntryPage: React.FC<ManualSalesEntryPageProps> = ({
               issues={qIssues}
               showErrors={qHasAttemptedVerify}
               onChangeGeneral={updateQuantityGeneral}
-              onChangeQty={updateQuantityRowQty}
+              onAddRow={addQuantityRow}
+              onRemoveRow={removeQuantityRow}
               onChangeRow={updateQuantityRow}
-              onChangeRestoTickets={updateRestoTickets}
+              onChangePayment={updateQuantityPayment}
               onReset={handleReset}
               onCancel={handleCancel}
               onVerify={handleVerify}
