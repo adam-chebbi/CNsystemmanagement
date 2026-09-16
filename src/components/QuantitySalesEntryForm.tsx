@@ -177,7 +177,7 @@ export const QuantitySalesFormStep: React.FC<QuantitySalesFormStepProps> = ({
           {form.rows.map((row, idx) => {
             const article = getArticleById(row.articleId, articles);
             const rowTotal = computeRowNetTotal(row, article);
-            const discountTotal = computeRowDiscountTotal(row);
+            const discountTotal = computeRowDiscountTotal(row, article);
             const usedElsewhere = new Set(form.rows.filter((r) => r.rowId !== row.rowId && r.articleId).map((r) => r.articleId));
             const articleErrorKey = `qrow:${row.rowId}:article`;
             const duplicateErrorKey = `qrow:${row.rowId}:duplicate`;
@@ -299,18 +299,47 @@ export const QuantitySalesFormStep: React.FC<QuantitySalesFormStepProps> = ({
                       <span className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 inline-flex items-center gap-1">
                         <Percent size={11} /> Réduction / unité
                       </span>
+                      <div className="flex items-center gap-1 flex-wrap">
+                        <button
+                          type="button"
+                          onClick={() => onChangeRow(row.rowId, { discountMode: 'amount', discountValue: 0 })}
+                          className={`px-2 py-0.5 rounded-md text-[10px] font-semibold cursor-pointer ${
+                            row.discountMode === 'amount'
+                              ? 'bg-emerald-500 text-white'
+                              : 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400'
+                          }`}
+                        >
+                          Montant (DT)
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => onChangeRow(row.rowId, { discountMode: 'percent', discountValue: 0 })}
+                          className={`px-2 py-0.5 rounded-md text-[10px] font-semibold cursor-pointer ${
+                            row.discountMode === 'percent'
+                              ? 'bg-emerald-500 text-white'
+                              : 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400'
+                          }`}
+                        >
+                          Pourcentage (%)
+                        </button>
+                      </div>
                       <div className="flex items-center gap-1.5">
                         <input
                           type="number"
                           min={0}
-                          step={0.1}
-                          value={row.discountPerUnit}
-                          onChange={(e) => onChangeRow(row.rowId, { discountPerUnit: Math.max(0, Number(e.target.value) || 0) })}
+                          max={row.discountMode === 'percent' ? 100 : undefined}
+                          step={row.discountMode === 'percent' ? 1 : 0.1}
+                          value={row.discountValue}
+                          onChange={(e) => {
+                            const raw = Math.max(0, Number(e.target.value) || 0);
+                            const clamped = row.discountMode === 'percent' ? Math.min(100, raw) : raw;
+                            onChangeRow(row.rowId, { discountValue: clamped });
+                          }}
                           className="w-full text-xs py-1.5 px-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
                         />
-                        <span className="text-[10px] text-gray-400 shrink-0">DT</span>
+                        <span className="text-[10px] text-gray-400 shrink-0">{row.discountMode === 'percent' ? '%' : 'DT'}</span>
                       </div>
-                      {row.discountPerUnit > 0 && (
+                      {row.discountValue > 0 && (
                         <div className="flex items-center gap-1 flex-wrap">
                           <button
                             type="button"
@@ -552,7 +581,7 @@ export const QuantitySalesPreviewStep: React.FC<QuantitySalesPreviewStepProps> =
           const article = getArticleById(row.articleId, articles);
           if (!article) return null;
           const net = computeRowNetTotal(row, article);
-          const discount = computeRowDiscountTotal(row);
+          const discount = computeRowDiscountTotal(row, article);
           return (
             <div
               key={row.rowId}

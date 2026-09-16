@@ -13,11 +13,14 @@ import { roundToPayableCash } from './currencyRounding';
 // DraftTicket) because the two entry styles have almost nothing in common beyond the shared
 // date/shift/employee header and the final SaleTransaction output shape.
 
+export type DiscountMode = 'amount' | 'percent';
+
 export interface DraftQuantityRow {
   rowId: string;
   articleId: string;
   qty: number;
-  discountPerUnit: number; // DT, per unit
+  discountMode: DiscountMode; // whether discountValue is a flat DT amount or a percentage of the unit price
+  discountValue: number; // DT per unit when discountMode === 'amount' ; 0-100 when discountMode === 'percent'
   discountScope: 'all' | 'partial'; // whether the reduction covers every sold unit or a chosen count
   discountQty: number; // used only when discountScope === 'partial', clamped to [0, qty]
   takeawayQty: number; // subset of qty that was "à emporter" rather than consommé sur place
@@ -43,7 +46,8 @@ export const createEmptyQuantityRow = (): DraftQuantityRow => ({
   rowId: generateRowId(),
   articleId: '',
   qty: 1,
-  discountPerUnit: 0,
+  discountMode: 'amount',
+  discountValue: 0,
   discountScope: 'all',
   discountQty: 0,
   takeawayQty: 0,
@@ -69,14 +73,26 @@ export const clampInt = (value: number, min: number, max: number): number => {
 export const effectiveDiscountQty = (row: DraftQuantityRow): number =>
   row.discountScope === 'all' ? row.qty : Math.min(row.discountQty, row.qty);
 
-export const computeRowDiscountTotal = (row: DraftQuantityRow): number =>
-  row.discountPerUnit > 0 ? row.discountPerUnit * effectiveDiscountQty(row) : 0;
+// Resolves discountValue (a flat DT amount or a 0-100 percentage, depending on discountMode) to an
+// actual DT-per-unit figure — a percentage only makes sense against the product's own unit price.
+export const computeDiscountPerUnit = (row: DraftQuantityRow, article: CatalogArticle | undefined): number => {
+  if (row.discountMode === 'percent') {
+    const unitPrice = article ? getArticleTtcPrice(article) : 0;
+    return (unitPrice * Math.max(0, Math.min(100, row.discountValue))) / 100;
+  }
+  return Math.max(0, row.discountValue);
+};
+
+export const computeRowDiscountTotal = (row: DraftQuantityRow, article: CatalogArticle | undefined): number => {
+  const perUnit = computeDiscountPerUnit(row, article);
+  return perUnit > 0 ? perUnit * effectiveDiscountQty(row) : 0;
+};
 
 export const computeRowGrossTotal = (row: DraftQuantityRow, article: CatalogArticle | undefined): number =>
   article ? row.qty * getArticleTtcPrice(article) : 0;
 
 export const computeRowNetTotal = (row: DraftQuantityRow, article: CatalogArticle | undefined): number =>
-  Math.max(0, computeRowGrossTotal(row, article) - computeRowDiscountTotal(row));
+  Math.max(0, computeRowGrossTotal(row, article) - computeRowDiscountTotal(row, article));
 
 // A single blended unit price for the day's sales of this product (after its reduction) — used
 // both for display and to price the SaleTransaction items built from this row.
@@ -118,7 +134,7 @@ export const computeQuantitySalesTotals = (
     totalQty += row.qty;
     totalTakeawayQty += takeaway;
     totalGross += computeRowGrossTotal(row, article);
-    totalDiscount += computeRowDiscountTotal(row);
+    totalDiscount += computeRowDiscountTotal(row, article);
     totalNet += computeRowNetTotal(row, article);
   });
 
@@ -178,6 +194,9 @@ export const validateQuantitySalesForm = (
     }
     if (row.discountScope === 'partial' && row.discountQty > row.qty) {
       issues.push({ fieldKey: `qrow:${row.rowId}:discount`, message: `${label} : le nombre d'unités concernées par la réduction ne peut pas dépasser la quantité vendue.` });
+    }
+    if (row.discountMode === 'percent' && (row.discountValue < 0 || row.discountValue > 100)) {
+      issues.push({ fieldKey: `qrow:${row.rowId}:discount`, message: `${label} : le pourcentage de réduction doit être compris entre 0 et 100.` });
     }
   });
 
@@ -248,7 +267,7 @@ export const buildSaleTransactionsFromQuantityForm = (
     ];
 
     const grid = apportionGrid([onSite, takeaway], paymentColTotals);
-    const name = computeRowDiscountTotal(row) > 0 ? `${article.name} (remise)` : article.name;
+    const name = computeRowDiscountTotal(row, article) > 0 ? `${article.name} (remise)` : article.name;
 
     SERVICE_TYPES.forEach((_service, sIdx) => {
       PAYMENT_METHODS.forEach((_payment, pIdx) => {
