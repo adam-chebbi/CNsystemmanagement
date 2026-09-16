@@ -19,6 +19,7 @@ import {
   MessageSquare,
 } from 'lucide-react';
 import { CatalogArticle, getArticleCategoriesInUse, getArticleById, getArticleTtcPrice } from '../data/manualSalesCatalog';
+import { PAYMENT_NOTE_SUGGESTIONS } from '../data/salesTransactions';
 import {
   DraftQuantityRow,
   QuantitySalesFormState,
@@ -27,7 +28,6 @@ import {
   clampInt,
   computeRowDiscountTotal,
   computeRowNetTotal,
-  PAYMENT_NOTE_SUGGESTIONS,
 } from '../data/quantitySalesEntryModel';
 
 const inputBaseClass =

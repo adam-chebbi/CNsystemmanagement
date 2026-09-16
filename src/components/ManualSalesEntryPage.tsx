@@ -26,8 +26,9 @@ import {
   ClipboardList,
   RotateCcw,
   Package,
+  MessageSquare,
 } from 'lucide-react';
-import { SaleTransaction, ServiceType, PaymentMethod } from '../data/salesTransactions';
+import { SaleTransaction, ServiceType, PaymentMethod, PAYMENT_NOTE_SUGGESTIONS } from '../data/salesTransactions';
 import {
   CatalogArticle,
   CatalogExtra,
@@ -96,6 +97,23 @@ const ENTRY_MODE_CARDS: { id: EntryMode; icon: React.ComponentType<{ size?: numb
   },
 ];
 
+// Whole-entry payment reconciliation for "Par tickets" — kept as local page state (not part of the
+// shared ManualSalesFormState in salesEntryModel.ts, which "Import Excel/CSV" also reuses) since
+// it's purely a Ajout-manuel concern: each ticket already carries its own règlement, so this is
+// only a cross-check against what was actually collected, exactly like "Par quantités vendues".
+interface TicketPaymentVerification {
+  verifiedCash: number;
+  verifiedCard: number;
+  verifiedRestoTicket: number;
+  note: string;
+}
+const createEmptyTicketPaymentVerification = (): TicketPaymentVerification => ({
+  verifiedCash: 0,
+  verifiedCard: 0,
+  verifiedRestoTicket: 0,
+  note: '',
+});
+
 const inputBaseClass =
   'w-full px-3.5 py-2 text-xs rounded-xl border bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-1 transition';
 const inputValidClass = 'border-gray-200 dark:border-gray-700 focus:border-emerald-500 focus:ring-emerald-500';
@@ -132,6 +150,7 @@ export const ManualSalesEntryPage: React.FC<ManualSalesEntryPageProps> = ({
   // Tickets are expanded by default (a freshly added ticket needs filling in); collapsing is
   // purely a user choice to shorten a long list, never automatic.
   const [collapsedTickets, setCollapsedTickets] = useState<Set<string>>(new Set());
+  const [ticketPayment, setTicketPayment] = useState<TicketPaymentVerification>(() => createEmptyTicketPaymentVerification());
 
   const issues = useMemo(() => validateManualSalesForm(form), [form]);
   const issuesByKey = useMemo(() => {
@@ -160,6 +179,12 @@ export const ManualSalesEntryPage: React.FC<ManualSalesEntryPageProps> = ({
 
   const showErrors = hasAttemptedVerify;
   const grandTotal = useMemo(() => computeGrandTotal(form, catalog), [form, catalog]);
+  const ticketPaymentTotal = ticketPayment.verifiedCash + ticketPayment.verifiedCard + ticketPayment.verifiedRestoTicket;
+  const ticketPaymentMismatch = Math.abs(grandTotal - ticketPaymentTotal) > 0.01;
+  const ticketPaymentIssue =
+    ticketPaymentMismatch && !ticketPayment.note.trim()
+      ? `Écart entre le total encaissé (${ticketPaymentTotal.toFixed(2)} DT) et le total des ventes (${grandTotal.toFixed(2)} DT) : veuillez saisir une justification ci-dessous.`
+      : null;
   const totalArticlesCount = useMemo(
     () => form.tickets.reduce((sum, t) => sum + t.items.reduce((s, it) => s + (it.articleId ? it.qty : 0), 0), 0),
     [form]
@@ -170,7 +195,10 @@ export const ManualSalesEntryPage: React.FC<ManualSalesEntryPageProps> = ({
     Boolean(form.employee) ||
     form.tickets.some(
       (t) => t.items.some((it) => it.articleId) || t.tableNumber.trim() || t.counterLabel !== 'Comptoir Express'
-    );
+    ) ||
+    ticketPayment.verifiedCash > 0 ||
+    ticketPayment.verifiedCard > 0 ||
+    ticketPayment.verifiedRestoTicket > 0;
 
   const qIssues = useMemo(() => validateQuantitySalesForm(quantityForm, articles), [quantityForm, articles]);
   const qTotals = useMemo(() => computeQuantitySalesTotals(quantityForm, catalog), [quantityForm, catalog]);
@@ -311,6 +339,10 @@ export const ManualSalesEntryPage: React.FC<ManualSalesEntryPageProps> = ({
     setQuantityForm((prev) => ({ ...prev, ...patch }));
   };
 
+  const updateTicketPayment = (patch: Partial<TicketPaymentVerification>) => {
+    setTicketPayment((prev) => ({ ...prev, ...patch }));
+  };
+
   const handleVerify = () => {
     if (mode === 'quantities') {
       setQHasAttemptedVerify(true);
@@ -321,7 +353,7 @@ export const ManualSalesEntryPage: React.FC<ManualSalesEntryPageProps> = ({
       return;
     }
     setHasAttemptedVerify(true);
-    if (issues.length === 0) {
+    if (issues.length === 0 && !ticketPaymentIssue) {
       setStep('preview');
       document.getElementById('app-main-scroll-area')?.scrollTo({ top: 0, behavior: 'smooth' });
     } else if (errorTicketIds.size > 0) {
@@ -349,7 +381,9 @@ export const ManualSalesEntryPage: React.FC<ManualSalesEntryPageProps> = ({
         setQSavedStats({ products: qTotals.activeProductsCount, total: qTotals.totalNet });
         setSavedMode('quantities');
       } else {
-        const newTransactions = buildSaleTransactionsFromForm(form, catalog);
+        const builtTransactions = buildSaleTransactionsFromForm(form, catalog);
+        const note = ticketPayment.note.trim() || undefined;
+        const newTransactions = note ? builtTransactions.map((t) => ({ ...t, note })) : builtTransactions;
         await onSaveTickets(newTransactions);
         setSavedCount(newTransactions.length);
         setSavedMode('tickets');
@@ -377,6 +411,7 @@ export const ManualSalesEntryPage: React.FC<ManualSalesEntryPageProps> = ({
       return;
     }
     setForm(createEmptyForm());
+    setTicketPayment(createEmptyTicketPaymentVerification());
     setHasAttemptedVerify(false);
   };
 
@@ -390,6 +425,7 @@ export const ManualSalesEntryPage: React.FC<ManualSalesEntryPageProps> = ({
   const handleAddMore = () => {
     setForm(createEmptyForm());
     setQuantityForm(createEmptyQuantityForm());
+    setTicketPayment(createEmptyTicketPaymentVerification());
     setHasAttemptedVerify(false);
     setQHasAttemptedVerify(false);
     setSaveError(null);
@@ -589,6 +625,16 @@ export const ManualSalesEntryPage: React.FC<ManualSalesEntryPageProps> = ({
               </div>
             ))}
           </div>
+
+          {ticketPayment.note.trim() && (
+            <div className="p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/50 flex items-start gap-3">
+              <MessageSquare size={16} className="text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+              <div>
+                <p className="text-xs font-bold text-amber-800 dark:text-amber-300">Justification de l'écart de règlement</p>
+                <p className="text-xs text-amber-700/90 dark:text-amber-400/90">{ticketPayment.note}</p>
+              </div>
+            </div>
+          )}
 
           {saveError && (
             <div className="p-4 rounded-2xl bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800/60 flex items-start gap-3">
@@ -1159,6 +1205,117 @@ export const ManualSalesEntryPage: React.FC<ManualSalesEntryPageProps> = ({
                   );
                 })}
               </div>
+            )}
+          </div>
+
+          {/* Vérification des encaissements — same mechanism as "Par quantités vendues": a
+              whole-entry cross-check against what each ticket's own règlement already sums to. */}
+          <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-[#151D2A] border border-gray-100 dark:border-gray-800 shadow-2xs space-y-3">
+            <h2 className="text-sm font-bold text-gray-900 dark:text-white inline-flex items-center gap-2">
+              <ShieldCheck size={15} className="text-emerald-500" />
+              Vérification des encaissements
+            </h2>
+            <p className="text-[11px] text-gray-400">
+              Indiquez le montant total réellement encaissé, par mode de règlement. Le total doit correspondre au
+              montant des ventes ci-dessus.
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 max-w-xl">
+              <div>
+                <label className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 mb-1 flex items-center gap-1.5">
+                  <Banknote size={12} className="text-emerald-500" /> Espèces
+                </label>
+                <input
+                  type="number"
+                  min={0}
+                  step={0.1}
+                  value={ticketPayment.verifiedCash}
+                  onChange={(e) => updateTicketPayment({ verifiedCash: Math.max(0, Number(e.target.value) || 0) })}
+                  className={`${inputBaseClass} ${inputValidClass}`}
+                />
+              </div>
+              <div>
+                <label className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 mb-1 flex items-center gap-1.5">
+                  <CreditCard size={12} className="text-blue-500" /> Carte bancaire
+                </label>
+                <input
+                  type="number"
+                  min={0}
+                  step={0.1}
+                  value={ticketPayment.verifiedCard}
+                  onChange={(e) => updateTicketPayment({ verifiedCard: Math.max(0, Number(e.target.value) || 0) })}
+                  className={`${inputBaseClass} ${inputValidClass}`}
+                />
+              </div>
+              <div>
+                <label className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 mb-1 flex items-center gap-1.5">
+                  <Ticket size={12} className="text-amber-500" /> Tickets restaurant
+                </label>
+                <input
+                  type="number"
+                  min={0}
+                  step={0.1}
+                  value={ticketPayment.verifiedRestoTicket}
+                  onChange={(e) => updateTicketPayment({ verifiedRestoTicket: Math.max(0, Number(e.target.value) || 0) })}
+                  className={`${inputBaseClass} ${inputValidClass}`}
+                />
+              </div>
+            </div>
+            <div
+              className={`flex items-center gap-2 text-xs px-3 py-2 rounded-lg ${
+                showErrors && ticketPaymentMismatch
+                  ? 'bg-red-50 dark:bg-red-950/30 text-red-600 dark:text-red-400'
+                  : ticketPaymentMismatch
+                  ? 'bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-300'
+                  : 'bg-gray-50 dark:bg-gray-800/50 text-gray-500 dark:text-gray-400'
+              }`}
+            >
+              {ticketPaymentMismatch ? <AlertTriangle size={13} /> : <CheckCircle2 size={13} />}
+              <span>
+                Total encaissé : <strong>{ticketPaymentTotal.toFixed(2)} DT</strong> — Total des ventes :{' '}
+                <strong>{grandTotal.toFixed(2)} DT</strong>
+              </span>
+            </div>
+
+            {ticketPaymentMismatch && (
+              <div className="space-y-2 pt-1">
+                <label className="text-[11px] font-semibold text-gray-600 dark:text-gray-300 inline-flex items-center gap-1.5">
+                  <MessageSquare size={12} className="text-amber-500" />
+                  Justification de l'écart *
+                </label>
+                <div className="flex flex-wrap gap-1.5">
+                  {PAYMENT_NOTE_SUGGESTIONS.map((suggestion) => (
+                    <button
+                      key={suggestion}
+                      type="button"
+                      onClick={() => updateTicketPayment({ note: suggestion })}
+                      className={`px-2 py-1 rounded-md text-[10px] font-medium border transition cursor-pointer ${
+                        ticketPayment.note === suggestion
+                          ? 'bg-emerald-500 border-emerald-500 text-white'
+                          : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:border-emerald-300'
+                      }`}
+                    >
+                      {suggestion}
+                    </button>
+                  ))}
+                </div>
+                <textarea
+                  value={ticketPayment.note}
+                  onChange={(e) => updateTicketPayment({ note: e.target.value })}
+                  placeholder="Expliquez l'écart entre le total encaissé et le total des ventes…"
+                  rows={2}
+                  className={`w-full px-3 py-2 text-xs rounded-lg border bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-1 transition ${
+                    showErrors && ticketPaymentIssue
+                      ? 'border-red-400 dark:border-red-500/70 focus:border-red-500 focus:ring-red-500'
+                      : 'border-gray-200 dark:border-gray-700 focus:border-emerald-500 focus:ring-emerald-500'
+                  }`}
+                />
+              </div>
+            )}
+
+            {showErrors && ticketPaymentIssue && (
+              <p className="text-[11px] text-red-500 flex items-center gap-1">
+                <AlertCircle size={11} /> {ticketPaymentIssue}
+              </p>
             )}
           </div>
 

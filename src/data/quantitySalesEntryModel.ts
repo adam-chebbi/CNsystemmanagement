@@ -69,16 +69,6 @@ export const createEmptyQuantityForm = (): QuantitySalesFormState => ({
   paymentNote: '',
 });
 
-// Small, ready-to-click starting points for the payment-mismatch justification — the user can
-// still edit or replace the text after picking one.
-export const PAYMENT_NOTE_SUGGESTIONS: string[] = [
-  'Pourboire laissé en caisse',
-  'Erreur de comptage à vérifier',
-  'Rendu de monnaie non enregistré',
-  'Remise verbale non saisie ligne par ligne',
-  'Écart de caisse à régulariser',
-];
-
 export const clampInt = (value: number, min: number, max: number): number => {
   const n = Math.round(Number.isFinite(value) ? value : 0);
   return Math.min(Math.max(n, min), max);

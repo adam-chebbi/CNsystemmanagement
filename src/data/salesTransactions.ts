@@ -50,6 +50,19 @@ export interface SaleTransaction {
   note?: string;
 }
 
+// Small, ready-to-click starting points for a payment-mismatch justification note (see
+// quantitySalesEntryModel.ts and salesEntryModel.ts's "Vérification des encaissements") — the
+// user can still edit or replace the text after picking one. Kept here (rather than in either
+// entry-mode model) since both "Par tickets" and "Par quantités vendues" need it and quantities
+// already imports from salesEntryModel, which would make the reverse import circular.
+export const PAYMENT_NOTE_SUGGESTIONS: string[] = [
+  'Pourboire laissé en caisse',
+  'Erreur de comptage à vérifier',
+  'Rendu de monnaie non enregistré',
+  'Remise verbale non saisie ligne par ligne',
+  'Écart de caisse à régulariser',
+];
+
 export const MONTHS_LIST = [
   { id: 'Jan', label: 'Jan', fullName: 'Janvier', monthIndex: 0 },
   { id: 'Fév', label: 'Fév', fullName: 'Février', monthIndex: 1 },
