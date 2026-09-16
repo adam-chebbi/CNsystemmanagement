@@ -7,6 +7,8 @@ import {
   Banknote,
   CreditCard,
   Ticket,
+  Percent,
+  ShoppingBag,
   AlertCircle,
   AlertTriangle,
   ShieldCheck,
@@ -21,7 +23,9 @@ import {
   QuantitySalesFormState,
   QuantitySalesTotals,
   QuantityValidationIssue,
-  computeRowTotal,
+  clampInt,
+  computeRowDiscountTotal,
+  computeRowNetTotal,
 } from '../data/quantitySalesEntryModel';
 
 const inputBaseClass =
@@ -172,18 +176,26 @@ export const QuantitySalesFormStep: React.FC<QuantitySalesFormStepProps> = ({
         <div className="space-y-2.5 max-h-[700px] overflow-y-auto custom-scrollbar pr-0.5">
           {form.rows.map((row, idx) => {
             const article = getArticleById(row.articleId, articles);
-            const rowTotal = computeRowTotal(row, article);
+            const rowTotal = computeRowNetTotal(row, article);
+            const discountTotal = computeRowDiscountTotal(row);
             const usedElsewhere = new Set(form.rows.filter((r) => r.rowId !== row.rowId && r.articleId).map((r) => r.articleId));
             const articleErrorKey = `qrow:${row.rowId}:article`;
             const duplicateErrorKey = `qrow:${row.rowId}:duplicate`;
             const qtyErrorKey = `qrow:${row.rowId}:qty`;
+            const takeawayErrorKey = `qrow:${row.rowId}:takeaway`;
+            const discountErrorKey = `qrow:${row.rowId}:discount`;
             const hasRowError =
-              showErrors && (issuesByKey.has(articleErrorKey) || issuesByKey.has(duplicateErrorKey) || issuesByKey.has(qtyErrorKey));
+              showErrors &&
+              (issuesByKey.has(articleErrorKey) ||
+                issuesByKey.has(duplicateErrorKey) ||
+                issuesByKey.has(qtyErrorKey) ||
+                issuesByKey.has(takeawayErrorKey) ||
+                issuesByKey.has(discountErrorKey));
 
             return (
               <div
                 key={row.rowId}
-                className={`rounded-xl border p-3 space-y-1.5 ${
+                className={`rounded-xl border p-3 space-y-2.5 ${
                   hasRowError
                     ? 'border-red-300 dark:border-red-800/70 bg-red-50/40 dark:bg-red-950/10'
                     : 'border-gray-100 dark:border-gray-800 bg-gray-50/60 dark:bg-gray-800/40'
@@ -241,7 +253,14 @@ export const QuantitySalesFormStep: React.FC<QuantitySalesFormStepProps> = ({
                       type="number"
                       min={1}
                       value={row.qty}
-                      onChange={(e) => onChangeRow(row.rowId, { qty: Math.max(1, Math.round(Number(e.target.value)) || 1) })}
+                      onChange={(e) => {
+                        const clamped = Math.max(1, Math.round(Number(e.target.value)) || 1);
+                        onChangeRow(row.rowId, {
+                          qty: clamped,
+                          takeawayQty: Math.min(row.takeawayQty, clamped),
+                          discountQty: Math.min(row.discountQty, clamped),
+                        });
+                      }}
                       className="w-14 text-center text-xs py-1 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
                     />
                     <button
@@ -271,6 +290,99 @@ export const QuantitySalesFormStep: React.FC<QuantitySalesFormStepProps> = ({
                   <p className="text-[11px] text-red-500 flex items-center gap-1">
                     <AlertCircle size={11} /> {issuesByKey.get(qtyErrorKey)}
                   </p>
+                )}
+
+                {article && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    {/* Réduction */}
+                    <div className="p-2.5 rounded-lg bg-white dark:bg-gray-900/40 border border-gray-100 dark:border-gray-800 space-y-1.5">
+                      <span className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 inline-flex items-center gap-1">
+                        <Percent size={11} /> Réduction / unité
+                      </span>
+                      <div className="flex items-center gap-1.5">
+                        <input
+                          type="number"
+                          min={0}
+                          step={0.1}
+                          value={row.discountPerUnit}
+                          onChange={(e) => onChangeRow(row.rowId, { discountPerUnit: Math.max(0, Number(e.target.value) || 0) })}
+                          className="w-full text-xs py-1.5 px-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                        />
+                        <span className="text-[10px] text-gray-400 shrink-0">DT</span>
+                      </div>
+                      {row.discountPerUnit > 0 && (
+                        <div className="flex items-center gap-1 flex-wrap">
+                          <button
+                            type="button"
+                            onClick={() => onChangeRow(row.rowId, { discountScope: 'all' })}
+                            className={`px-2 py-0.5 rounded-md text-[10px] font-semibold cursor-pointer ${
+                              row.discountScope === 'all'
+                                ? 'bg-emerald-500 text-white'
+                                : 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400'
+                            }`}
+                          >
+                            Toutes ({row.qty})
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              onChangeRow(row.rowId, { discountScope: 'partial', discountQty: Math.min(row.discountQty || 1, row.qty) })
+                            }
+                            className={`px-2 py-0.5 rounded-md text-[10px] font-semibold cursor-pointer ${
+                              row.discountScope === 'partial'
+                                ? 'bg-emerald-500 text-white'
+                                : 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400'
+                            }`}
+                          >
+                            Nombre précis
+                          </button>
+                          {row.discountScope === 'partial' && (
+                            <input
+                              type="number"
+                              min={0}
+                              max={row.qty}
+                              value={row.discountQty}
+                              onChange={(e) => onChangeRow(row.rowId, { discountQty: clampInt(Number(e.target.value), 0, row.qty) })}
+                              className="w-14 text-center text-[11px] py-0.5 rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                            />
+                          )}
+                        </div>
+                      )}
+                      {discountTotal > 0 && (
+                        <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold">
+                          − {discountTotal.toFixed(2)} DT au total
+                        </p>
+                      )}
+                      {showErrors && issuesByKey.get(discountErrorKey) && (
+                        <p className="text-[10px] text-red-500 flex items-center gap-1">
+                          <AlertCircle size={10} /> {issuesByKey.get(discountErrorKey)}
+                        </p>
+                      )}
+                    </div>
+
+                    {/* À emporter */}
+                    <div className="p-2.5 rounded-lg bg-white dark:bg-gray-900/40 border border-gray-100 dark:border-gray-800 space-y-1.5">
+                      <span className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 inline-flex items-center gap-1">
+                        <ShoppingBag size={11} /> Dont à emporter
+                      </span>
+                      <input
+                        type="number"
+                        min={0}
+                        max={row.qty}
+                        value={row.takeawayQty}
+                        onChange={(e) => onChangeRow(row.rowId, { takeawayQty: clampInt(Number(e.target.value), 0, row.qty) })}
+                        className={`w-full text-xs py-1.5 px-2 rounded-lg border bg-white dark:bg-gray-800 text-gray-900 dark:text-white ${
+                          showErrors && issuesByKey.has(takeawayErrorKey) ? 'border-red-400 dark:border-red-500/70' : 'border-gray-200 dark:border-gray-700'
+                        }`}
+                      />
+                      <p className="text-[10px] text-gray-400">Sur place : {row.qty - Math.min(row.takeawayQty, row.qty)}</p>
+                      {showErrors && issuesByKey.get(takeawayErrorKey) && (
+                        <p className="text-[10px] text-red-500 flex items-center gap-1">
+                          <AlertCircle size={10} /> {issuesByKey.get(takeawayErrorKey)}
+                        </p>
+                      )}
+                    </div>
+                  </div>
                 )}
               </div>
             );
@@ -439,25 +551,40 @@ export const QuantitySalesPreviewStep: React.FC<QuantitySalesPreviewStepProps> =
         {activeRows.map((row) => {
           const article = getArticleById(row.articleId, articles);
           if (!article) return null;
-          const net = computeRowTotal(row, article);
+          const net = computeRowNetTotal(row, article);
+          const discount = computeRowDiscountTotal(row);
           return (
             <div
               key={row.rowId}
               className="flex flex-wrap items-center justify-between gap-2 text-xs border-b border-dashed border-gray-100 dark:border-gray-800 pb-2 last:border-0 last:pb-0"
             >
-              <p className="font-semibold text-gray-800 dark:text-gray-200">
-                {row.qty}x {article.name}
-              </p>
+              <div>
+                <p className="font-semibold text-gray-800 dark:text-gray-200">
+                  {row.qty}x {article.name}
+                </p>
+                <p className="text-[11px] text-gray-400">
+                  {row.takeawayQty > 0 && `${row.takeawayQty} à emporter • `}
+                  {discount > 0 && `− ${discount.toFixed(2)} DT remise`}
+                </p>
+              </div>
               <span className="font-semibold text-gray-700 dark:text-gray-300">{net.toFixed(2)} DT</span>
             </div>
           );
         })}
       </div>
 
-      <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-[#151D2A] border border-gray-100 dark:border-gray-800 shadow-2xs grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+      <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-[#151D2A] border border-gray-100 dark:border-gray-800 shadow-2xs grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs">
         <div>
           <span className="text-gray-400 font-semibold block mb-0.5">Unités vendues</span>
           <span className="font-bold text-gray-900 dark:text-white">{totals.totalQty}</span>
+        </div>
+        <div>
+          <span className="text-gray-400 font-semibold block mb-0.5">Dont à emporter</span>
+          <span className="font-bold text-gray-900 dark:text-white">{totals.totalTakeawayQty}</span>
+        </div>
+        <div>
+          <span className="text-gray-400 font-semibold block mb-0.5">Total remises</span>
+          <span className="font-bold text-gray-900 dark:text-white">− {totals.totalDiscount.toFixed(2)} DT</span>
         </div>
         <div>
           <span className="text-gray-400 font-semibold block mb-0.5">Espèces</span>
