@@ -13,6 +13,11 @@ export interface AuthedUser {
   // the permission catalog grow over time without ever re-syncing Super Admin's stored grants.
   isSuperAdmin: boolean;
   permissions: string[];
+  // True right after a temporary password (Super-Admin-generated, or backfilled for an account
+  // that predates passwords) was used to log in — requireAuth blocks every route until it's
+  // cleared via POST /auth/change-password. requireAuthAllowPendingPasswordChange is the one
+  // exception, used only by the handful of routes that must stay reachable while this is true.
+  mustChangePassword: boolean;
 }
 
 declare global {
@@ -36,6 +41,7 @@ interface UserWithRoleRow {
   role_id: string | null;
   role_name: string | null;
   is_system: number | null;
+  must_change_password: number;
 }
 
 interface PermissionRow {
@@ -44,38 +50,63 @@ interface PermissionRow {
 
 export const SESSION_COOKIE = 'session';
 
-export const requireAuth = (req: Request, _res: Response, next: NextFunction): void => {
+// Shared by requireAuth and requireAuthAllowPendingPasswordChange — resolves the session cookie to
+// a full AuthedUser (or throws 401), without deciding whether must_change_password should block
+// the request. Also exported for the login/session routes that need the same row shape.
+export const resolveAuthedUser = (req: Request): { user: AuthedUser; token: string } => {
   const token = req.cookies?.[SESSION_COOKIE] ?? '';
   if (!token) throw new ApiError(401, 'Authentification requise.');
 
   const session = db.prepare('SELECT user_id FROM sessions WHERE token = ? AND revoked_at IS NULL').get(token) as SessionRow | undefined;
   if (!session) throw new ApiError(401, 'Session invalide ou expirée.');
 
-  const user = db
+  const row = db
     .prepare(
-      `SELECT u.id, u.full_name, u.cin, u.role_id, r.name AS role_name, r.is_system
+      `SELECT u.id, u.full_name, u.cin, u.role_id, r.name AS role_name, r.is_system, u.must_change_password
        FROM users u LEFT JOIN roles r ON r.id = u.role_id
        WHERE u.id = ?`
     )
     .get(session.user_id) as UserWithRoleRow | undefined;
-  if (!user) throw new ApiError(401, 'Session invalide ou expirée.');
+  if (!row) throw new ApiError(401, 'Session invalide ou expirée.');
 
   db.prepare('UPDATE sessions SET last_seen_at = ? WHERE token = ?').run(new Date().toISOString(), token);
 
-  const isSuperAdmin = user.is_system === 1;
-  const permissions = user.role_id
-    ? (db.prepare('SELECT permission_key FROM role_permissions WHERE role_id = ?').all(user.role_id) as PermissionRow[]).map((r) => r.permission_key)
+  const isSuperAdmin = row.is_system === 1;
+  const permissions = row.role_id
+    ? (db.prepare('SELECT permission_key FROM role_permissions WHERE role_id = ?').all(row.role_id) as PermissionRow[]).map((r) => r.permission_key)
     : [];
 
-  req.user = {
-    id: user.id,
-    fullName: user.full_name,
-    cin: user.cin,
-    roleId: user.role_id ?? '',
-    roleName: user.role_name ?? '',
-    isSuperAdmin,
-    permissions,
+  return {
+    token,
+    user: {
+      id: row.id,
+      fullName: row.full_name,
+      cin: row.cin,
+      roleId: row.role_id ?? '',
+      roleName: row.role_name ?? '',
+      isSuperAdmin,
+      permissions,
+      mustChangePassword: row.must_change_password === 1,
+    },
   };
+};
+
+export const requireAuth = (req: Request, _res: Response, next: NextFunction): void => {
+  const { user, token } = resolveAuthedUser(req);
+  if (user.mustChangePassword) {
+    throw new ApiError(403, 'Vous devez changer votre mot de passe avant de continuer.', 'PASSWORD_CHANGE_REQUIRED');
+  }
+  req.user = user;
+  req.sessionToken = token;
+  next();
+};
+
+// Used only by GET /auth/me, POST /auth/change-password and POST /auth/logout — the three routes
+// that must stay reachable even while must_change_password is true, since otherwise a user forced
+// to change their password would have no way to actually do so (or to sign out and try again).
+export const requireAuthAllowPendingPasswordChange = (req: Request, _res: Response, next: NextFunction): void => {
+  const { user, token } = resolveAuthedUser(req);
+  req.user = user;
   req.sessionToken = token;
   next();
 };

@@ -9,6 +9,12 @@ export const updateRole = (id: string, role: Partial<Pick<DraftRole, 'name' | 'd
 export const deleteRole = (id: string) => apiDelete<void>(`/roles/${id}`);
 
 export const getRbacUsers = () => apiGet<RbacUser[]>('/users');
-export const createRbacUser = (user: Pick<DraftUser, 'fullName' | 'cin' | 'roleId'>) => apiPost<RbacUser>('/users', user);
-export const updateRbacUser = (id: string, user: Partial<Pick<DraftUser, 'fullName' | 'roleId'>>) => apiPut<RbacUser>(`/users/${id}`, user);
+// No email service exists to deliver a password, so creating an account always returns a
+// system-generated temporary password once, in this response only — never persisted in plain text
+// and never retrievable again afterwards (see server/routes/roles.ts).
+export const createRbacUser = (user: Pick<DraftUser, 'fullName' | 'cin' | 'email' | 'phone' | 'roleId'>) =>
+  apiPost<RbacUser & { temporaryPassword: string }>('/users', user);
+export const updateRbacUser = (id: string, user: Partial<Pick<DraftUser, 'fullName' | 'email' | 'phone' | 'roleId'>>) =>
+  apiPut<RbacUser>(`/users/${id}`, user);
 export const deleteRbacUser = (id: string) => apiDelete<void>(`/users/${id}`);
+export const resetRbacUserPassword = (id: string) => apiPost<{ temporaryPassword: string }>(`/users/${id}/reset-password`);

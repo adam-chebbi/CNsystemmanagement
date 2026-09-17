@@ -2,6 +2,7 @@ import React, { useEffect, useRef } from 'react';
 import { LoaderCircle } from 'lucide-react';
 import { useAuth } from './AuthContext';
 import { LoginPage } from '../components/LoginPage';
+import { ChangePasswordPage } from '../components/ChangePasswordPage';
 
 const LOGIN_PATH = '/login';
 
@@ -40,6 +41,8 @@ export const AuthGate: React.FC<{ children: React.ReactNode }> = ({ children }) 
   }
 
   if (!user) return <LoginPage />;
+
+  if (user.mustChangePassword) return <ChangePasswordPage />;
 
   return <>{children}</>;
 };

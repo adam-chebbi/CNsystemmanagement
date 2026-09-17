@@ -5,9 +5,12 @@ import { db } from '../db/connection.js';
 import { asyncHandler, ApiError, notFound } from '../middleware/errors.js';
 import { requireAuth, requirePermission } from '../middleware/auth.js';
 import { recordActivity } from '../lib/activity.js';
+import { hashPassword, generateTemporaryPassword } from '../lib/password.js';
 import { groupPermissionsByModule, isKnownPermissionKey, MANAGE_ROLES_PERMISSION } from '../../src/data/rbacModel.js';
+import { CIN_PATTERN } from './auth.js';
 
-const CIN_PATTERN = /^\d{8}$/;
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const PHONE_PATTERN = /^(\+216)?\d{8}$/;
 
 interface RoleRow {
   id: string;
@@ -183,20 +186,33 @@ interface UserRow {
   id: string;
   full_name: string;
   cin: string;
+  email: string | null;
+  phone: string | null;
   role_id: string | null;
   role_name: string | null;
+  must_change_password: number;
   created_at: string;
 }
 
 const listUsersWithRole = () =>
   (db
     .prepare(
-      `SELECT u.id, u.full_name, u.cin, u.role_id, r.name AS role_name, u.created_at
+      `SELECT u.id, u.full_name, u.cin, u.email, u.phone, u.role_id, r.name AS role_name, u.must_change_password, u.created_at
        FROM users u LEFT JOIN roles r ON r.id = u.role_id
        ORDER BY u.created_at ASC`
     )
     .all() as UserRow[])
-    .map((u) => ({ id: u.id, fullName: u.full_name, cin: u.cin, roleId: u.role_id, roleName: u.role_name, createdAt: u.created_at }));
+    .map((u) => ({
+      id: u.id,
+      fullName: u.full_name,
+      cin: u.cin,
+      email: u.email ?? '',
+      phone: u.phone ?? '',
+      roleId: u.role_id,
+      roleName: u.role_name,
+      mustChangePassword: u.must_change_password === 1,
+      createdAt: u.created_at,
+    }));
 
 rolesRouter.get(
   '/users',
@@ -209,6 +225,8 @@ rolesRouter.get(
 const userSchema = z.object({
   fullName: z.string().min(1, 'Le nom complet est obligatoire.').max(150),
   cin: z.string().regex(CIN_PATTERN, 'Le numéro CIN doit comporter 8 chiffres.'),
+  email: z.string().trim().regex(EMAIL_PATTERN, 'Adresse email invalide.').optional().or(z.literal('')),
+  phone: z.string().trim().regex(PHONE_PATTERN, 'Numéro de téléphone invalide.').optional().or(z.literal('')),
   roleId: z.string().min(1, 'Le rôle est obligatoire.'),
 });
 
@@ -217,32 +235,77 @@ const assertRoleExists = (roleId: string): void => {
   if (!role) throw new ApiError(400, 'Rôle introuvable.');
 };
 
+// Case-insensitive — "Sami@CafeNoir.tn" and "sami@cafenoir.tn" must be treated as the same login
+// identifier, matching how POST /auth/login resolves it (LOWER(u.email) = ?).
+const assertEmailPhoneAvailable = (email: string, phone: string, excludeUserId?: string): void => {
+  if (email) {
+    const dup = db.prepare('SELECT id FROM users WHERE LOWER(email) = LOWER(?) AND id != ?').get(email, excludeUserId ?? '');
+    if (dup) throw new ApiError(409, 'Cette adresse email est déjà utilisée par un autre compte.');
+  }
+  if (phone) {
+    const dup = db.prepare('SELECT id FROM users WHERE phone = ? AND id != ?').get(phone, excludeUserId ?? '');
+    if (dup) throw new ApiError(409, 'Ce numéro de téléphone est déjà utilisé par un autre compte.');
+  }
+};
+
 rolesRouter.post(
   '/users',
   requirePermission(MANAGE_ROLES_PERMISSION),
   asyncHandler((req, res) => {
     const body = userSchema.parse(req.body);
     assertRoleExists(body.roleId);
-    const duplicate = db.prepare('SELECT id FROM users WHERE cin = ?').get(body.cin);
-    if (duplicate) throw new ApiError(409, 'Ce numéro CIN est déjà utilisé par un autre compte.');
+    const duplicateCin = db.prepare('SELECT id FROM users WHERE cin = ?').get(body.cin);
+    if (duplicateCin) throw new ApiError(409, 'Ce numéro CIN est déjà utilisé par un autre compte.');
+    assertEmailPhoneAvailable(body.email ?? '', body.phone ?? '');
 
+    // No email service is configured to deliver a temporary password, so one is generated here and
+    // returned once in the response — never persisted or retrievable in plain text afterwards. The
+    // Super Admin communicates it to the user directly, who is forced to replace it on first login.
+    const temporaryPassword = generateTemporaryPassword();
     const id = randomUUID();
-    db.prepare('INSERT INTO users (id, full_name, cin, role_id, created_at) VALUES (?, ?, ?, ?, ?)').run(
+    db.prepare(
+      `INSERT INTO users (id, full_name, cin, email, phone, password_hash, must_change_password, role_id, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?)`
+    ).run(
       id,
       body.fullName.trim(),
       body.cin.trim(),
+      body.email || null,
+      body.phone || null,
+      hashPassword(temporaryPassword),
       body.roleId,
       new Date().toISOString()
     );
 
     recordActivity('Rôles & permissions', 'Création', `Utilisateur "${body.fullName.trim()}" créé.`, req.user!.fullName);
     const [created] = listUsersWithRole().filter((u) => u.id === id);
-    res.status(201).json(created);
+    res.status(201).json({ ...created, temporaryPassword });
+  })
+);
+
+// Generates a fresh temporary password for an existing account (forgotten password, or simply
+// handed to a new device) — same "shown once, forced change" flow as account creation.
+rolesRouter.post(
+  '/users/:id/reset-password',
+  requirePermission(MANAGE_ROLES_PERMISSION),
+  asyncHandler((req, res) => {
+    const existing = db.prepare('SELECT id, full_name FROM users WHERE id = ?').get(req.params.id) as { id: string; full_name: string } | undefined;
+    if (!existing) throw notFound('Utilisateur');
+
+    const temporaryPassword = generateTemporaryPassword();
+    db.prepare(
+      'UPDATE users SET password_hash = ?, must_change_password = 1, failed_login_attempts = 0, locked_until = NULL, password_updated_at = ? WHERE id = ?'
+    ).run(hashPassword(temporaryPassword), new Date().toISOString(), existing.id);
+
+    recordActivity('Rôles & permissions', 'Modification', `Mot de passe réinitialisé — ${existing.full_name}.`, req.user!.fullName);
+    res.json({ temporaryPassword });
   })
 );
 
 const userUpdateSchema = z.object({
   fullName: z.string().min(1).max(150).optional(),
+  email: z.string().trim().regex(EMAIL_PATTERN, 'Adresse email invalide.').optional().or(z.literal('')),
+  phone: z.string().trim().regex(PHONE_PATTERN, 'Numéro de téléphone invalide.').optional().or(z.literal('')),
   roleId: z.string().min(1).optional(),
 });
 
@@ -273,12 +336,17 @@ rolesRouter.put(
       assertRoleExists(body.roleId);
       assertNotLastSuperAdmin(req.params.id);
     }
+    if (body.email !== undefined || body.phone !== undefined) {
+      assertEmailPhoneAvailable(body.email ?? '', body.phone ?? '', req.params.id);
+    }
 
-    db.prepare('UPDATE users SET full_name = COALESCE(?, full_name), role_id = COALESCE(?, role_id) WHERE id = ?').run(
-      body.fullName?.trim() ?? null,
-      body.roleId ?? null,
-      req.params.id
-    );
+    const tx = db.transaction(() => {
+      if (body.fullName !== undefined) db.prepare('UPDATE users SET full_name = ? WHERE id = ?').run(body.fullName.trim(), req.params.id);
+      if (body.roleId !== undefined) db.prepare('UPDATE users SET role_id = ? WHERE id = ?').run(body.roleId, req.params.id);
+      if (body.email !== undefined) db.prepare('UPDATE users SET email = ? WHERE id = ?').run(body.email || null, req.params.id);
+      if (body.phone !== undefined) db.prepare('UPDATE users SET phone = ? WHERE id = ?').run(body.phone || null, req.params.id);
+    });
+    tx();
 
     recordActivity('Rôles & permissions', 'Modification', `Utilisateur mis à jour.`, req.user!.fullName);
     const [updated] = listUsersWithRole().filter((u) => u.id === req.params.id);

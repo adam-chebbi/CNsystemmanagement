@@ -3,7 +3,6 @@ import { LoaderCircle } from 'lucide-react';
 import { useAuth } from '../auth/AuthContext';
 import { ApiError } from '../api/client';
 
-const CIN_PATTERN = /^\d{8}$/;
 const BRAND_TITLE = 'Café Noir';
 const TYPE_INTERVAL_MS = 95;
 const BLANK_PAUSE_MS = 450;
@@ -41,7 +40,8 @@ const LiveClock: React.FC = () => {
 
 export const LoginPage: React.FC = () => {
   const { login } = useAuth();
-  const [cin, setCin] = useState('');
+  const [identifier, setIdentifier] = useState('');
+  const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -73,14 +73,14 @@ export const LoginPage: React.FC = () => {
     e.preventDefault();
     setError(null);
 
-    if (!CIN_PATTERN.test(cin.trim())) {
-      setError('Le numéro CIN doit comporter exactement 8 chiffres.');
+    if (!identifier.trim() || !password) {
+      setError('Identifiant et mot de passe requis.');
       return;
     }
 
     setIsSubmitting(true);
     try {
-      await login(cin.trim());
+      await login(identifier.trim(), password);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Une erreur est survenue. Réessayez.');
     } finally {
@@ -128,23 +128,38 @@ export const LoginPage: React.FC = () => {
           settled ? 'opacity-100 translate-y-0 delay-200' : 'opacity-0 translate-y-3 pointer-events-none'
         }`}
       >
-        <form onSubmit={handleSubmit} className="bg-white border border-gray-100 rounded-2xl shadow-xs p-6">
-          <label htmlFor="login-cin" className="block text-xs font-semibold text-gray-700 mb-1.5">
-            Numéro CIN
-          </label>
-          <input
-            id="login-cin"
-            type="password"
-            inputMode="numeric"
-            maxLength={8}
-            autoFocus={settled}
-            value={cin}
-            onChange={(e) => setCin(e.target.value.replace(/\D/g, ''))}
-            placeholder="••••••••"
-            className="w-full px-3 py-2.5 text-lg text-center rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500 tracking-[0.5em]"
-          />
+        <form onSubmit={handleSubmit} className="bg-white border border-gray-100 rounded-2xl shadow-xs p-6 space-y-3">
+          <div>
+            <label htmlFor="login-identifier" className="block text-xs font-semibold text-gray-700 mb-1.5">
+              Email, téléphone ou CIN
+            </label>
+            <input
+              id="login-identifier"
+              type="text"
+              autoFocus={settled}
+              autoComplete="username"
+              value={identifier}
+              onChange={(e) => setIdentifier(e.target.value)}
+              placeholder="email@exemple.tn, 20123456 ou 12345678"
+              className="w-full px-3 py-2.5 text-sm rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500"
+            />
+          </div>
+          <div>
+            <label htmlFor="login-password" className="block text-xs font-semibold text-gray-700 mb-1.5">
+              Mot de passe
+            </label>
+            <input
+              id="login-password"
+              type="password"
+              autoComplete="current-password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="••••••••"
+              className="w-full px-3 py-2.5 text-sm rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500"
+            />
+          </div>
 
-          {error && <p className="mt-2 text-xs text-rose-600">{error}</p>}
+          {error && <p className="text-xs text-rose-600">{error}</p>}
 
           <button
             type="submit"

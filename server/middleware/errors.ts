@@ -3,9 +3,14 @@ import { ZodError } from 'zod';
 
 export class ApiError extends Error {
   status: number;
-  constructor(status: number, message: string) {
+  // Optional machine-readable discriminator for the rare case a client needs to react to a
+  // specific error rather than just display its message — e.g. 'PASSWORD_CHANGE_REQUIRED' so the
+  // frontend can route to the forced password-change screen instead of showing a generic failure.
+  code?: string;
+  constructor(status: number, message: string, code?: string) {
     super(message);
     this.status = status;
+    this.code = code;
   }
 }
 
@@ -21,7 +26,7 @@ export const asyncHandler =
 
 export const errorMiddleware = (err: unknown, _req: Request, res: Response, _next: NextFunction): void => {
   if (err instanceof ApiError) {
-    res.status(err.status).json({ error: { message: err.message } });
+    res.status(err.status).json({ error: { message: err.message, code: err.code } });
     return;
   }
   if (err instanceof ZodError) {

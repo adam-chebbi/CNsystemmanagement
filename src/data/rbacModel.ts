@@ -151,8 +151,13 @@ export interface RbacUser {
   id: string;
   fullName: string;
   cin: string;
+  email: string;
+  phone: string;
   roleId: string | null;
   roleName: string | null;
+  // True right after creation or a password reset, until the user actually logs in and sets their
+  // own password (see server/routes/auth.ts's POST /change-password).
+  mustChangePassword: boolean;
   createdAt: string;
 }
 
@@ -160,12 +165,16 @@ export interface DraftUser {
   id: string;
   fullName: string;
   cin: string;
+  email: string;
+  phone: string;
   roleId: string;
 }
 
-export const createEmptyDraftUser = (): DraftUser => ({ id: '', fullName: '', cin: '', roleId: '' });
+export const createEmptyDraftUser = (): DraftUser => ({ id: '', fullName: '', cin: '', email: '', phone: '', roleId: '' });
 
 const CIN_PATTERN = /^\d{8}$/;
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const PHONE_PATTERN = /^(\+216)?\d{8}$/;
 
 export interface RbacValidationIssue {
   field: string;
@@ -184,7 +193,11 @@ export const validateDraftRole = (draft: Pick<DraftRole, 'name'>, existingRoles:
   return issues;
 };
 
-export const validateDraftUser = (draft: Pick<DraftUser, 'fullName' | 'cin' | 'roleId'>, existingUsers: RbacUser[], editingId?: string): RbacValidationIssue[] => {
+export const validateDraftUser = (
+  draft: Pick<DraftUser, 'fullName' | 'cin' | 'email' | 'phone' | 'roleId'>,
+  existingUsers: RbacUser[],
+  editingId?: string
+): RbacValidationIssue[] => {
   const issues: RbacValidationIssue[] = [];
   if (!draft.fullName.trim()) issues.push({ field: 'fullName', message: 'Le nom complet est obligatoire.' });
   if (!CIN_PATTERN.test(draft.cin.trim())) {
@@ -192,6 +205,24 @@ export const validateDraftUser = (draft: Pick<DraftUser, 'fullName' | 'cin' | 'r
   } else {
     const duplicate = existingUsers.find((u) => u.cin === draft.cin.trim() && u.id !== editingId);
     if (duplicate) issues.push({ field: 'cin', message: 'Ce numéro CIN est déjà utilisé par un autre compte.' });
+  }
+  const email = draft.email.trim();
+  if (email) {
+    if (!EMAIL_PATTERN.test(email)) {
+      issues.push({ field: 'email', message: 'Adresse email invalide.' });
+    } else {
+      const duplicate = existingUsers.find((u) => u.email.toLowerCase() === email.toLowerCase() && u.id !== editingId);
+      if (duplicate) issues.push({ field: 'email', message: 'Cette adresse email est déjà utilisée par un autre compte.' });
+    }
+  }
+  const phone = draft.phone.trim();
+  if (phone) {
+    if (!PHONE_PATTERN.test(phone)) {
+      issues.push({ field: 'phone', message: 'Numéro de téléphone invalide (8 chiffres, +216 optionnel).' });
+    } else {
+      const duplicate = existingUsers.find((u) => u.phone === phone && u.id !== editingId);
+      if (duplicate) issues.push({ field: 'phone', message: 'Ce numéro de téléphone est déjà utilisé par un autre compte.' });
+    }
   }
   if (!draft.roleId) issues.push({ field: 'roleId', message: 'Le rôle est obligatoire.' });
   return issues;

@@ -1,9 +1,11 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   ShieldCheck, Loader2, AlertCircle, Plus, Trash2, Pencil, X, Check, Lock, Users as UsersIcon, KeyRound,
+  Copy, CheckCircle2, RotateCcw,
 } from 'lucide-react';
 import {
   getPermissionCatalog, getRoles, createRole, updateRole, deleteRole, getRbacUsers, createRbacUser, updateRbacUser, deleteRbacUser,
+  resetRbacUserPassword,
 } from '../api/roles';
 import { ApiError } from '../api/client';
 import type { Role, RbacUser, PermissionModuleGroup } from '../data/rbacModel';
@@ -313,6 +315,46 @@ const RolesTab: React.FC<{ groups: PermissionModuleGroup[]; roles: Role[]; onCha
 
 // --- Utilisateurs ----------------------------------------------------------------------------
 
+// Shown once, right after a temporary password is generated (creation or reset) — never
+// retrievable again afterwards (server never returns a stored password back in plain text).
+const TemporaryPasswordBanner: React.FC<{ fullName: string; password: string; onDismiss: () => void }> = ({ fullName, password, onDismiss }) => {
+  const [copied, setCopied] = useState(false);
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(password);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // Clipboard access can fail (permissions, insecure context) — the password stays visible
+      // on screen either way, so this is a pure convenience, not the only way to retrieve it.
+    }
+  };
+  return (
+    <div className="p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/50 space-y-2">
+      <div className="flex items-start justify-between gap-2">
+        <p className="text-xs font-bold text-amber-800 dark:text-amber-300">
+          Mot de passe temporaire pour {fullName} — à communiquer manuellement (aucun service d'email n'est configuré)
+        </p>
+        <button onClick={onDismiss} className="p-1 rounded-lg text-amber-500 hover:bg-amber-100 dark:hover:bg-amber-900/40 cursor-pointer shrink-0">
+          <X size={14} />
+        </button>
+      </div>
+      <div className="flex items-center gap-2">
+        <code className="px-3 py-1.5 rounded-lg bg-white dark:bg-gray-900 border border-amber-200 dark:border-amber-800/60 text-sm font-mono font-bold text-gray-900 dark:text-white tracking-wide">
+          {password}
+        </code>
+        <button onClick={handleCopy} className={secondaryButtonClass}>
+          {copied ? <CheckCircle2 size={13} className="text-emerald-500" /> : <Copy size={13} />}
+          <span>{copied ? 'Copié' : 'Copier'}</span>
+        </button>
+      </div>
+      <p className="text-[11px] text-amber-700/80 dark:text-amber-400/80">
+        L'utilisateur devra le changer dès sa première connexion.
+      </p>
+    </div>
+  );
+};
+
 const UsersTab: React.FC<{ roles: Role[]; users: RbacUser[]; onChanged: () => Promise<void> }> = ({ roles, users, onChanged }) => {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [draft, setDraft] = useState(createEmptyDraftUser());
@@ -320,6 +362,8 @@ const UsersTab: React.FC<{ roles: Role[]; users: RbacUser[]; onChanged: () => Pr
   const [formError, setFormError] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [savingRoleForId, setSavingRoleForId] = useState<string | null>(null);
+  const [resettingId, setResettingId] = useState<string | null>(null);
+  const [temporaryPassword, setTemporaryPassword] = useState<{ fullName: string; password: string } | null>(null);
 
   const roleNameById = useMemo(() => new Map(roles.map((r) => [r.id, r.name])), [roles]);
 
@@ -338,8 +382,15 @@ const UsersTab: React.FC<{ roles: Role[]; users: RbacUser[]; onChanged: () => Pr
     setIsSaving(true);
     setFormError(null);
     try {
-      await createRbacUser({ fullName: draft.fullName.trim(), cin: draft.cin.trim(), roleId: draft.roleId });
+      const created = await createRbacUser({
+        fullName: draft.fullName.trim(),
+        cin: draft.cin.trim(),
+        email: draft.email.trim(),
+        phone: draft.phone.trim(),
+        roleId: draft.roleId,
+      });
       setIsFormOpen(false);
+      setTemporaryPassword({ fullName: created.fullName, password: created.temporaryPassword });
       await onChanged();
     } catch (err) {
       setFormError(err instanceof ApiError ? err.message : "Une erreur est survenue lors de l'enregistrement.");
@@ -360,6 +411,20 @@ const UsersTab: React.FC<{ roles: Role[]; users: RbacUser[]; onChanged: () => Pr
     }
   };
 
+  const handleResetPassword = async (user: RbacUser) => {
+    if (!window.confirm(`Générer un nouveau mot de passe temporaire pour « ${user.fullName} » ?`)) return;
+    setResettingId(user.id);
+    try {
+      const { temporaryPassword: password } = await resetRbacUserPassword(user.id);
+      setTemporaryPassword({ fullName: user.fullName, password });
+      await onChanged();
+    } catch (err) {
+      window.alert(err instanceof ApiError ? err.message : 'Une erreur est survenue.');
+    } finally {
+      setResettingId(null);
+    }
+  };
+
   const handleDelete = async (user: RbacUser) => {
     if (!window.confirm(`Supprimer l'utilisateur « ${user.fullName} » ? Ses sessions actives seront déconnectées.`)) return;
     setDeletingId(user.id);
@@ -375,6 +440,14 @@ const UsersTab: React.FC<{ roles: Role[]; users: RbacUser[]; onChanged: () => Pr
 
   return (
     <div className="space-y-4">
+      {temporaryPassword && (
+        <TemporaryPasswordBanner
+          fullName={temporaryPassword.fullName}
+          password={temporaryPassword.password}
+          onDismiss={() => setTemporaryPassword(null)}
+        />
+      )}
+
       {!isFormOpen && (
         <div className="flex justify-end">
           <button onClick={openCreate} className={primaryButtonClass}>
@@ -391,7 +464,7 @@ const UsersTab: React.FC<{ roles: Role[]; users: RbacUser[]; onChanged: () => Pr
               <X size={15} />
             </button>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="text-xs font-semibold text-gray-700 dark:text-gray-300 block mb-1">Nom complet</label>
               <input value={draft.fullName} onChange={(e) => setDraft((d) => ({ ...d, fullName: e.target.value }))} className={inputBaseClass} />
@@ -401,6 +474,14 @@ const UsersTab: React.FC<{ roles: Role[]; users: RbacUser[]; onChanged: () => Pr
               <input value={draft.cin} onChange={(e) => setDraft((d) => ({ ...d, cin: e.target.value }))} className={inputBaseClass} placeholder="8 chiffres" />
             </div>
             <div>
+              <label className="text-xs font-semibold text-gray-700 dark:text-gray-300 block mb-1">Email (optionnel)</label>
+              <input value={draft.email} onChange={(e) => setDraft((d) => ({ ...d, email: e.target.value }))} className={inputBaseClass} placeholder="email@exemple.tn" />
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-gray-700 dark:text-gray-300 block mb-1">Téléphone (optionnel)</label>
+              <input value={draft.phone} onChange={(e) => setDraft((d) => ({ ...d, phone: e.target.value }))} className={inputBaseClass} placeholder="20123456" />
+            </div>
+            <div className="sm:col-span-2">
               <label className="text-xs font-semibold text-gray-700 dark:text-gray-300 block mb-1">Rôle</label>
               <select value={draft.roleId} onChange={(e) => setDraft((d) => ({ ...d, roleId: e.target.value }))} className={inputBaseClass}>
                 <option value="" disabled>Choisir un rôle</option>
@@ -410,6 +491,10 @@ const UsersTab: React.FC<{ roles: Role[]; users: RbacUser[]; onChanged: () => Pr
               </select>
             </div>
           </div>
+          <p className="text-[11px] text-gray-400">
+            Un mot de passe temporaire sera généré automatiquement et affiché une seule fois après la création — aucun
+            service d'email n'étant configuré, communiquez-le vous-même à l'utilisateur.
+          </p>
           {formError && (
             <div className="p-3 rounded-xl bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800/60 text-xs text-red-600 dark:text-red-400 flex items-center gap-2">
               <AlertCircle size={13} /> {formError}
@@ -430,16 +515,31 @@ const UsersTab: React.FC<{ roles: Role[]; users: RbacUser[]; onChanged: () => Pr
           <thead>
             <tr className="border-b border-gray-100 dark:border-gray-800 text-left text-[11px] text-gray-500 dark:text-gray-400">
               <th className="px-4 py-2.5 font-semibold">Nom</th>
-              <th className="px-4 py-2.5 font-semibold">CIN</th>
+              <th className="px-4 py-2.5 font-semibold">CIN / Email / Téléphone</th>
               <th className="px-4 py-2.5 font-semibold">Rôle</th>
-              <th className="px-4 py-2.5 font-semibold w-10"></th>
+              <th className="px-4 py-2.5 font-semibold w-24"></th>
             </tr>
           </thead>
           <tbody>
             {users.map((u) => (
               <tr key={u.id} className="border-b border-gray-50 dark:border-gray-800/60 last:border-0">
-                <td className="px-4 py-2.5 font-medium text-gray-800 dark:text-gray-200">{u.fullName}</td>
-                <td className="px-4 py-2.5 text-gray-500 dark:text-gray-400">{u.cin}</td>
+                <td className="px-4 py-2.5 font-medium text-gray-800 dark:text-gray-200">
+                  {u.fullName}
+                  {u.mustChangePassword && (
+                    <span
+                      title="Doit changer son mot de passe à la prochaine connexion"
+                      className="ml-1.5 inline-block px-1.5 py-0.5 rounded-md text-[9px] font-semibold bg-amber-100 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300 align-middle"
+                    >
+                      Changement requis
+                    </span>
+                  )}
+                </td>
+                <td className="px-4 py-2.5 text-gray-500 dark:text-gray-400">
+                  <div>{u.cin}</div>
+                  {(u.email || u.phone) && (
+                    <div className="text-[10px] text-gray-400">{[u.email, u.phone].filter(Boolean).join(' • ')}</div>
+                  )}
+                </td>
                 <td className="px-4 py-2.5">
                   <select
                     value={u.roleId ?? ''}
@@ -453,10 +553,19 @@ const UsersTab: React.FC<{ roles: Role[]; users: RbacUser[]; onChanged: () => Pr
                   </select>
                   <span className="sr-only">{roleNameById.get(u.roleId ?? '') ?? ''}</span>
                 </td>
-                <td className="px-4 py-2.5 text-right">
+                <td className="px-4 py-2.5 text-right whitespace-nowrap">
+                  <button
+                    onClick={() => handleResetPassword(u)}
+                    disabled={resettingId === u.id}
+                    title="Réinitialiser le mot de passe"
+                    className="p-1.5 rounded-lg text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 cursor-pointer disabled:opacity-50"
+                  >
+                    {resettingId === u.id ? <Loader2 size={13} className="animate-spin" /> : <RotateCcw size={13} />}
+                  </button>
                   <button
                     onClick={() => handleDelete(u)}
                     disabled={deletingId === u.id}
+                    title="Supprimer"
                     className="p-1.5 rounded-lg text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 cursor-pointer disabled:opacity-50"
                   >
                     {deletingId === u.id ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}

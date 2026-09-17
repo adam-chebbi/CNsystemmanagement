@@ -3,6 +3,7 @@ import Database from 'better-sqlite3';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { hashPassword, generateTemporaryPassword } from '../lib/password.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -89,3 +90,41 @@ if (!userColumns.has('role_id')) db.exec('ALTER TABLE users ADD COLUMN role_id T
 // payment-breakdown mismatch (see quantitySalesEntryModel.ts).
 const salesTransactionColumns = new Set((db.pragma('table_info(sales_transactions)') as { name: string }[]).map((c) => c.name));
 if (!salesTransactionColumns.has('note')) db.exec('ALTER TABLE sales_transactions ADD COLUMN note TEXT');
+
+// One-time, idempotent migration: users gained email/phone/password-based login after the original
+// CIN-only, passwordless schema shipped. New columns are added individually since some may already
+// exist on a database that picked up part of this migration on an earlier boot.
+const addUserColumnIfMissing = (name: string, ddl: string) => {
+  const cols = new Set((db.pragma('table_info(users)') as { name: string }[]).map((c) => c.name));
+  if (!cols.has(name)) db.exec(`ALTER TABLE users ADD COLUMN ${ddl}`);
+};
+addUserColumnIfMissing('email', 'email TEXT');
+addUserColumnIfMissing('phone', 'phone TEXT');
+addUserColumnIfMissing('password_hash', 'password_hash TEXT');
+addUserColumnIfMissing('password_updated_at', 'password_updated_at TEXT');
+addUserColumnIfMissing('must_change_password', 'must_change_password INTEGER NOT NULL DEFAULT 0');
+addUserColumnIfMissing('failed_login_attempts', 'failed_login_attempts INTEGER NOT NULL DEFAULT 0');
+addUserColumnIfMissing('locked_until', 'locked_until TEXT');
+db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email ON users(email) WHERE email IS NOT NULL');
+db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_users_phone ON users(phone) WHERE phone IS NOT NULL');
+
+// Backfill: any account that predates passwords (password_hash IS NULL) gets a freshly generated
+// temporary password, with must_change_password forcing the change-password screen on next login —
+// exactly the same "temporary password + forced change" flow a Super Admin triggers manually via
+// Rôles & permissions, just applied once automatically so a pre-existing account is never simply
+// locked out by this migration. Printed to the server console (not the database's problem to
+// deliver it anywhere else) since there is no admin session — and no email service — available at
+// boot time to hand it to anyone directly.
+const passwordlessUsers = db.prepare('SELECT id, full_name, cin FROM users WHERE password_hash IS NULL').all() as { id: string; full_name: string; cin: string }[];
+if (passwordlessUsers.length > 0) {
+  const setTempPassword = db.prepare(
+    'UPDATE users SET password_hash = ?, must_change_password = 1, password_updated_at = ? WHERE id = ?'
+  );
+  const now = new Date().toISOString();
+  passwordlessUsers.forEach((u) => {
+    const tempPassword = generateTemporaryPassword();
+    setTempPassword.run(hashPassword(tempPassword), now, u.id);
+    // eslint-disable-next-line no-console
+    console.log(`[auth] Mot de passe temporaire généré pour "${u.full_name}" (CIN ${u.cin}) : ${tempPassword} — changement obligatoire à la prochaine connexion.`);
+  });
+}
