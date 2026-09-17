@@ -8,8 +8,16 @@ interface RoleRow {
 
 // A minimal, deliberately narrow starter set for the seeded "Compte Saisie" role — a Super Admin
 // is free to widen or shrink this afterwards via the Roles & Permissions screen; this only decides
-// what a brand-new data-entry account can do on day one.
-const COMPTE_SAISIE_STARTER_PERMISSIONS = ['dashboard:view', 'sales:view', 'sales:create', 'stock:view'];
+// what a brand-new data-entry account can do on day one. Includes products:view and hr:view
+// because "Ajout manuel des ventes" needs them just to render (the product picker and the
+// employee/shift dropdowns) — without them sales:create is granted but unusable.
+const COMPTE_SAISIE_STARTER_PERMISSIONS = ['dashboard:view', 'sales:view', 'sales:create', 'stock:view', 'products:view', 'hr:view'];
+
+// The same two prerequisites, re-applied additively on every boot even to an already-existing
+// Compte Saisie role (INSERT OR IGNORE — never revokes anything a Super Admin configured). Without
+// this, a role created before these were added to the starter set above stays permanently unable
+// to actually use its own sales:create grant, with no obvious link between the two in the UI.
+const COMPTE_SAISIE_REQUIRED_FOR_SALES_ENTRY = ['products:view', 'hr:view'];
 
 const getRoleByName = (name: string): RoleRow | undefined =>
   db.prepare('SELECT id FROM roles WHERE name = ?').get(name) as RoleRow | undefined;
@@ -50,8 +58,12 @@ export const bootstrapRbac = (): void => {
     PERMISSION_KEYS.forEach((key) => insertPermission.run(superAdmin!.id, key));
   }
 
-  if (!getRoleByName(COMPTE_SAISIE_ROLE_NAME)) {
+  const compteSaisie = getRoleByName(COMPTE_SAISIE_ROLE_NAME);
+  if (!compteSaisie) {
     createRole(COMPTE_SAISIE_ROLE_NAME, 'Accès limité à la saisie quotidienne (ventes, consultation du stock).', false, COMPTE_SAISIE_STARTER_PERMISSIONS);
+  } else {
+    const insertPermission = db.prepare('INSERT OR IGNORE INTO role_permissions (role_id, permission_key) VALUES (?, ?)');
+    COMPTE_SAISIE_REQUIRED_FOR_SALES_ENTRY.forEach((key) => insertPermission.run(compteSaisie.id, key));
   }
 
   db.prepare('UPDATE users SET role_id = ? WHERE role_id IS NULL').run(superAdmin.id);

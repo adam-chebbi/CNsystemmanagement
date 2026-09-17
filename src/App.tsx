@@ -232,6 +232,16 @@ export default function App() {
   // ledger application, purchase order receiving, HR cascading deletes...), so re-fetching is the
   // simplest way to guarantee the client never has to reimplement that logic a second time.
   const loadAllData = useCallback(async () => {
+    // Every endpoint below is gated server-side by a permission (see server/middleware/auth.ts),
+    // and a role like Compte Saisie legitimately lacks most of them. Requesting a resource the
+    // user isn't allowed to see would 403 and, inside a plain Promise.all, fail the ENTIRE initial
+    // load over a single expected/permission-driven rejection — so each fetch is skipped up front
+    // (never even sent) when the permission is missing, falling back to an empty default instead.
+    // A real failure on a request the user IS allowed to make still rejects normally and surfaces
+    // via loadError below, same as before.
+    const fetchIfAllowed = <T,>(permission: string, fetcher: () => Promise<T>, fallback: T): Promise<T> =>
+      hasPermission(permission) ? fetcher() : Promise.resolve(fallback);
+
     const [
       categories, subCategories, extras, articles, subRecipesRes,
       units, products, lots, ledger,
@@ -241,33 +251,33 @@ export default function App() {
       employees, shifts, dayRecords, recurringPlans, financialRecords,
       treated, log, monthlyTargets, cashVerificationsRes, settingsRes,
     ] = await Promise.all([
-      productCatalogApi.getProductCategories(),
-      productCatalogApi.getProductSubCategories(),
-      productCatalogApi.getCatalogExtras(),
-      productCatalogApi.getCatalogArticles(),
-      productCatalogApi.getSubRecipes(),
-      stockApi.getStockUnits(),
-      stockApi.getStockProducts(),
-      stockApi.getStockLots(),
-      stockApi.getStockLedger(),
-      salesApi.getSalesTransactions(),
-      expensesApi.getExpenseCategories(),
-      expensesApi.getExpenses(),
-      purchasesApi.getSuppliers(),
-      purchasesApi.getPurchaseOrders(),
-      purchasesApi.getPurchaseReceptions(),
-      purchasesApi.getSupplierInvoices(),
-      purchasesApi.getProductAliases(),
-      hrApi.getEmployees(),
-      hrApi.getShifts(),
-      hrApi.getDayRecords(),
-      hrApi.getRecurringPlans(),
-      hrApi.getFinancialRecords(),
-      notificationsApi.getTreatedAlerts(),
-      activityLogApi.getActivityLog(),
-      dashboardApi.getMonthlyTargets(),
-      cashVerificationsApi.getCashVerifications(),
-      settingsApi.getSettings(),
+      fetchIfAllowed('products:view', () => productCatalogApi.getProductCategories(), []),
+      fetchIfAllowed('products:view', () => productCatalogApi.getProductSubCategories(), []),
+      fetchIfAllowed('products:view', () => productCatalogApi.getCatalogExtras(), []),
+      fetchIfAllowed('products:view', () => productCatalogApi.getCatalogArticles(), []),
+      fetchIfAllowed('products:view', () => productCatalogApi.getSubRecipes(), []),
+      fetchIfAllowed('stock:view', () => stockApi.getStockUnits(), []),
+      fetchIfAllowed('stock:view', () => stockApi.getStockProducts(), []),
+      fetchIfAllowed('stock:view', () => stockApi.getStockLots(), []),
+      fetchIfAllowed('stock:view', () => stockApi.getStockLedger(), []),
+      fetchIfAllowed('sales:view', () => salesApi.getSalesTransactions(), []),
+      fetchIfAllowed('expenses:view', () => expensesApi.getExpenseCategories(), []),
+      fetchIfAllowed('expenses:view', () => expensesApi.getExpenses(), []),
+      fetchIfAllowed('purchases:view', () => purchasesApi.getSuppliers(), []),
+      fetchIfAllowed('purchases:view', () => purchasesApi.getPurchaseOrders(), []),
+      fetchIfAllowed('purchases:view', () => purchasesApi.getPurchaseReceptions(), []),
+      fetchIfAllowed('purchases:view', () => purchasesApi.getSupplierInvoices(), []),
+      fetchIfAllowed('purchases:view', () => purchasesApi.getProductAliases(), []),
+      fetchIfAllowed('hr:view', () => hrApi.getEmployees(), []),
+      fetchIfAllowed('hr:view', () => hrApi.getShifts(), []),
+      fetchIfAllowed('hr:view', () => hrApi.getDayRecords(), []),
+      fetchIfAllowed('hr:view', () => hrApi.getRecurringPlans(), []),
+      fetchIfAllowed('hr:financial', () => hrApi.getFinancialRecords(), []),
+      fetchIfAllowed('notifications:view', () => notificationsApi.getTreatedAlerts(), {}),
+      fetchIfAllowed('activity_log:view', () => activityLogApi.getActivityLog(), []),
+      fetchIfAllowed('dashboard:view', () => dashboardApi.getMonthlyTargets(), []),
+      fetchIfAllowed('sales:cash_check', () => cashVerificationsApi.getCashVerifications(), []),
+      settingsApi.getSettings(), // no permission gate — every authenticated user needs it for runtime config
     ]);
     setCatalogExtras(extras);
     setProductCategories(categories);
@@ -297,7 +307,7 @@ export default function App() {
     setCashVerifications(cashVerificationsRes);
     setAppSettings(settingsRes);
     applySettingsToRuntime(settingsRes);
-  }, []);
+  }, [hasPermission]);
 
   const handleSaveSettings = async (next: AppSettings) => {
     const saved = await settingsApi.updateSettings(next);
