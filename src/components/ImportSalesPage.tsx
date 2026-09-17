@@ -1,4 +1,5 @@
 import React, { useMemo, useRef, useState } from 'react';
+import { useUnsavedWorkGuard } from '../hooks/useUnsavedWorkGuard';
 import {
   Receipt,
   UploadCloud,
@@ -86,6 +87,7 @@ export const ImportSalesPage: React.FC<ImportSalesPageProps> = ({
   const [fileError, setFileError] = useState<string | null>(null);
   const [unknownColumns, setUnknownColumns] = useState<string[]>([]);
   const [rows, setRows] = useState<ImportedTicketDraft[]>([]);
+  useUnsavedWorkGuard(Boolean(file) || rows.length > 0);
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [savedCount, setSavedCount] = useState(0);

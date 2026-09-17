@@ -1,4 +1,5 @@
 import React, { useMemo, useRef, useState } from 'react';
+import { useUnsavedWorkGuard } from '../hooks/useUnsavedWorkGuard';
 import {
   UploadCloud,
   FileText,
@@ -89,6 +90,7 @@ export const InvoiceOcrPage: React.FC<InvoiceOcrPageProps> = ({
   onIntegrateInvoice,
 }) => {
   const [step, setStep] = useState<Step>('upload');
+  useUnsavedWorkGuard(step === 'review' || step === 'extracting');
   const [file, setFile] = useState<File | null>(null);
   const [filePreviewUrl, setFilePreviewUrl] = useState<string | null>(null);
   const [isDragOver, setIsDragOver] = useState(false);

@@ -14,8 +14,13 @@ export default defineConfig(() => {
         // and <link rel="manifest"> tag in index.html) — the plugin only generates/registers the
         // service worker here, it doesn't own or duplicate the manifest.
         manifest: false,
-        registerType: 'autoUpdate',
-        injectRegister: 'auto',
+        // 'prompt' (not 'autoUpdate') + injectRegister: false — a new service worker is installed
+        // in the background but never silently takes over. src/pwa/updateManager.ts registers it
+        // manually (via the virtual:pwa-register module) so the app decides exactly when to apply
+        // it: only when the tab is hidden and no page has reported unsaved work, or when the user
+        // explicitly clicks "Mettre à jour" — never yanking someone off a form they're mid-typing.
+        registerType: 'prompt',
+        injectRegister: false,
         includeAssets: ['favicon.ico', 'favicon-16x16.png', 'favicon-32x32.png', 'apple-touch-icon.png', 'logo.png'],
         workbox: {
           // Precache the built app shell (hashed JS/CSS/fonts/images) so the UI loads instantly,

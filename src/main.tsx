@@ -5,7 +5,15 @@ import { AuthProvider } from './auth/AuthContext';
 import { AuthGate } from './auth/AuthGate';
 import { CookieConsentProvider } from './context/CookieConsentContext';
 import { CookieConsentBanner } from './components/CookieConsentBanner';
+import { UpdateAvailableToast } from './components/UpdateAvailableToast';
+import { initUpdateManager } from './pwa/updateManager';
 import './index.css';
+
+// Deploy-safety: detects a new build in the background (service worker) and applies it either
+// when the user explicitly asks (the toast below) or automatically the moment it's safe to (tab
+// hidden, no page reporting unsaved work) — see src/pwa/updateManager.ts for the full rationale.
+// A no-op outside a real service-worker context (e.g. plain HTTP local dev).
+initUpdateManager();
 
 // A browser tab opened before a new deploy keeps running the JS it already loaded, whose lazy
 // routes (React.lazy in App.tsx) reference content-hashed chunk filenames baked in at build time
@@ -32,6 +40,7 @@ createRoot(document.getElementById('root')!).render(
         </AuthGate>
       </AuthProvider>
       <CookieConsentBanner />
+      <UpdateAvailableToast />
     </CookieConsentProvider>
   </StrictMode>,
 );

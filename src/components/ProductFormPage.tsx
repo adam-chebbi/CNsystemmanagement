@@ -1,4 +1,5 @@
 import React, { useMemo, useRef, useState } from 'react';
+import { useUnsavedWorkGuard } from '../hooks/useUnsavedWorkGuard';
 import {
   Package,
   ImagePlus,
@@ -119,6 +120,7 @@ export const ProductFormPage: React.FC<ProductFormPageProps> = ({
 
   const hasAnyData =
     Boolean(draft.name) || Boolean(draft.description) || Boolean(draft.price) || draft.recipe.length > 0 || draft.variants.length > 0;
+  useUnsavedWorkGuard(hasAnyData);
 
   const updateDraft = (patch: Partial<DraftProduct>) => setDraft((prev) => ({ ...prev, ...patch }));
 

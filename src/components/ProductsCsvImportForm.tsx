@@ -1,4 +1,5 @@
 import React, { useMemo, useRef, useState } from 'react';
+import { useUnsavedWorkGuard } from '../hooks/useUnsavedWorkGuard';
 import {
   UploadCloud,
   FileSpreadsheet,
@@ -74,6 +75,7 @@ export const ProductsCsvImportForm: React.FC<ProductsCsvImportFormProps> = ({
   const [fileError, setFileError] = useState<string | null>(null);
   const [unknownColumns, setUnknownColumns] = useState<string[]>([]);
   const [rows, setRows] = useState<ImportedProductRowDraft[]>([]);
+  useUnsavedWorkGuard(Boolean(file) || rows.length > 0);
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [savedCount, setSavedCount] = useState(0);

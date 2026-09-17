@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import { useUnsavedWorkGuard } from '../hooks/useUnsavedWorkGuard';
 import {
   Receipt,
   Coffee,
@@ -210,6 +211,9 @@ export const ManualSalesEntryPage: React.FC<ManualSalesEntryPageProps> = ({
     quantityForm.paidCard > 0 ||
     quantityForm.paidRestoTicket > 0;
   const activeHasAnyData = mode === 'quantities' ? qHasAnyData : hasAnyData;
+  // A pending app update is never auto-applied while this is true (see src/pwa/updateManager.ts) —
+  // an in-progress sale entry is exactly the kind of unsaved work a deploy must never discard.
+  useUnsavedWorkGuard(activeHasAnyData);
 
   // --- Mutators (all immutable updates against the single `form` state) ---
 
