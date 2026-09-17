@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   ShieldCheck, Loader2, AlertCircle, Plus, Trash2, Pencil, X, Check, Lock, Users as UsersIcon, KeyRound,
-  Copy, CheckCircle2, RotateCcw,
+  CheckCircle2, RotateCcw,
 } from 'lucide-react';
 import {
   getPermissionCatalog, getRoles, createRole, updateRole, deleteRole, getRbacUsers, createRbacUser, updateRbacUser, deleteRbacUser,
@@ -318,59 +318,32 @@ const RolesTab: React.FC<{ groups: PermissionModuleGroup[]; roles: Role[]; onCha
 
 // --- Utilisateurs ----------------------------------------------------------------------------
 
-// Shown once, right after a temporary password is generated (creation or reset) — never
-// retrievable again afterwards (server never returns a stored password back in plain text). A
-// blocking modal rather than a dismissible banner on purpose: the only way to close it is the
-// explicit "Confirmer" button, so a Super Admin can't accidentally click past it without having
-// actually copied or noted the password down somewhere.
-const TemporaryPasswordModal: React.FC<{ fullName: string; password: string; onConfirm: () => void }> = ({ fullName, password, onConfirm }) => {
-  const [copied, setCopied] = useState(false);
-  const handleCopy = async () => {
-    try {
-      await navigator.clipboard.writeText(password);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch {
-      // Clipboard access can fail (permissions, insecure context) — the password stays visible
-      // on screen either way, so this is a pure convenience, not the only way to retrieve it.
-    }
-  };
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4 animate-in fade-in duration-150">
-      <div className="w-full max-w-md bg-white dark:bg-[#151D2A] rounded-2xl shadow-xl border border-gray-100 dark:border-gray-800 p-5 space-y-4">
-        <div className="flex items-center gap-2.5">
-          <div className="w-10 h-10 rounded-xl bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
-            <KeyRound size={18} />
-          </div>
-          <div>
-            <h3 className="text-sm font-bold text-gray-900 dark:text-white">Mot de passe temporaire généré</h3>
-            <p className="text-[11px] text-gray-500 dark:text-gray-400">Pour {fullName}</p>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <code className="flex-1 px-3 py-2.5 rounded-xl bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-800 text-base text-center font-mono font-bold text-gray-900 dark:text-white tracking-wide">
-            {password}
-          </code>
-          <button onClick={handleCopy} className={secondaryButtonClass}>
-            {copied ? <CheckCircle2 size={14} className="text-emerald-500" /> : <Copy size={14} />}
-            <span>{copied ? 'Copié' : 'Copier'}</span>
-          </button>
-        </div>
-
-        <p className="text-[11px] text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/50 rounded-xl p-3">
-          Aucun service d'email n'est configuré — communiquez ce mot de passe vous-même à l'utilisateur. Il devra le
-          changer dès sa première connexion. Il ne sera plus jamais affiché après avoir fermé cette fenêtre.
-        </p>
-
-        <button onClick={onConfirm} className={`${primaryButtonClass} w-full`}>
-          <Check size={14} />
-          <span>J'ai noté ce mot de passe — Confirmer</span>
-        </button>
+// Shown once right after creating a user or resetting a password — no password value to display or
+// copy: the temporary password is always the account's own CIN (see server/routes/roles.ts), which
+// the Super Admin already just typed and the user already knows. Still a confirm-required modal
+// (not a dismissible toast) so the rule — CIN as temporary password, forced change on next login —
+// is clearly acknowledged rather than easy to miss.
+const PasswordRuleConfirmation: React.FC<{ title: string; fullName: string; onConfirm: () => void }> = ({ title, fullName, onConfirm }) => (
+  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4 animate-in fade-in duration-150">
+    <div className="w-full max-w-sm bg-white dark:bg-[#151D2A] rounded-2xl shadow-xl border border-gray-100 dark:border-gray-800 p-5 space-y-4 text-center">
+      <div className="w-11 h-11 mx-auto rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
+        <CheckCircle2 size={20} />
       </div>
+      <div>
+        <h3 className="text-sm font-bold text-gray-900 dark:text-white">{title}</h3>
+        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1.5">
+          <strong className="text-gray-700 dark:text-gray-300">{fullName}</strong> peut se connecter avec son numéro
+          CIN comme identifiant et comme mot de passe temporaire. Un changement de mot de passe lui sera demandé dès
+          sa première connexion.
+        </p>
+      </div>
+      <button onClick={onConfirm} className={`${primaryButtonClass} w-full`}>
+        <Check size={14} />
+        <span>Compris</span>
+      </button>
     </div>
-  );
-};
+  </div>
+);
 
 const UsersTab: React.FC<{ roles: Role[]; users: RbacUser[]; employees: Employee[]; onChanged: () => Promise<void> }> = ({ roles, users, employees, onChanged }) => {
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -380,7 +353,7 @@ const UsersTab: React.FC<{ roles: Role[]; users: RbacUser[]; employees: Employee
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [savingRoleForId, setSavingRoleForId] = useState<string | null>(null);
   const [resettingId, setResettingId] = useState<string | null>(null);
-  const [temporaryPassword, setTemporaryPassword] = useState<{ fullName: string; password: string } | null>(null);
+  const [passwordNotice, setPasswordNotice] = useState<{ title: string; fullName: string } | null>(null);
   // Which source the "Nouvel utilisateur" form is filling from — an existing employee record
   // (Gestion du personnel) to avoid retyping their name/CIN/phone, or a contact with no employee
   // file at all (e.g. an external accountant, or a Super Admin who isn't floor staff).
@@ -426,7 +399,7 @@ const UsersTab: React.FC<{ roles: Role[]; users: RbacUser[]; employees: Employee
         roleId: draft.roleId,
       });
       setIsFormOpen(false);
-      setTemporaryPassword({ fullName: created.fullName, password: created.temporaryPassword });
+      setPasswordNotice({ title: 'Utilisateur créé', fullName: created.fullName });
       await onChanged();
     } catch (err) {
       setFormError(err instanceof ApiError ? err.message : "Une erreur est survenue lors de l'enregistrement.");
@@ -448,11 +421,11 @@ const UsersTab: React.FC<{ roles: Role[]; users: RbacUser[]; employees: Employee
   };
 
   const handleResetPassword = async (user: RbacUser) => {
-    if (!window.confirm(`Générer un nouveau mot de passe temporaire pour « ${user.fullName} » ?`)) return;
+    if (!window.confirm(`Réinitialiser le mot de passe de « ${user.fullName} » ? Son mot de passe temporaire redeviendra son numéro CIN.`)) return;
     setResettingId(user.id);
     try {
-      const { temporaryPassword: password } = await resetRbacUserPassword(user.id);
-      setTemporaryPassword({ fullName: user.fullName, password });
+      await resetRbacUserPassword(user.id);
+      setPasswordNotice({ title: 'Mot de passe réinitialisé', fullName: user.fullName });
       await onChanged();
     } catch (err) {
       window.alert(err instanceof ApiError ? err.message : 'Une erreur est survenue.');
@@ -476,11 +449,11 @@ const UsersTab: React.FC<{ roles: Role[]; users: RbacUser[]; employees: Employee
 
   return (
     <div className="space-y-4">
-      {temporaryPassword && (
-        <TemporaryPasswordModal
-          fullName={temporaryPassword.fullName}
-          password={temporaryPassword.password}
-          onConfirm={() => setTemporaryPassword(null)}
+      {passwordNotice && (
+        <PasswordRuleConfirmation
+          title={passwordNotice.title}
+          fullName={passwordNotice.fullName}
+          onConfirm={() => setPasswordNotice(null)}
         />
       )}
 
@@ -569,8 +542,8 @@ const UsersTab: React.FC<{ roles: Role[]; users: RbacUser[]; employees: Employee
             </div>
           </div>
           <p className="text-[11px] text-gray-400">
-            Un mot de passe temporaire sera généré automatiquement et affiché une seule fois après la création — aucun
-            service d'email n'étant configuré, communiquez-le vous-même à l'utilisateur.
+            Le mot de passe temporaire de ce compte sera son numéro CIN — il devra le changer dès sa première
+            connexion.
           </p>
           {formError && (
             <div className="p-3 rounded-xl bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800/60 text-xs text-red-600 dark:text-red-400 flex items-center gap-2">

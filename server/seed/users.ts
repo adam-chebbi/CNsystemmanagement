@@ -1,14 +1,13 @@
 import { db } from '../db/connection.js';
-import { hashPassword, generateTemporaryPassword } from '../lib/password.js';
+import { hashPassword } from '../lib/password.js';
+
+const CIN = '12345678';
 
 export const seedUsers = (): void => {
-  const tempPassword = generateTemporaryPassword();
+  // Temporary password is always the account's own CIN (see server/routes/roles.ts) — the seeded
+  // Super Admin logs in with CIN 12345678 as both identifier and password, then is forced to set a
+  // real one via the change-password screen, same flow as any other new account.
   db.prepare(
     'INSERT INTO users (id, full_name, cin, password_hash, must_change_password, created_at) VALUES (?, ?, ?, ?, 1, ?)'
-  ).run('user-1', 'Adam CHEBBI', '12345678', hashPassword(tempPassword), new Date().toISOString());
-  // Only ever printed once, on the very first boot of a brand-new database (this function only
-  // runs when the users table was empty) — there's no admin session or email service to hand this
-  // to otherwise. Same "temporary password + forced change" flow as any other new account.
-  // eslint-disable-next-line no-console
-  console.log(`[auth] Mot de passe temporaire généré pour "Adam CHEBBI" (CIN 12345678) : ${tempPassword} — changement obligatoire à la première connexion.`);
+  ).run('user-1', 'Adam CHEBBI', CIN, hashPassword(CIN), new Date().toISOString());
 };

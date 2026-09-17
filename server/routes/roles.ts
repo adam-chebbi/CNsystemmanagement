@@ -5,7 +5,7 @@ import { db } from '../db/connection.js';
 import { asyncHandler, ApiError, notFound } from '../middleware/errors.js';
 import { requireAuth, requirePermission } from '../middleware/auth.js';
 import { recordActivity } from '../lib/activity.js';
-import { hashPassword, generateTemporaryPassword } from '../lib/password.js';
+import { hashPassword } from '../lib/password.js';
 import { groupPermissionsByModule, isKnownPermissionKey, MANAGE_ROLES_PERMISSION } from '../../src/data/rbacModel.js';
 import { CIN_PATTERN } from './auth.js';
 
@@ -258,10 +258,10 @@ rolesRouter.post(
     if (duplicateCin) throw new ApiError(409, 'Ce numéro CIN est déjà utilisé par un autre compte.');
     assertEmailPhoneAvailable(body.email ?? '', body.phone ?? '');
 
-    // No email service is configured to deliver a temporary password, so one is generated here and
-    // returned once in the response — never persisted or retrievable in plain text afterwards. The
-    // Super Admin communicates it to the user directly, who is forced to replace it on first login.
-    const temporaryPassword = generateTemporaryPassword();
+    // The temporary password is always the account's own CIN — no email/SMS service exists to
+    // deliver a generated secret, and unlike a random string, the CIN needs no separate delivery at
+    // all: the Super Admin already just typed it, and the user already knows their own. They're
+    // forced to replace it with a real password on first login (must_change_password below).
     const id = randomUUID();
     db.prepare(
       `INSERT INTO users (id, full_name, cin, email, phone, password_hash, must_change_password, role_id, created_at)
@@ -272,33 +272,36 @@ rolesRouter.post(
       body.cin.trim(),
       body.email || null,
       body.phone || null,
-      hashPassword(temporaryPassword),
+      hashPassword(body.cin.trim()),
       body.roleId,
       new Date().toISOString()
     );
 
     recordActivity('Rôles & permissions', 'Création', `Utilisateur "${body.fullName.trim()}" créé.`, req.user!.fullName);
     const [created] = listUsersWithRole().filter((u) => u.id === id);
-    res.status(201).json({ ...created, temporaryPassword });
+    res.status(201).json(created);
   })
 );
 
-// Generates a fresh temporary password for an existing account (forgotten password, or simply
-// handed to a new device) — same "shown once, forced change" flow as account creation.
+// Resets an existing account's password back to its own CIN (forgotten password, account handed to
+// someone new, etc.) — same rule as account creation, and forces the change-password screen again
+// on next login (must_change_password), so every reset always ends with the user picking a real
+// password of their own before they can do anything else.
 rolesRouter.post(
   '/users/:id/reset-password',
   requirePermission(MANAGE_ROLES_PERMISSION),
   asyncHandler((req, res) => {
-    const existing = db.prepare('SELECT id, full_name FROM users WHERE id = ?').get(req.params.id) as { id: string; full_name: string } | undefined;
+    const existing = db.prepare('SELECT id, full_name, cin FROM users WHERE id = ?').get(req.params.id) as
+      | { id: string; full_name: string; cin: string }
+      | undefined;
     if (!existing) throw notFound('Utilisateur');
 
-    const temporaryPassword = generateTemporaryPassword();
     db.prepare(
       'UPDATE users SET password_hash = ?, must_change_password = 1, failed_login_attempts = 0, locked_until = NULL, password_updated_at = ? WHERE id = ?'
-    ).run(hashPassword(temporaryPassword), new Date().toISOString(), existing.id);
+    ).run(hashPassword(existing.cin), new Date().toISOString(), existing.id);
 
     recordActivity('Rôles & permissions', 'Modification', `Mot de passe réinitialisé — ${existing.full_name}.`, req.user!.fullName);
-    res.json({ temporaryPassword });
+    res.status(204).end();
   })
 );
 

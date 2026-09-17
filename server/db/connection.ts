@@ -3,7 +3,7 @@ import Database from 'better-sqlite3';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { hashPassword, generateTemporaryPassword } from '../lib/password.js';
+import { hashPassword } from '../lib/password.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -108,23 +108,16 @@ addUserColumnIfMissing('locked_until', 'locked_until TEXT');
 db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email ON users(email) WHERE email IS NOT NULL');
 db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_users_phone ON users(phone) WHERE phone IS NOT NULL');
 
-// Backfill: any account that predates passwords (password_hash IS NULL) gets a freshly generated
+// Backfill: any account that predates passwords (password_hash IS NULL) gets its own CIN as a
 // temporary password, with must_change_password forcing the change-password screen on next login —
-// exactly the same "temporary password + forced change" flow a Super Admin triggers manually via
-// Rôles & permissions, just applied once automatically so a pre-existing account is never simply
-// locked out by this migration. Printed to the server console (not the database's problem to
-// deliver it anywhere else) since there is no admin session — and no email service — available at
-// boot time to hand it to anyone directly.
-const passwordlessUsers = db.prepare('SELECT id, full_name, cin FROM users WHERE password_hash IS NULL').all() as { id: string; full_name: string; cin: string }[];
+// same rule as every other temporary password in the app (see server/routes/roles.ts): it's always
+// the account's CIN, never a generated secret, so there's nothing to print or deliver anywhere —
+// the account holder already knows their own CIN.
+const passwordlessUsers = db.prepare('SELECT id, cin FROM users WHERE password_hash IS NULL').all() as { id: string; cin: string }[];
 if (passwordlessUsers.length > 0) {
   const setTempPassword = db.prepare(
     'UPDATE users SET password_hash = ?, must_change_password = 1, password_updated_at = ? WHERE id = ?'
   );
   const now = new Date().toISOString();
-  passwordlessUsers.forEach((u) => {
-    const tempPassword = generateTemporaryPassword();
-    setTempPassword.run(hashPassword(tempPassword), now, u.id);
-    // eslint-disable-next-line no-console
-    console.log(`[auth] Mot de passe temporaire généré pour "${u.full_name}" (CIN ${u.cin}) : ${tempPassword} — changement obligatoire à la prochaine connexion.`);
-  });
+  passwordlessUsers.forEach((u) => setTempPassword.run(hashPassword(u.cin), now, u.id));
 }

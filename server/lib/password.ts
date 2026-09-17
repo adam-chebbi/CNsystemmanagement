@@ -24,18 +24,3 @@ export const verifyPassword = (password: string, stored: string | null | undefin
   if (hashBuffer.length !== candidateBuffer.length) return false;
   return timingSafeEqual(hashBuffer, candidateBuffer);
 };
-
-// Human-typeable temporary password (used both for the Super-Admin-generated "set/reset password"
-// flow and for the one-time backfill of pre-existing passwordless accounts) — avoids visually
-// ambiguous characters (0/O, 1/l/I) since it's meant to be read off a screen and typed once.
-const TEMP_PASSWORD_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789';
-const TEMP_PASSWORD_LENGTH = 10;
-
-export const generateTemporaryPassword = (): string => {
-  const bytes = randomBytes(TEMP_PASSWORD_LENGTH);
-  let out = '';
-  for (let i = 0; i < TEMP_PASSWORD_LENGTH; i += 1) {
-    out += TEMP_PASSWORD_ALPHABET[bytes[i] % TEMP_PASSWORD_ALPHABET.length];
-  }
-  return out;
-};
