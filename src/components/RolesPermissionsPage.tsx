@@ -10,8 +10,11 @@ import {
 import { ApiError } from '../api/client';
 import type { Role, RbacUser, PermissionModuleGroup } from '../data/rbacModel';
 import { validateDraftRole, validateDraftUser, createEmptyDraftUser } from '../data/rbacModel';
+import type { Employee } from '../data/hrModel';
+import { getEmployeeFullName } from '../data/hrModel';
 
 interface RolesPermissionsPageProps {
+  employees: Employee[];
   onNavigateToDashboard: () => void;
 }
 
@@ -22,7 +25,7 @@ const secondaryButtonClass =
 const inputBaseClass =
   'w-full px-3.5 py-2 text-xs rounded-xl border bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-1 transition border-gray-200 dark:border-gray-700 focus:border-emerald-500 focus:ring-emerald-500';
 
-export const RolesPermissionsPage: React.FC<RolesPermissionsPageProps> = ({ onNavigateToDashboard }) => {
+export const RolesPermissionsPage: React.FC<RolesPermissionsPageProps> = ({ employees, onNavigateToDashboard }) => {
   const [tab, setTab] = useState<'roles' | 'users'>('roles');
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -94,7 +97,7 @@ export const RolesPermissionsPage: React.FC<RolesPermissionsPageProps> = ({ onNa
       ) : tab === 'roles' ? (
         <RolesTab groups={groups} roles={roles} onChanged={load} />
       ) : (
-        <UsersTab roles={roles} users={users} onChanged={load} />
+        <UsersTab roles={roles} users={users} employees={employees} onChanged={load} />
       )}
     </div>
   );
@@ -355,7 +358,7 @@ const TemporaryPasswordBanner: React.FC<{ fullName: string; password: string; on
   );
 };
 
-const UsersTab: React.FC<{ roles: Role[]; users: RbacUser[]; onChanged: () => Promise<void> }> = ({ roles, users, onChanged }) => {
+const UsersTab: React.FC<{ roles: Role[]; users: RbacUser[]; employees: Employee[]; onChanged: () => Promise<void> }> = ({ roles, users, employees, onChanged }) => {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [draft, setDraft] = useState(createEmptyDraftUser());
   const [isSaving, setIsSaving] = useState(false);
@@ -364,11 +367,30 @@ const UsersTab: React.FC<{ roles: Role[]; users: RbacUser[]; onChanged: () => Pr
   const [savingRoleForId, setSavingRoleForId] = useState<string | null>(null);
   const [resettingId, setResettingId] = useState<string | null>(null);
   const [temporaryPassword, setTemporaryPassword] = useState<{ fullName: string; password: string } | null>(null);
+  // Which source the "Nouvel utilisateur" form is filling from — an existing employee record
+  // (Gestion du personnel) to avoid retyping their name/CIN/phone, or a contact with no employee
+  // file at all (e.g. an external accountant, or a Super Admin who isn't floor staff).
+  const [sourceMode, setSourceMode] = useState<'employee' | 'external'>('external');
+  const [selectedEmployeeId, setSelectedEmployeeId] = useState('');
 
   const roleNameById = useMemo(() => new Map(roles.map((r) => [r.id, r.name])), [roles]);
 
+  // An employee already linked to a login account (same CIN) is left off the picker — creating a
+  // second account for the same person would just collide on the CIN uniqueness check anyway.
+  const linkedCins = useMemo(() => new Set(users.map((u) => u.cin)), [users]);
+  const availableEmployees = useMemo(() => employees.filter((e) => !linkedCins.has(e.cinNumber)), [employees, linkedCins]);
+
+  const applyEmployeeToDraft = (employeeId: string) => {
+    setSelectedEmployeeId(employeeId);
+    const employee = availableEmployees.find((e) => e.id === employeeId);
+    if (!employee) return;
+    setDraft((d) => ({ ...d, fullName: getEmployeeFullName(employee), cin: employee.cinNumber, phone: employee.phone }));
+  };
+
   const openCreate = () => {
     setDraft({ ...createEmptyDraftUser(), roleId: roles.find((r) => !r.isSystem)?.id ?? roles[0]?.id ?? '' });
+    setSourceMode(availableEmployees.length > 0 ? 'employee' : 'external');
+    setSelectedEmployeeId('');
     setFormError(null);
     setIsFormOpen(true);
   };
@@ -464,6 +486,47 @@ const UsersTab: React.FC<{ roles: Role[]; users: RbacUser[]; onChanged: () => Pr
               <X size={15} />
             </button>
           </div>
+
+          {availableEmployees.length > 0 && (
+            <div className="flex items-center gap-1.5 p-1 rounded-xl bg-gray-100 dark:bg-gray-800 w-fit">
+              <button
+                type="button"
+                onClick={() => setSourceMode('employee')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${sourceMode === 'employee' ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-2xs' : 'text-gray-500 dark:text-gray-400'}`}
+              >
+                Employé existant ({availableEmployees.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setSourceMode('external')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${sourceMode === 'external' ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-2xs' : 'text-gray-500 dark:text-gray-400'}`}
+              >
+                Nouveau contact externe
+              </button>
+            </div>
+          )}
+
+          {sourceMode === 'employee' && availableEmployees.length > 0 && (
+            <div>
+              <label className="text-xs font-semibold text-gray-700 dark:text-gray-300 block mb-1">Employé (Gestion du personnel)</label>
+              <select value={selectedEmployeeId} onChange={(e) => applyEmployeeToDraft(e.target.value)} className={inputBaseClass}>
+                <option value="" disabled>Choisir un employé</option>
+                {availableEmployees.map((e) => (
+                  <option key={e.id} value={e.id}>{getEmployeeFullName(e)} — {e.poste}</option>
+                ))}
+              </select>
+              <p className="text-[11px] text-gray-400 mt-1">
+                Nom, CIN et téléphone sont pré-remplis ci-dessous à partir de sa fiche — modifiables si besoin.
+              </p>
+            </div>
+          )}
+
+          {availableEmployees.length === 0 && (
+            <p className="text-[11px] text-gray-400">
+              Aucun employé disponible dans Gestion du personnel (déjà tous liés à un compte, ou aucun employé enregistré).
+            </p>
+          )}
+
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="text-xs font-semibold text-gray-700 dark:text-gray-300 block mb-1">Nom complet</label>

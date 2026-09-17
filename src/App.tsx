@@ -1607,6 +1607,7 @@ export default function App() {
             ) : activeTab === 'roles_permissions' ? (
               <Suspense fallback={<StockPageLoadingFallback />}>
                 <RolesPermissionsPage
+                  employees={hrEmployees}
                   onNavigateToDashboard={() => {
                     setActiveTab('dashboard');
                     setActiveSubItem('');
