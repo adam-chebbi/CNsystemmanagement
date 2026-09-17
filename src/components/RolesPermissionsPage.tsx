@@ -319,8 +319,11 @@ const RolesTab: React.FC<{ groups: PermissionModuleGroup[]; roles: Role[]; onCha
 // --- Utilisateurs ----------------------------------------------------------------------------
 
 // Shown once, right after a temporary password is generated (creation or reset) — never
-// retrievable again afterwards (server never returns a stored password back in plain text).
-const TemporaryPasswordBanner: React.FC<{ fullName: string; password: string; onDismiss: () => void }> = ({ fullName, password, onDismiss }) => {
+// retrievable again afterwards (server never returns a stored password back in plain text). A
+// blocking modal rather than a dismissible banner on purpose: the only way to close it is the
+// explicit "Confirmer" button, so a Super Admin can't accidentally click past it without having
+// actually copied or noted the password down somewhere.
+const TemporaryPasswordModal: React.FC<{ fullName: string; password: string; onConfirm: () => void }> = ({ fullName, password, onConfirm }) => {
   const [copied, setCopied] = useState(false);
   const handleCopy = async () => {
     try {
@@ -333,27 +336,38 @@ const TemporaryPasswordBanner: React.FC<{ fullName: string; password: string; on
     }
   };
   return (
-    <div className="p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/50 space-y-2">
-      <div className="flex items-start justify-between gap-2">
-        <p className="text-xs font-bold text-amber-800 dark:text-amber-300">
-          Mot de passe temporaire pour {fullName} — à communiquer manuellement (aucun service d'email n'est configuré)
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4 animate-in fade-in duration-150">
+      <div className="w-full max-w-md bg-white dark:bg-[#151D2A] rounded-2xl shadow-xl border border-gray-100 dark:border-gray-800 p-5 space-y-4">
+        <div className="flex items-center gap-2.5">
+          <div className="w-10 h-10 rounded-xl bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
+            <KeyRound size={18} />
+          </div>
+          <div>
+            <h3 className="text-sm font-bold text-gray-900 dark:text-white">Mot de passe temporaire généré</h3>
+            <p className="text-[11px] text-gray-500 dark:text-gray-400">Pour {fullName}</p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <code className="flex-1 px-3 py-2.5 rounded-xl bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-800 text-base text-center font-mono font-bold text-gray-900 dark:text-white tracking-wide">
+            {password}
+          </code>
+          <button onClick={handleCopy} className={secondaryButtonClass}>
+            {copied ? <CheckCircle2 size={14} className="text-emerald-500" /> : <Copy size={14} />}
+            <span>{copied ? 'Copié' : 'Copier'}</span>
+          </button>
+        </div>
+
+        <p className="text-[11px] text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/50 rounded-xl p-3">
+          Aucun service d'email n'est configuré — communiquez ce mot de passe vous-même à l'utilisateur. Il devra le
+          changer dès sa première connexion. Il ne sera plus jamais affiché après avoir fermé cette fenêtre.
         </p>
-        <button onClick={onDismiss} className="p-1 rounded-lg text-amber-500 hover:bg-amber-100 dark:hover:bg-amber-900/40 cursor-pointer shrink-0">
-          <X size={14} />
+
+        <button onClick={onConfirm} className={`${primaryButtonClass} w-full`}>
+          <Check size={14} />
+          <span>J'ai noté ce mot de passe — Confirmer</span>
         </button>
       </div>
-      <div className="flex items-center gap-2">
-        <code className="px-3 py-1.5 rounded-lg bg-white dark:bg-gray-900 border border-amber-200 dark:border-amber-800/60 text-sm font-mono font-bold text-gray-900 dark:text-white tracking-wide">
-          {password}
-        </code>
-        <button onClick={handleCopy} className={secondaryButtonClass}>
-          {copied ? <CheckCircle2 size={13} className="text-emerald-500" /> : <Copy size={13} />}
-          <span>{copied ? 'Copié' : 'Copier'}</span>
-        </button>
-      </div>
-      <p className="text-[11px] text-amber-700/80 dark:text-amber-400/80">
-        L'utilisateur devra le changer dès sa première connexion.
-      </p>
     </div>
   );
 };
@@ -463,10 +477,10 @@ const UsersTab: React.FC<{ roles: Role[]; users: RbacUser[]; employees: Employee
   return (
     <div className="space-y-4">
       {temporaryPassword && (
-        <TemporaryPasswordBanner
+        <TemporaryPasswordModal
           fullName={temporaryPassword.fullName}
           password={temporaryPassword.password}
-          onDismiss={() => setTemporaryPassword(null)}
+          onConfirm={() => setTemporaryPassword(null)}
         />
       )}
 
