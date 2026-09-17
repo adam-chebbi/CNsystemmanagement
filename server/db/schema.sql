@@ -45,8 +45,13 @@ CREATE TABLE IF NOT EXISTS users (
   created_at TEXT NOT NULL
 );
 
-CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email ON users(email) WHERE email IS NOT NULL;
-CREATE UNIQUE INDEX IF NOT EXISTS idx_users_phone ON users(phone) WHERE phone IS NOT NULL;
+-- The two partial unique indexes for email/phone are created in server/db/connection.ts instead of
+-- here: CREATE TABLE IF NOT EXISTS above is a no-op on a database that already has a users table
+-- (every pre-existing install), so an index statement referencing the email/phone columns run
+-- directly from this file would fail with "no such column" before connection.ts's ALTER TABLE
+-- migration ever gets a chance to add them. connection.ts creates both indexes right after that
+-- migration runs, which is safe on a fresh database too (the columns already exist there from the
+-- CREATE TABLE above).
 
 -- revoked_at IS NULL means the session is currently active; it's never deleted on logout so
 -- "Historique des connexions" can still show the login/logout event pair afterward.
