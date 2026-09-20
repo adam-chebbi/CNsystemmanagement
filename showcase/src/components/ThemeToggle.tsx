@@ -10,9 +10,9 @@ export function ThemeToggle() {
       onClick={toggle}
       aria-label={isDark ? 'Passer au mode clair' : 'Passer au mode sombre'}
       title={isDark ? 'Mode clair' : 'Mode sombre'}
-      className="flex h-10 w-10 items-center justify-center rounded-xl border border-gray-100 bg-white text-gray-600 transition-colors hover:bg-gray-50 hover:text-primary dark:border-gray-800 dark:bg-[#151D2A] dark:text-gray-300 dark:hover:bg-gray-800"
+      className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-line text-muted transition-colors hover:border-brand hover:text-ink"
     >
-      {isDark ? <Sun size={18} /> : <Moon size={18} />}
+      {isDark ? <Sun size={17} /> : <Moon size={17} />}
     </button>
   );
 }

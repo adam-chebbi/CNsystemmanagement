@@ -1,15 +1,14 @@
-import { Link } from '../lib/router';
+import { SITE } from '../config/site';
 
-/** Text-only wordmark — the showcase's logo is literally the words "Café Noir". */
+/** Text-only wordmark — the logo is literally the words "Café Noir" set in the display serif. */
 export function Logo({ className = '' }: { className?: string }) {
   return (
-    <Link
-      to="/"
-      aria-label="Café Noir — accueil"
-      className={`inline-flex items-baseline gap-1.5 text-xl font-extrabold tracking-tight text-gray-900 dark:text-white ${className}`}
+    <a
+      href="#accueil"
+      aria-label={`${SITE.name} — accueil`}
+      className={`font-serif text-[1.55rem] leading-none tracking-[-0.01em] text-ink sm:text-[1.75rem] ${className}`}
     >
-      <span>Café</span>
-      <span className="text-primary">Noir</span>
-    </Link>
+      {SITE.name}
+    </a>
   );
 }

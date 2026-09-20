@@ -1,70 +1,84 @@
 @import "tailwindcss";
 
-/* Same class-based dark strategy and brand tokens as the Café Noir management app, so the two
-   share one visual identity. `dark:` utilities depend on the literal `.dark` class on <html>
-   (set by the theme toggle / the inline script in index.html), never on the OS setting alone. */
+/* Class-based dark mode: `.dark` on <html> (set by the toggle / the inline script in index.html). */
 @custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
-  --color-primary: var(--primary);
-  --color-primary-soft: var(--primary-soft);
-  --color-primary-soft-foreground: var(--primary-soft-foreground);
-  --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --color-page: var(--page);
+  --color-section: var(--section);
+  --color-card: var(--card);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-subtle: var(--subtle);
+  --color-line: var(--line);
+  --color-brand: var(--brand);
+  --color-accent: var(--accent);
+  --color-on-brand: var(--on-brand);
+  --font-sans: 'DM Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-serif: 'Newsreader', 'Times New Roman', Georgia, serif;
 }
 
 :root {
-  --primary: #00A86B;
-  --primary-soft: #E8F8F2;
-  --primary-soft-foreground: #00A86B;
+  --page: #FAF9F5;
+  --section: #EEF6F2;
+  --card: #FFFFFF;
+  --ink: #0F1A17;
+  --muted: #4A5856;
+  --subtle: #829A99;
+  --line: #E6E8E3;
+  --brand: #5DD3B2;
+  --accent: #4CCBA0;
+  --on-brand: #0F1A17;
   color-scheme: light;
 }
 
 .dark {
-  --primary: #10B981;
-  --primary-soft: rgba(16, 185, 129, 0.15);
-  --primary-soft-foreground: #34D399;
+  --page: #0D1411;
+  --section: #111B17;
+  --card: #16221D;
+  --ink: #F1F5F3;
+  --muted: #B3C0BB;
+  --subtle: #7C918B;
+  --line: #22302A;
+  --brand: #5DD3B2;
+  --accent: #6FE0BE;
+  --on-brand: #0B1F19;
   color-scheme: dark;
 }
 
 @layer base {
   html {
     scroll-behavior: smooth;
+    -webkit-text-size-adjust: 100%;
   }
   body {
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
-    background-color: #ffffff;
-    color: #111827;
-  }
-  .dark body {
-    background-color: #111827;
-    color: #f3f4f6;
+    background-color: var(--page);
+    color: var(--ink);
+    overflow-x: hidden;
   }
   button, a, [role="button"], input, select, textarea {
     touch-action: manipulation;
   }
+  :focus-visible {
+    outline: 2px solid var(--brand);
+    outline-offset: 3px;
+  }
 }
 
 @keyframes fade-up {
-  from { opacity: 0; transform: translateY(12px); }
+  from { opacity: 0; transform: translateY(14px); }
   to { opacity: 1; transform: translateY(0); }
 }
-.animate-fade-up { animation: fade-up 0.5s ease-out both; }
-
-@keyframes steam-rise {
-  0% { transform: translateY(0) scaleX(1); opacity: 0; }
-  15% { opacity: 0.5; }
-  85% { opacity: 0.12; }
-  100% { transform: translateY(-120px) scaleX(1.6); opacity: 0; }
-}
-.animate-steam-rise { animation: steam-rise 5s ease-in infinite; }
+.animate-fade-up { animation: fade-up 0.7s cubic-bezier(0.22, 1, 0.36, 1) both; }
 
 @keyframes shimmer {
   0% { background-position: -200% 0; }
   100% { background-position: 200% 0; }
 }
 .skeleton {
-  background: linear-gradient(90deg, rgba(156,163,175,0.12) 25%, rgba(156,163,175,0.28) 50%, rgba(156,163,175,0.12) 75%);
+  background: linear-gradient(90deg, rgba(130,154,153,0.12) 25%, rgba(130,154,153,0.28) 50%, rgba(130,154,153,0.12) 75%);
   background-size: 200% 100%;
   animation: shimmer 1.6s linear infinite;
 }
@@ -74,5 +88,5 @@
 
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
-  .animate-fade-up, .animate-steam-rise, .skeleton { animation: none; }
+  .animate-fade-up, .skeleton { animation: none; }
 }

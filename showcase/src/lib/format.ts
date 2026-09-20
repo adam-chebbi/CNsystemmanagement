@@ -1,21 +1,17 @@
 import type { Product } from '../api/products';
 
-export function formatPrice(value: number): string {
-  return `${value.toFixed(2)} DT`;
+/** Tunisian dinar, 3 decimals (millimes) — "2.000 TND". */
+export function formatTND(value: number): string {
+  return `${value.toFixed(3)} TND`;
 }
 
-/** Price to advertise on a card: the base price, or "à partir de" the cheapest variant. */
-export function priceLabel(product: Product): { prefix: string; text: string } {
+/** Lowest price a customer can pay for the product (base price + cheapest variant). */
+export function startingPrice(product: Product): number {
   const deltas = product.variants.map((v) => v.priceDelta ?? 0);
-  const min = deltas.length ? Math.min(...deltas) : 0;
-  const max = deltas.length ? Math.max(...deltas) : 0;
-  return {
-    prefix: max > min ? 'À partir de' : '',
-    text: formatPrice(product.price + min),
-  };
+  return product.price + (deltas.length ? Math.min(...deltas) : 0);
 }
 
-/** Lowercase, accent-free text for forgiving search matching. */
+/** Lowercase, accent-free text for forgiving search / category matching. */
 export function normalize(text: string): string {
   return text.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
 }
