@@ -1,10 +1,9 @@
 import { ArrowRight, RefreshCw, WifiOff } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { formatTND, startingPrice } from '../lib/format';
 import { buildGroups, categoryImage, type CategoryGroup } from '../lib/catalogView';
+import { Link } from '../lib/router';
 import { useCatalog } from '../lib/useCatalog';
-import { Dialog } from './Dialog';
-import { FullMenu } from './FullMenu';
 
 const MAX_CARDS = 4;
 const MAX_ITEMS = 5;
@@ -28,7 +27,7 @@ function CardSkeleton() {
   );
 }
 
-function MenuCard({ group, wide, onMore }: { group: CategoryGroup; wide: boolean; onMore: () => void }) {
+function MenuCard({ group, wide }: { group: CategoryGroup; wide: boolean }) {
   const image = categoryImage(group);
   const shown = group.products.slice(0, wide ? MAX_ITEMS_WIDE : MAX_ITEMS);
   const hidden = group.products.length - shown.length;
@@ -54,13 +53,12 @@ function MenuCard({ group, wide, onMore }: { group: CategoryGroup; wide: boolean
           ))}
         </ul>
         {hidden > 0 && (
-          <button
-            type="button"
-            onClick={onMore}
+          <Link
+            to={`/menu?categorie=${encodeURIComponent(group.name)}`}
             className="mt-2 self-start text-xs font-semibold text-accent underline-offset-4 hover:underline"
           >
             + {hidden} autre{hidden > 1 ? 's' : ''}
-          </button>
+          </Link>
         )}
       </div>
     </article>
@@ -69,10 +67,7 @@ function MenuCard({ group, wide, onMore }: { group: CategoryGroup; wide: boolean
 
 export function MenuSection() {
   const { state, retry } = useCatalog();
-  const [dialog, setDialog] = useState<{ open: boolean; category: string | null }>({ open: false, category: null });
-
   const groups = useMemo(() => (state.status === 'ready' ? buildGroups(state.catalog) : []), [state]);
-  const close = () => setDialog((d) => ({ ...d, open: false }));
 
   return (
     <section id="menu" className="scroll-mt-16 bg-section lg:scroll-mt-[72px]">
@@ -86,14 +81,12 @@ export function MenuSection() {
             Du café classique aux boissons signatures, en passant par nos pâtisseries et nos options salées, notre carte est
             pensée pour satisfaire tous les goûts.
           </p>
-          <button
-            type="button"
-            disabled={state.status !== 'ready' || groups.length === 0}
-            onClick={() => setDialog({ open: true, category: null })}
-            className="mt-7 inline-flex items-center gap-2.5 rounded-full bg-brand px-6 py-3 text-[13px] font-semibold text-on-brand transition-[filter] hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-50"
+          <Link
+            to="/menu"
+            className="mt-7 inline-flex items-center gap-2.5 rounded-full bg-brand px-6 py-3 text-[13px] font-semibold text-on-brand transition-[filter] hover:brightness-95"
           >
             Voir le menu complet <ArrowRight size={15} />
-          </button>
+          </Link>
         </div>
 
         <div className="min-w-0">
@@ -130,16 +123,12 @@ export function MenuSection() {
           {state.status === 'ready' && groups.length > 0 && (
             <div className={`grid gap-4 ${groups.length > 1 ? 'sm:grid-cols-2' : ''} ${XL_COLUMNS[Math.min(groups.length, MAX_CARDS)]}`}>
               {groups.slice(0, MAX_CARDS).map((g) => (
-                <MenuCard key={g.name} group={g} wide={groups.length === 1} onMore={() => setDialog({ open: true, category: g.name })} />
+                <MenuCard key={g.name} group={g} wide={groups.length === 1} />
               ))}
             </div>
           )}
         </div>
       </div>
-
-      <Dialog open={dialog.open} onClose={close} label="Menu complet">
-        {state.status === 'ready' && <FullMenu catalog={state.catalog} initialCategory={dialog.category} onClose={close} />}
-      </Dialog>
     </section>
   );
 }

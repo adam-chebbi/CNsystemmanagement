@@ -15,7 +15,7 @@ import { notificationsRouter } from './routes/notifications.js';
 import { activityLogRouter } from './routes/activityLog.js';
 import { dashboardRouter } from './routes/dashboard.js';
 import { cashVerificationsRouter } from './routes/cashVerifications.js';
-import { publicRouter } from './routes/public.js';
+import { listPublicProducts, openCors, publicRouter } from './routes/public.js';
 import { settingsRouter, applyPersistedSettingsAtBoot } from './routes/settings.js';
 import { rolesRouter } from './routes/roles.js';
 import { bootstrapRbac } from './rbac/bootstrap.js';
@@ -51,6 +51,8 @@ app.use('/api/auth', authRouter);
 // /api/* path before Express reaches later mounts, so a public route mounted after them would
 // answer 401 to the storefront.
 app.use('/api/public', publicRouter);
+// Same catalog under the shorter, storefront-friendly URL (exact path only — no /api/products/:id).
+app.get('/api/products', openCors, listPublicProducts);
 app.use('/api', productCatalogRouter);
 app.use('/api/stock', stockRouter);
 app.use('/api/sales', salesRouter);

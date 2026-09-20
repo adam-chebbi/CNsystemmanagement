@@ -1,5 +1,6 @@
 import { ArrowRight, MapPin } from 'lucide-react';
 import { IMAGES, MAPS_URL, SITE } from '../config/site';
+import { Link } from '../lib/router';
 
 export function Hero() {
   return (
@@ -16,12 +17,12 @@ export function Hero() {
             Au cœur de Tunis, Café Noir vous invite à savourer des cafés d’exception, des pâtisseries artisanales et une
             ambiance unique, entre modernité et tradition.
           </p>
-          <a
-            href="#menu"
+          <Link
+            to="/menu"
             className="mt-8 inline-flex items-center gap-2.5 rounded-full bg-brand px-7 py-3.5 text-sm font-semibold text-on-brand shadow-[0_8px_24px_-10px] shadow-brand transition-[filter,transform] hover:brightness-95 active:scale-[0.98]"
           >
             Découvrir notre menu <ArrowRight size={16} />
-          </a>
+          </Link>
           <a
             href={MAPS_URL}
             target="_blank"

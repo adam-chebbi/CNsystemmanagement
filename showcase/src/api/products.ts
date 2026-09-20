@@ -1,6 +1,6 @@
 import { API_BASE_URL } from '../config/site';
 
-// Mirrors the contract in PUBLIC_PRODUCTS_API.md (GET /api/public/products).
+// Mirrors the contract in PUBLIC_PRODUCTS_API.md (GET /api/products).
 export interface Category {
   id: string;
   name: string;
@@ -48,7 +48,7 @@ export function fetchCatalog(force = false): Promise<Catalog> {
   if (inflight) return inflight;
 
   inflight = (async () => {
-    const res = await fetch(`${API_BASE_URL}/api/public/products`, { headers: { Accept: 'application/json' } });
+    const res = await fetch(`${API_BASE_URL}/api/products`, { headers: { Accept: 'application/json' } });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const raw = (await res.json()) as Partial<Catalog>;
     const data: Catalog = {

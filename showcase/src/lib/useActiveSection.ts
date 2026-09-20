@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 
 /** Id of the section currently crossing the middle of the viewport (drives the nav underline). */
-export function useActiveSection(ids: readonly string[]): string {
+export function useActiveSection(ids: readonly string[], page: string): string {
   const [active, setActive] = useState(ids[0]);
 
   useEffect(() => {
@@ -26,7 +26,7 @@ export function useActiveSection(ids: readonly string[]): string {
       observer.disconnect();
       window.removeEventListener('scroll', onScroll);
     };
-  }, [ids]);
+  }, [ids, page]);
 
   return active;
 }

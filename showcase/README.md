@@ -1,9 +1,11 @@
 # Café Noir — site vitrine
 
-Site public de Café Noir, en **une seule page** (Accueil · Menu · Notre histoire · Galerie · Contact),
-fidèle à la maquette validée. C'est un projet **indépendant** de l'application de gestion : il vit dans
-ce dossier, a son propre `package.json`, son propre build, et se déploie sur **une autre URL** que le
-système (`cafe.cafenoir.tn`).
+Site public de Café Noir, fidèle à la maquette validée : une **page d'accueil** d'un seul tenant
+(Accueil · Notre histoire · Galerie · Contact, avec un aperçu du menu) et une **page Menu** dédiée
+(`/menu`) atteinte par « Découvrir notre menu », « Voir le menu complet » et le lien Menu de
+l'en-tête. C'est un projet **indépendant** de l'application de gestion : il vit dans ce dossier, a son
+propre `package.json`, son propre build, et se déploie sur **une autre URL** que le système
+(`cafe.cafenoir.tn`).
 
 - **Logo** : texte « Café Noir » en serif (composant `src/components/Logo.tsx`, aucune image).
 - **Typographie / couleurs** : titres en *Newsreader*, texte en *DM Sans*, vert menthe `#5DD3B2`
@@ -11,13 +13,15 @@ système (`cafe.cafenoir.tn`).
 - **Mode clair / sombre** : bouton lune/soleil dans l'en-tête ; choix mémorisé, sinon préférence de
   l'appareil.
 - **Responsive** : mobile (menu hamburger), tablette et ordinateur.
-- **Menu dynamique** : les produits viennent en direct du système via `GET /api/public/products`
-  (voir `../PUBLIC_PRODUCTS_API.md`). Le CRUD des produits se fait uniquement dans le système ; le
-  site ne fait que lire.
-  - Les cartes (Cafés, Boissons, Pâtisseries, Salés…) sont **les catégories du système**, avec leurs
-    produits et prix en TND (jusqu'à 4 cartes, 5 produits chacune ; une seule catégorie = une carte large).
-  - « Voir le menu complet » ouvre tous les produits (recherche, filtres par catégorie, descriptions,
-    tailles, suppléments, photos).
+- **Menu dynamique** : les produits viennent en direct du système via
+  `GET https://cafe.cafenoir.tn/api/products` (route publique en lecture seule ; l'ancienne URL
+  `/api/public/products` répond aussi — voir `../PUBLIC_PRODUCTS_API.md`). Le CRUD des produits se
+  fait uniquement dans le système ; le site ne fait que lire.
+  - Sur l'accueil, les cartes (Cafés, Boissons, Pâtisseries, Salés…) sont **les catégories du système**,
+    avec leurs produits et prix en TND (jusqu'à 4 cartes, 5 produits chacune ; une seule catégorie =
+    une carte large). « + N autres » ouvre la page Menu sur la bonne catégorie.
+  - La page **Menu** (`/menu`) liste tous les produits par catégorie (recherche, filtres, descriptions,
+    tailles avec prix, suppléments, photos).
   - Un produit ajouté, modifié, rendu indisponible ou supprimé dans le système apparaît/disparaît
     tout seul : le site se rafraîchit toutes les minutes et au retour sur l'onglet.
   - Si le système a une photo pour un produit de la catégorie, elle remplace la photo par défaut de la carte.
@@ -34,7 +38,7 @@ La galerie (`GALLERY` dans `src/config/site.ts`) réutilise ces mêmes fichiers.
 
 `src/config/site.ts` : adresse, téléphone, e-mail, horaires, liens sociaux (Instagram / Facebook /
 TikTok : tant que le lien est vide, l'icône s'affiche sans lien), crédit du pied de page.
-Le bouton « Réserver une table » appelle le numéro de téléphone.
+Il n'y a pas de système de réservation : le bouton de l'en-tête est « Voir le menu complet ».
 
 ## Développement
 

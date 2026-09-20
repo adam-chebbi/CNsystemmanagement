@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import { Router, type RequestHandler } from 'express';
 import { db } from '../db/connection.js';
 import { fromJson, fromBool } from '../db/json.js';
 
@@ -14,11 +14,12 @@ export const publicRouter = Router();
 
 // CORS is intentionally wide open here (GET-only, no cookies/credentials involved, no secrets in
 // the payload) so a storefront hosted on any other domain can call this endpoint directly.
-publicRouter.use((_req, res, next) => {
+export const openCors: RequestHandler = (_req, res, next) => {
   res.header('Access-Control-Allow-Origin', '*');
   res.header('Access-Control-Allow-Methods', 'GET');
   next();
-});
+};
+publicRouter.use(openCors);
 
 interface CategoryRow {
   id: string;
@@ -47,7 +48,8 @@ interface ArticleRow {
   variants: string | null;
 }
 
-publicRouter.get('/products', (_req, res) => {
+// Served at both GET /api/public/products and GET /api/products (mounted in server/index.ts).
+export const listPublicProducts: RequestHandler = (_req, res) => {
   const categories = db.prepare('SELECT id, name FROM product_categories ORDER BY created_at ASC').all() as CategoryRow[];
   const subCategories = db
     .prepare('SELECT id, category_id, name FROM product_subcategories ORDER BY created_at ASC')
@@ -82,4 +84,6 @@ publicRouter.get('/products', (_req, res) => {
     extras: extras.map((e) => ({ id: e.id, name: e.name, price: e.price })),
     products,
   });
-});
+};
+
+publicRouter.get('/products', listPublicProducts);

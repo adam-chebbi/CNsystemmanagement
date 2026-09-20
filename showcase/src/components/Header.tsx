@@ -1,15 +1,31 @@
 import { Menu as MenuIcon, X } from 'lucide-react';
-import { useState } from 'react';
-import { NAV_ITEMS, PHONE_HREF } from '../config/site';
+import { useEffect, useState } from 'react';
+import { NAV_ITEMS } from '../config/site';
+import { Link, useRouter } from '../lib/router';
 import { useActiveSection } from '../lib/useActiveSection';
 import { Logo } from './Logo';
 import { ThemeToggle } from './ThemeToggle';
 
 const SECTION_IDS = NAV_ITEMS.map((n) => n.id);
 
+type NavItem = (typeof NAV_ITEMS)[number];
+
 export function Header() {
-  const active = useActiveSection(SECTION_IDS);
+  const { path } = useRouter();
+  const onHome = path === '/';
+  const spy = useActiveSection(SECTION_IDS, path);
+  // On the home page the underline follows the scroll; on the menu page it stays on "Menu".
+  const active = onHome ? spy : path === '/menu' ? 'menu' : '';
   const [open, setOpen] = useState(false);
+  useEffect(() => setOpen(false), [path]);
+
+  // "Menu" is its own page; every other entry is a section of the home page (or of the shared footer).
+  const hrefFor = (item: NavItem): string => {
+    if (item.id === 'menu') return '/menu';
+    if (onHome) return `#${item.id}`;
+    if (item.id === 'contact') return '#contact';
+    return item.id === 'accueil' ? '/' : `/#${item.id}`;
+  };
 
   return (
     <header className="sticky top-0 z-40 border-b border-line bg-page/85 backdrop-blur-md">
@@ -18,10 +34,10 @@ export function Header() {
 
         <nav className="hidden items-center gap-9 lg:flex" aria-label="Navigation principale">
           {NAV_ITEMS.map((item) => (
-            <a
+            <Link
               key={item.id}
-              href={`#${item.id}`}
-              aria-current={active === item.id ? 'true' : undefined}
+              to={hrefFor(item)}
+              aria-current={active === item.id ? 'page' : undefined}
               className={`relative py-1 text-[13px] font-medium transition-colors hover:text-ink ${
                 active === item.id ? 'text-ink' : 'text-muted'
               }`}
@@ -33,18 +49,20 @@ export function Header() {
                   active === item.id ? 'w-4 opacity-100' : 'w-0 opacity-0'
                 }`}
               />
-            </a>
+            </Link>
           ))}
         </nav>
 
         <div className="flex items-center gap-2.5">
           <ThemeToggle />
-          <a
-            href={PHONE_HREF}
-            className="hidden rounded-full bg-brand px-5 py-2.5 text-xs font-semibold text-on-brand transition-[filter] hover:brightness-95 sm:inline-flex"
-          >
-            Réserver une table
-          </a>
+          {path !== '/menu' && (
+            <Link
+              to="/menu"
+              className="hidden rounded-full bg-brand px-5 py-2.5 text-xs font-semibold text-on-brand transition-[filter] hover:brightness-95 sm:inline-flex"
+            >
+              Voir le menu complet
+            </Link>
+          )}
           <button
             type="button"
             onClick={() => setOpen((v) => !v)}
@@ -63,23 +81,26 @@ export function Header() {
           <ul className="divide-y divide-line">
             {NAV_ITEMS.map((item) => (
               <li key={item.id}>
-                <a
-                  href={`#${item.id}`}
+                <Link
+                  to={hrefFor(item)}
                   onClick={() => setOpen(false)}
                   className={`flex items-center justify-between py-3.5 text-base font-medium ${active === item.id ? 'text-ink' : 'text-muted'}`}
                 >
                   {item.label}
                   {active === item.id && <span className="h-1.5 w-1.5 rounded-full bg-brand" />}
-                </a>
+                </Link>
               </li>
             ))}
           </ul>
-          <a
-            href={PHONE_HREF}
-            className="mt-3 flex w-full items-center justify-center rounded-full bg-brand px-5 py-3 text-sm font-semibold text-on-brand"
-          >
-            Réserver une table
-          </a>
+          {path !== '/menu' && (
+            <Link
+              to="/menu"
+              onClick={() => setOpen(false)}
+              className="mt-3 flex w-full items-center justify-center rounded-full bg-brand px-5 py-3 text-sm font-semibold text-on-brand"
+            >
+              Voir le menu complet
+            </Link>
+          )}
         </nav>
       )}
     </header>
