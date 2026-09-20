@@ -161,9 +161,22 @@ sans action nécessaire côté vitrine.
 6. **Images manquantes** : `imageUrl` est souvent `null` (peu de produits ont une image dans la
    gestion actuellement) — prévoir un visuel de repli (placeholder) par catégorie plutôt que de
    masquer le produit.
-7. **Rafraîchissement** : recharger `GET /api/public/products` périodiquement (ou à chaque visite
+7. **Rafraîchissement** : recharger `GET /api/products` périodiquement (ou à chaque visite
    de page) suffit — il n'y a pas de mécanisme de notification en temps réel, et ce n'est pas
    nécessaire pour un menu qui change rarement dans la journée.
+
+## Dépannage — la vitrine n'affiche pas les produits
+
+| Symptôme | Cause probable |
+| --- | --- |
+| `401` « Authentification requise » sur `/api/products` | Le serveur de gestion n'a pas encore été mis à jour avec cette route publique (déployer la dernière version du dépôt). |
+| Erreur CORS dans la console du navigateur | Le domaine de l'API est mauvais (`VITE_API_BASE_URL`) ou la réponse ne vient pas du serveur de gestion. |
+| Réponse `200` mais HTML au lieu de JSON | L'URL appelée est celle d'un site (le fichier `index.html`), pas celle de l'API. |
+| Menu vide | Aucun produit n'est marqué disponible dans la gestion. |
+
+La vitrine officielle (`showcase/`) attend la réponse 15 s au maximum, retente une fois en cas de
+coupure réseau ou d'erreur 5xx, puis affiche « Le menu ne peut pas s'afficher » avec un bouton
+Réessayer. Elle se rafraîchit ensuite toute seule chaque minute.
 
 ## Ce que cette route ne fait pas (hors périmètre)
 
