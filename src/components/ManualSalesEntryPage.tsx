@@ -57,7 +57,7 @@ import {
 import {
   DraftQuantityRow,
   QuantitySalesFormState,
-  createEmptyQuantityRow,
+  setQuantityForArticle,
   createEmptyQuantityForm,
   computeQuantitySalesTotals,
   validateQuantitySalesForm,
@@ -324,12 +324,8 @@ export const ManualSalesEntryPage: React.FC<ManualSalesEntryPageProps> = ({
     setQuantityForm((prev) => ({ ...prev, ...patch }));
   };
 
-  const addQuantityRow = () => {
-    setQuantityForm((prev) => ({ ...prev, rows: [...prev.rows, createEmptyQuantityRow()] }));
-  };
-
-  const removeQuantityRow = (rowId: string) => {
-    setQuantityForm((prev) => ({ ...prev, rows: prev.rows.filter((r) => r.rowId !== rowId) }));
+  const setQuantityForProduct = (articleId: string, qty: number) => {
+    setQuantityForm((prev) => ({ ...prev, rows: setQuantityForArticle(prev.rows, articleId, qty) }));
   };
 
   const updateQuantityRow = (rowId: string, patch: Partial<DraftQuantityRow>) => {
@@ -711,7 +707,8 @@ export const ManualSalesEntryPage: React.FC<ManualSalesEntryPageProps> = ({
           {mode === 'quantities' && (
             <p className="text-[11px] text-gray-400 -mt-2">
               Pratique quand la journée ne se prête pas à une saisie détaillée : indiquez simplement combien de
-              chaque produit a été vendu, puis vérifiez le total encaissé par mode de règlement.
+              chaque produit a été vendu (la réduction et la part « à emporter » apparaissent dès qu'une quantité est
+              saisie), puis vérifiez le total encaissé par mode de règlement.
             </p>
           )}
 
@@ -725,8 +722,7 @@ export const ManualSalesEntryPage: React.FC<ManualSalesEntryPageProps> = ({
               issues={qIssues}
               showErrors={qHasAttemptedVerify}
               onChangeGeneral={updateQuantityGeneral}
-              onAddRow={addQuantityRow}
-              onRemoveRow={removeQuantityRow}
+              onSetQty={setQuantityForProduct}
               onChangeRow={updateQuantityRow}
               onChangePayment={updateQuantityPayment}
               onReset={handleReset}

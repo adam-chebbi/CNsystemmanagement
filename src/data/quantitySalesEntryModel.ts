@@ -4,12 +4,14 @@ import { SalesCatalogContext } from './salesEntryModel';
 import { roundToPayableCash } from './currencyRounding';
 
 // Second way to enter "Ajout manuel des ventes", for businesses that don't work with individual
-// tickets/tables: a short, dynamic list of "how many of this product sold today" lines — built the
-// same way tickets build their item list (one line, a "+" to add another, no duplicate product
-// across lines). Each line still carries its own reduction and "dont à emporter" split, but
-// payment is entered once for the whole entry (Espèces / Carte bancaire / Tickets restaurant)
-// rather than per product — used both to reconcile against the computed total and to split the
-// generated sales across payment methods. Kept as its own model (rather than bolted onto
+// tickets/tables: the whole product catalog is listed (grouped by category) with a quantity
+// stepper on each product — "how many of this product sold today". A product only becomes a row
+// of the form state once its quantity is above 0 (and stops being one when it goes back to 0), so
+// `rows` never holds an empty or duplicate line. Each row carries its own reduction (flat amount
+// or percentage, on every unit or a chosen count) and "dont à emporter" split, but payment is
+// entered once for the whole entry (Espèces / Carte bancaire / Tickets restaurant) rather than
+// per product — used both to reconcile against the computed total and to split the generated
+// sales across payment methods. Kept as its own model (rather than bolted onto
 // DraftTicket) because the two entry styles have almost nothing in common beyond the shared
 // date/shift/employee header and the final SaleTransaction output shape.
 
@@ -47,7 +49,7 @@ const generateRowId = (): string => {
   return `qrow-${idCounter}`;
 };
 
-export const createEmptyQuantityRow = (): DraftQuantityRow => ({
+export const createEmptyQuantityRow = (init: Partial<DraftQuantityRow> = {}): DraftQuantityRow => ({
   rowId: generateRowId(),
   articleId: '',
   qty: 1,
@@ -56,13 +58,30 @@ export const createEmptyQuantityRow = (): DraftQuantityRow => ({
   discountScope: 'all',
   discountQty: 0,
   takeawayQty: 0,
+  ...init,
 });
+
+// Sets how many units of one catalog product were sold, keeping the "sparse rows" invariant:
+// 0 (or less) removes the product's row, a first positive quantity creates it, and changing an
+// existing quantity clamps the counts that depend on it (à emporter, reduced units) so they can
+// never exceed what was sold.
+export const setQuantityForArticle = (rows: DraftQuantityRow[], articleId: string, qty: number): DraftQuantityRow[] => {
+  const next = Math.max(0, Math.round(Number.isFinite(qty) ? qty : 0));
+  const existing = rows.find((r) => r.articleId === articleId);
+  if (next === 0) return existing ? rows.filter((r) => r.articleId !== articleId) : rows;
+  if (!existing) return [...rows, createEmptyQuantityRow({ articleId, qty: next })];
+  return rows.map((r) =>
+    r.articleId === articleId
+      ? { ...r, qty: next, takeawayQty: Math.min(r.takeawayQty, next), discountQty: Math.min(r.discountQty, next) }
+      : r
+  );
+};
 
 export const createEmptyQuantityForm = (): QuantitySalesFormState => ({
   date: new Date().toISOString().slice(0, 10),
   shift: '',
   employee: '',
-  rows: [createEmptyQuantityRow()],
+  rows: [],
   paidCash: 0,
   paidCard: 0,
   paidRestoTicket: 0,

@@ -2,8 +2,7 @@ import React, { useMemo } from 'react';
 import {
   Minus,
   Plus,
-  X,
-  ChevronDown,
+  Coffee,
   Banknote,
   CreditCard,
   Ticket,
@@ -40,6 +39,45 @@ const primaryButtonClass =
 const secondaryButtonClass =
   'inline-flex items-center justify-center gap-2 px-3.5 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700/80 text-xs font-semibold text-gray-700 dark:text-gray-200 shadow-2xs transition active:scale-98 cursor-pointer';
 
+const QtyStepper: React.FC<{ value: number; onChange: (next: number) => void }> = ({ value, onChange }) => (
+  <div className="flex items-center gap-1.5 shrink-0">
+    <button
+      type="button"
+      onClick={() => onChange(Math.max(0, value - 1))}
+      disabled={value <= 0}
+      aria-label="Diminuer la quantité"
+      className="w-7 h-7 rounded-lg border border-gray-200 dark:border-gray-700 flex items-center justify-center text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 transition cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent"
+    >
+      <Minus size={12} />
+    </button>
+    <input
+      type="number"
+      min={0}
+      value={value}
+      onChange={(e) => onChange(Math.max(0, Math.round(Number(e.target.value)) || 0))}
+      aria-label="Quantité vendue"
+      className="w-14 text-center text-xs py-1 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white font-semibold"
+    />
+    <button
+      type="button"
+      onClick={() => onChange(value + 1)}
+      aria-label="Augmenter la quantité"
+      className="w-7 h-7 rounded-lg border border-gray-200 dark:border-gray-700 flex items-center justify-center text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 transition cursor-pointer"
+    >
+      <Plus size={12} />
+    </button>
+  </div>
+);
+
+const ProductThumb: React.FC<{ article: CatalogArticle }> = ({ article }) =>
+  article.imageUrl ? (
+    <img src={article.imageUrl} alt={article.name} className="w-10 h-10 rounded-lg object-cover shrink-0 border border-gray-100 dark:border-gray-800" />
+  ) : (
+    <div className="w-10 h-10 rounded-lg bg-gray-100 dark:bg-gray-800 flex items-center justify-center text-gray-300 dark:text-gray-600 shrink-0">
+      <Coffee size={18} />
+    </div>
+  );
+
 interface QuantitySalesFormStepProps {
   articles: CatalogArticle[];
   employees: string[];
@@ -49,8 +87,7 @@ interface QuantitySalesFormStepProps {
   issues: QuantityValidationIssue[];
   showErrors: boolean;
   onChangeGeneral: (patch: Partial<Pick<QuantitySalesFormState, 'date' | 'shift' | 'employee'>>) => void;
-  onAddRow: () => void;
-  onRemoveRow: (rowId: string) => void;
+  onSetQty: (articleId: string, qty: number) => void;
   onChangeRow: (rowId: string, patch: Partial<DraftQuantityRow>) => void;
   onChangePayment: (patch: Partial<Pick<QuantitySalesFormState, 'paidCash' | 'paidCard' | 'paidRestoTicket' | 'paymentNote'>>) => void;
   onReset: () => void;
@@ -67,8 +104,7 @@ export const QuantitySalesFormStep: React.FC<QuantitySalesFormStepProps> = ({
   issues,
   showErrors,
   onChangeGeneral,
-  onAddRow,
-  onRemoveRow,
+  onSetQty,
   onChangeRow,
   onChangePayment,
   onReset,
@@ -82,6 +118,13 @@ export const QuantitySalesFormStep: React.FC<QuantitySalesFormStepProps> = ({
     });
     return map;
   }, [issues]);
+
+  // Rows are sparse: a product only has one once its quantity is above 0.
+  const rowsByArticleId = useMemo(() => {
+    const map = new Map<string, DraftQuantityRow>();
+    form.rows.forEach((r) => map.set(r.articleId, r));
+    return map;
+  }, [form.rows]);
 
   const articleCategories = useMemo(() => getArticleCategoriesInUse(articles), [articles]);
 
@@ -151,7 +194,8 @@ export const QuantitySalesFormStep: React.FC<QuantitySalesFormStepProps> = ({
         </div>
       </div>
 
-      {/* Products — same line-item mechanism as "Par tickets": one line per product, "+" to add another */}
+      {/* Products — the whole catalog, grouped by category, like a price list: set a quantity on any
+          product and it expands into its Réduction / "Dont à emporter" panels. */}
       <div className="space-y-3">
         <div className="flex items-center justify-between flex-wrap gap-2">
           <h2 className="text-sm font-bold text-gray-900 dark:text-white">
@@ -175,258 +219,177 @@ export const QuantitySalesFormStep: React.FC<QuantitySalesFormStepProps> = ({
           </div>
         )}
 
-        <div className="space-y-2.5 max-h-[700px] overflow-y-auto custom-scrollbar pr-0.5">
-          {form.rows.map((row, idx) => {
-            const article = getArticleById(row.articleId, articles);
-            const rowTotal = computeRowNetTotal(row, article);
-            const discountTotal = computeRowDiscountTotal(row, article);
-            const usedElsewhere = new Set(form.rows.filter((r) => r.rowId !== row.rowId && r.articleId).map((r) => r.articleId));
-            const articleErrorKey = `qrow:${row.rowId}:article`;
-            const duplicateErrorKey = `qrow:${row.rowId}:duplicate`;
-            const qtyErrorKey = `qrow:${row.rowId}:qty`;
-            const takeawayErrorKey = `qrow:${row.rowId}:takeaway`;
-            const discountErrorKey = `qrow:${row.rowId}:discount`;
-            const hasRowError =
-              showErrors &&
-              (issuesByKey.has(articleErrorKey) ||
-                issuesByKey.has(duplicateErrorKey) ||
-                issuesByKey.has(qtyErrorKey) ||
-                issuesByKey.has(takeawayErrorKey) ||
-                issuesByKey.has(discountErrorKey));
+        <div className="space-y-5 max-h-[900px] overflow-y-auto custom-scrollbar pr-0.5">
+          {articleCategories.map((category) => (
+            <div key={category} className="space-y-2">
+              <h3 className="text-xs font-bold uppercase tracking-wide text-gray-400 dark:text-gray-500 px-1">{category}</h3>
+              <div className="space-y-2">
+                {articles
+                  .filter((a) => a.category === category)
+                  .map((article) => {
+                    const row = rowsByArticleId.get(article.id);
+                    const rowTotal = row ? computeRowNetTotal(row, article) : 0;
+                    const discountTotal = row ? computeRowDiscountTotal(row, article) : 0;
+                    const takeawayErrorKey = row ? `qrow:${row.rowId}:takeaway` : '';
+                    const discountErrorKey = row ? `qrow:${row.rowId}:discount` : '';
+                    const hasRowError = showErrors && row && (issuesByKey.has(takeawayErrorKey) || issuesByKey.has(discountErrorKey));
 
-            return (
-              <div
-                key={row.rowId}
-                className={`rounded-xl border p-3 space-y-2.5 ${
-                  hasRowError
-                    ? 'border-red-300 dark:border-red-800/70 bg-red-50/40 dark:bg-red-950/10'
-                    : 'border-gray-100 dark:border-gray-800 bg-gray-50/60 dark:bg-gray-800/40'
-                }`}
-              >
-                <div className="flex flex-col sm:flex-row gap-2">
-                  <div className="flex-1 min-w-0">
-                    <div className="relative">
-                      <select
-                        value={row.articleId}
-                        onChange={(e) => onChangeRow(row.rowId, { articleId: e.target.value })}
-                        className={`${inputBaseClass} appearance-none pr-8 cursor-pointer ${
-                          showErrors && (issuesByKey.has(articleErrorKey) || issuesByKey.has(duplicateErrorKey)) ? inputErrorClass : inputValidClass
+                    // One stable wrapper per product (header first, panels after) so the quantity
+                    // input keeps focus while typing when a product goes from idle to expanded.
+                    return (
+                      <div
+                        key={article.id}
+                        className={`rounded-xl transition ${
+                          !row
+                            ? 'p-2.5 hover:bg-gray-50 dark:hover:bg-gray-800/40'
+                            : hasRowError
+                            ? 'p-3 sm:p-4 border space-y-3 border-red-300 dark:border-red-800/70 bg-red-50/40 dark:bg-red-950/10'
+                            : 'p-3 sm:p-4 border space-y-3 border-emerald-200/70 dark:border-emerald-800/40 bg-emerald-50/30 dark:bg-emerald-950/10'
                         }`}
                       >
-                        <option value="">Choisir un produit — ligne {idx + 1}</option>
-                        {articleCategories.map((cat) => (
-                          <optgroup key={cat} label={cat}>
-                            {articles
-                              .filter((a) => a.category === cat)
-                              .map((a) => {
-                                const isDuplicate = usedElsewhere.has(a.id);
-                                return (
-                                  <option
-                                    key={a.id}
-                                    value={a.id}
-                                    disabled={isDuplicate}
-                                    title={isDuplicate ? 'Ce produit est déjà listé dans une autre ligne.' : undefined}
-                                  >
-                                    {a.name} — {getArticleTtcPrice(a).toFixed(2)} DT{isDuplicate ? ' (déjà ajouté)' : ''}
-                                  </option>
-                                );
-                              })}
-                          </optgroup>
-                        ))}
-                      </select>
-                      <ChevronDown size={13} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
-                    </div>
-                    {showErrors && (issuesByKey.get(articleErrorKey) || issuesByKey.get(duplicateErrorKey)) && (
-                      <p className="text-[11px] text-red-500 mt-1 flex items-center gap-1">
-                        <AlertCircle size={11} /> {issuesByKey.get(articleErrorKey) || issuesByKey.get(duplicateErrorKey)}
-                      </p>
-                    )}
-                  </div>
-
-                  <div className="flex items-center gap-1.5 shrink-0">
-                    <button
-                      type="button"
-                      onClick={() => onChangeRow(row.rowId, { qty: Math.max(1, row.qty - 1) })}
-                      className="w-7 h-7 rounded-lg border border-gray-200 dark:border-gray-700 flex items-center justify-center text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 transition cursor-pointer"
-                    >
-                      <Minus size={12} />
-                    </button>
-                    <input
-                      type="number"
-                      min={1}
-                      value={row.qty}
-                      onChange={(e) => {
-                        const clamped = Math.max(1, Math.round(Number(e.target.value)) || 1);
-                        onChangeRow(row.rowId, {
-                          qty: clamped,
-                          takeawayQty: Math.min(row.takeawayQty, clamped),
-                          discountQty: Math.min(row.discountQty, clamped),
-                        });
-                      }}
-                      className="w-14 text-center text-xs py-1 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => onChangeRow(row.rowId, { qty: row.qty + 1 })}
-                      className="w-7 h-7 rounded-lg border border-gray-200 dark:border-gray-700 flex items-center justify-center text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 transition cursor-pointer"
-                    >
-                      <Plus size={12} />
-                    </button>
-
-                    <button
-                      onClick={() => onRemoveRow(row.rowId)}
-                      title="Supprimer cette ligne"
-                      className="w-7 h-7 rounded-lg flex items-center justify-center text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40 transition cursor-pointer"
-                    >
-                      <X size={14} />
-                    </button>
-
-                    {article && (
-                      <span className="text-xs font-bold text-gray-900 dark:text-white min-w-[64px] text-right">
-                        {rowTotal.toFixed(2)} <span className="text-[10px] text-gray-500 font-normal">DT</span>
-                      </span>
-                    )}
-                  </div>
-                </div>
-                {showErrors && issuesByKey.get(qtyErrorKey) && (
-                  <p className="text-[11px] text-red-500 flex items-center gap-1">
-                    <AlertCircle size={11} /> {issuesByKey.get(qtyErrorKey)}
-                  </p>
-                )}
-
-                {article && (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                    {/* Réduction */}
-                    <div className="p-2.5 rounded-lg bg-white dark:bg-gray-900/40 border border-gray-100 dark:border-gray-800 space-y-1.5">
-                      <span className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 inline-flex items-center gap-1">
-                        <Percent size={11} /> Réduction / unité
-                      </span>
-                      <div className="flex items-center gap-1 flex-wrap">
-                        <button
-                          type="button"
-                          onClick={() => onChangeRow(row.rowId, { discountMode: 'amount', discountValue: 0 })}
-                          className={`px-2 py-0.5 rounded-md text-[10px] font-semibold cursor-pointer ${
-                            row.discountMode === 'amount'
-                              ? 'bg-emerald-500 text-white'
-                              : 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400'
-                          }`}
-                        >
-                          Montant (DT)
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => onChangeRow(row.rowId, { discountMode: 'percent', discountValue: 0 })}
-                          className={`px-2 py-0.5 rounded-md text-[10px] font-semibold cursor-pointer ${
-                            row.discountMode === 'percent'
-                              ? 'bg-emerald-500 text-white'
-                              : 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400'
-                          }`}
-                        >
-                          Pourcentage (%)
-                        </button>
-                      </div>
-                      <div className="flex items-center gap-1.5">
-                        <input
-                          type="number"
-                          min={0}
-                          max={row.discountMode === 'percent' ? 100 : undefined}
-                          step={row.discountMode === 'percent' ? 1 : 0.1}
-                          value={row.discountValue}
-                          onChange={(e) => {
-                            const raw = Math.max(0, Number(e.target.value) || 0);
-                            const clamped = row.discountMode === 'percent' ? Math.min(100, raw) : raw;
-                            onChangeRow(row.rowId, { discountValue: clamped });
-                          }}
-                          className="w-full text-xs py-1.5 px-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-                        />
-                        <span className="text-[10px] text-gray-400 shrink-0">{row.discountMode === 'percent' ? '%' : 'DT'}</span>
-                      </div>
-                      {row.discountValue > 0 && (
-                        <div className="flex items-center gap-1 flex-wrap">
-                          <button
-                            type="button"
-                            onClick={() => onChangeRow(row.rowId, { discountScope: 'all' })}
-                            className={`px-2 py-0.5 rounded-md text-[10px] font-semibold cursor-pointer ${
-                              row.discountScope === 'all'
-                                ? 'bg-emerald-500 text-white'
-                                : 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400'
-                            }`}
-                          >
-                            Toutes ({row.qty})
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() =>
-                              onChangeRow(row.rowId, { discountScope: 'partial', discountQty: Math.min(row.discountQty || 1, row.qty) })
-                            }
-                            className={`px-2 py-0.5 rounded-md text-[10px] font-semibold cursor-pointer ${
-                              row.discountScope === 'partial'
-                                ? 'bg-emerald-500 text-white'
-                                : 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400'
-                            }`}
-                          >
-                            Nombre précis
-                          </button>
-                          {row.discountScope === 'partial' && (
-                            <input
-                              type="number"
-                              min={0}
-                              max={row.qty}
-                              value={row.discountQty}
-                              onChange={(e) => onChangeRow(row.rowId, { discountQty: clampInt(Number(e.target.value), 0, row.qty) })}
-                              className="w-14 text-center text-[11px] py-0.5 rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-                            />
+                        <div className="flex flex-wrap items-center gap-3">
+                          <ProductThumb article={article} />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-semibold text-gray-800 dark:text-gray-200 truncate">{article.name}</p>
+                            <p className="text-[11px] text-gray-400">{getArticleTtcPrice(article).toFixed(2)} DT / unité</p>
+                          </div>
+                          <QtyStepper value={row?.qty ?? 0} onChange={(v) => onSetQty(article.id, v)} />
+                          {row && (
+                            <div className="text-right shrink-0 min-w-[72px]">
+                              <p className="text-[10px] text-gray-400 font-semibold">Total</p>
+                              <p className="text-sm font-bold text-gray-900 dark:text-white">{rowTotal.toFixed(2)} DT</p>
+                            </div>
                           )}
                         </div>
-                      )}
-                      {discountTotal > 0 && (
-                        <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold">
-                          − {discountTotal.toFixed(2)} DT au total
-                        </p>
-                      )}
-                      {showErrors && issuesByKey.get(discountErrorKey) && (
-                        <p className="text-[10px] text-red-500 flex items-center gap-1">
-                          <AlertCircle size={10} /> {issuesByKey.get(discountErrorKey)}
-                        </p>
-                      )}
-                    </div>
 
-                    {/* À emporter */}
-                    <div className="p-2.5 rounded-lg bg-white dark:bg-gray-900/40 border border-gray-100 dark:border-gray-800 space-y-1.5">
-                      <span className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 inline-flex items-center gap-1">
-                        <ShoppingBag size={11} /> Dont à emporter
-                      </span>
-                      <input
-                        type="number"
-                        min={0}
-                        max={row.qty}
-                        value={row.takeawayQty}
-                        onChange={(e) => onChangeRow(row.rowId, { takeawayQty: clampInt(Number(e.target.value), 0, row.qty) })}
-                        className={`w-full text-xs py-1.5 px-2 rounded-lg border bg-white dark:bg-gray-800 text-gray-900 dark:text-white ${
-                          showErrors && issuesByKey.has(takeawayErrorKey) ? 'border-red-400 dark:border-red-500/70' : 'border-gray-200 dark:border-gray-700'
-                        }`}
-                      />
-                      <p className="text-[10px] text-gray-400">Sur place : {row.qty - Math.min(row.takeawayQty, row.qty)}</p>
-                      {showErrors && issuesByKey.get(takeawayErrorKey) && (
-                        <p className="text-[10px] text-red-500 flex items-center gap-1">
-                          <AlertCircle size={10} /> {issuesByKey.get(takeawayErrorKey)}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                )}
+                        {row && (
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                            {/* Réduction */}
+                            <div className="p-2.5 rounded-lg bg-white dark:bg-gray-900/40 border border-gray-100 dark:border-gray-800 space-y-1.5">
+                              <span className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 inline-flex items-center gap-1">
+                                <Percent size={11} /> Réduction / unité
+                              </span>
+                              <div className="flex items-center gap-1 flex-wrap">
+                                <button
+                                  type="button"
+                                  onClick={() => onChangeRow(row.rowId, { discountMode: 'amount', discountValue: 0 })}
+                                  className={`px-2 py-0.5 rounded-md text-[10px] font-semibold cursor-pointer ${
+                                    row.discountMode === 'amount'
+                                      ? 'bg-emerald-500 text-white'
+                                      : 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400'
+                                  }`}
+                                >
+                                  Montant (DT)
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => onChangeRow(row.rowId, { discountMode: 'percent', discountValue: 0 })}
+                                  className={`px-2 py-0.5 rounded-md text-[10px] font-semibold cursor-pointer ${
+                                    row.discountMode === 'percent'
+                                      ? 'bg-emerald-500 text-white'
+                                      : 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400'
+                                  }`}
+                                >
+                                  Pourcentage (%)
+                                </button>
+                              </div>
+                              <div className="flex items-center gap-1.5">
+                                <input
+                                  type="number"
+                                  min={0}
+                                  max={row.discountMode === 'percent' ? 100 : undefined}
+                                  step={row.discountMode === 'percent' ? 1 : 0.1}
+                                  value={row.discountValue}
+                                  onChange={(e) => {
+                                    const raw = Math.max(0, Number(e.target.value) || 0);
+                                    const clamped = row.discountMode === 'percent' ? Math.min(100, raw) : raw;
+                                    onChangeRow(row.rowId, { discountValue: clamped });
+                                  }}
+                                  className="w-full text-xs py-1.5 px-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                                />
+                                <span className="text-[10px] text-gray-400 shrink-0">{row.discountMode === 'percent' ? '%' : 'DT'}</span>
+                              </div>
+                              {row.discountValue > 0 && (
+                                <div className="flex items-center gap-1 flex-wrap">
+                                  <button
+                                    type="button"
+                                    onClick={() => onChangeRow(row.rowId, { discountScope: 'all' })}
+                                    className={`px-2 py-0.5 rounded-md text-[10px] font-semibold cursor-pointer ${
+                                      row.discountScope === 'all'
+                                        ? 'bg-emerald-500 text-white'
+                                        : 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400'
+                                    }`}
+                                  >
+                                    Toutes ({row.qty})
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      onChangeRow(row.rowId, { discountScope: 'partial', discountQty: Math.min(row.discountQty || 1, row.qty) })
+                                    }
+                                    className={`px-2 py-0.5 rounded-md text-[10px] font-semibold cursor-pointer ${
+                                      row.discountScope === 'partial'
+                                        ? 'bg-emerald-500 text-white'
+                                        : 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400'
+                                    }`}
+                                  >
+                                    Nombre précis
+                                  </button>
+                                  {row.discountScope === 'partial' && (
+                                    <input
+                                      type="number"
+                                      min={0}
+                                      max={row.qty}
+                                      value={row.discountQty}
+                                      onChange={(e) => onChangeRow(row.rowId, { discountQty: clampInt(Number(e.target.value), 0, row.qty) })}
+                                      className="w-14 text-center text-[11px] py-0.5 rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                                    />
+                                  )}
+                                </div>
+                              )}
+                              {discountTotal > 0 && (
+                                <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold">
+                                  − {discountTotal.toFixed(2)} DT au total
+                                </p>
+                              )}
+                              {showErrors && issuesByKey.get(discountErrorKey) && (
+                                <p className="text-[10px] text-red-500 flex items-center gap-1">
+                                  <AlertCircle size={10} /> {issuesByKey.get(discountErrorKey)}
+                                </p>
+                              )}
+                            </div>
+
+                            {/* À emporter */}
+                            <div className="p-2.5 rounded-lg bg-white dark:bg-gray-900/40 border border-gray-100 dark:border-gray-800 space-y-1.5">
+                              <span className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 inline-flex items-center gap-1">
+                                <ShoppingBag size={11} /> Dont à emporter
+                              </span>
+                              <input
+                                type="number"
+                                min={0}
+                                max={row.qty}
+                                value={row.takeawayQty}
+                                onChange={(e) => onChangeRow(row.rowId, { takeawayQty: clampInt(Number(e.target.value), 0, row.qty) })}
+                                className={`w-full text-xs py-1.5 px-2 rounded-lg border bg-white dark:bg-gray-800 text-gray-900 dark:text-white ${
+                                  showErrors && issuesByKey.has(takeawayErrorKey) ? 'border-red-400 dark:border-red-500/70' : 'border-gray-200 dark:border-gray-700'
+                                }`}
+                              />
+                              <p className="text-[10px] text-gray-400">Sur place : {row.qty - Math.min(row.takeawayQty, row.qty)}</p>
+                              {showErrors && issuesByKey.get(takeawayErrorKey) && (
+                                <p className="text-[10px] text-red-500 flex items-center gap-1">
+                                  <AlertCircle size={10} /> {issuesByKey.get(takeawayErrorKey)}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
               </div>
-            );
-          })}
+            </div>
+          ))}
         </div>
-
-        <button
-          onClick={onAddRow}
-          className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 inline-flex items-center gap-1 cursor-pointer"
-        >
-          <Plus size={13} />
-          Ajouter un produit
-        </button>
       </div>
 
       {/* Whole-entry payment verification — replaces the old per-product Règlement split and the
