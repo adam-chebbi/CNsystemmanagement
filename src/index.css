@@ -1,5 +1,9 @@
 @import "tailwindcss";
 
+/* The public showcase site lives in ./showcase with its own Tailwind build — keep its classes out
+   of the management app's stylesheet. */
+@source not "../showcase";
+
 /* The app enforces light mode only — every `dark:` utility below must depend on the literal
    `.dark` class (which App.tsx never applies, isDarkMode is hardcoded false), never on the
    device's own OS/browser color-scheme preference. Without this, Tailwind v4 defaults `dark:`

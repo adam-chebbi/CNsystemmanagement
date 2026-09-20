@@ -46,6 +46,11 @@ app.use(ensureCsrfCookie);
 app.use('/api', csrfProtection);
 
 app.use('/api/auth', authRouter);
+// Must stay ABOVE every router that does `router.use(requireAuth)` on the bare '/api' prefix
+// (productCatalogRouter, expensesRouter, settingsRouter, rolesRouter…): those run for any
+// /api/* path before Express reaches later mounts, so a public route mounted after them would
+// answer 401 to the storefront.
+app.use('/api/public', publicRouter);
 app.use('/api', productCatalogRouter);
 app.use('/api/stock', stockRouter);
 app.use('/api/sales', salesRouter);
@@ -56,7 +61,6 @@ app.use('/api/notifications', notificationsRouter);
 app.use('/api/activity-log', activityLogRouter);
 app.use('/api/dashboard', dashboardRouter);
 app.use('/api/cash-verifications', cashVerificationsRouter);
-app.use('/api/public', publicRouter);
 app.use('/api', settingsRouter);
 app.use('/api', rolesRouter);
 

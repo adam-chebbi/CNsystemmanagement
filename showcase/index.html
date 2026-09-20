@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>Café Noir — Torréfacteur &amp; Coffee Shop Artisanal</title>
+    <meta name="description" content="Café Noir, torréfacteur et coffee shop artisanal à Tunis. Découvrez notre carte : cafés, boissons et douceurs préparés chaque jour." />
+    <meta property="og:title" content="Café Noir — Torréfacteur &amp; Coffee Shop Artisanal" />
+    <meta property="og:description" content="Cafés de spécialité, boissons et douceurs préparés chaque jour à Tunis. Découvrez notre carte." />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary" />
+    <meta name="theme-color" content="#10B981" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <script>
+      // Applies the saved (or OS-preferred) theme before first paint so there is no light→dark flash.
+      (function () {
+        try {
+          var saved = localStorage.getItem('cafenoir-showcase-theme');
+          var dark = saved ? saved === 'dark' : window.matchMedia('(prefers-color-scheme: dark)').matches;
+          var root = document.documentElement;
+          root.classList.toggle('dark', dark);
+          root.style.colorScheme = dark ? 'dark' : 'light';
+        } catch (e) {}
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

@@ -1,10 +1,10 @@
 # API publique des produits Café Noir — guide pour le développeur de la vitrine
 
 Ce document explique comment récupérer le catalogue produits de Café Noir depuis un site public
-("vitrine") externe, développé par un freelance sur un domaine différent. Il n'y a **rien à
-construire côté vitrine dans ce dépôt** : ce dépôt (l'application de gestion) expose seulement les
-données via une route publique. Le site vitrine lui-même est un projet séparé, à construire plus
-tard, qui viendra consommer cette API.
+("vitrine") hébergé sur un domaine différent de l'application de gestion. L'application de gestion
+expose seulement les données via une route publique ; le site vitrine officiel de ce dépôt vit dans
+le dossier [`showcase/`](showcase/README.md) (projet indépendant, avec son propre build et son
+propre déploiement) et consomme cette API. Un autre site tiers peut la consommer de la même façon.
 
 ## Ce qui est public — et ce qui ne l'est pas
 
