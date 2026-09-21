@@ -1,6 +1,7 @@
 import { SaleTransaction } from './salesTransactions';
 import { Expense } from './expensesModel';
 import { SupplierInvoice } from './purchasesModel';
+import { RevenueEntry } from './revenueEntriesModel';
 
 // "Calcul du quotidien" — daily cash/card/ticket-resto reconciliation. See PUBLIC note in
 // server/db/schema.sql's cash_verifications table for the persistence model this mirrors.
@@ -147,7 +148,8 @@ export const computeCashKpis = (
   salesTransactions: SaleTransaction[],
   expenses: Expense[],
   supplierInvoices: SupplierInvoice[],
-  verifications: CashVerification[]
+  verifications: CashVerification[],
+  revenueEntries: RevenueEntry[] = []
 ): CashKpis => {
   const lastVerification = sortVerificationsByConfirmedAtDesc(verifications)[0] ?? null;
   const cutoff = lastVerification ? isoDateTimeMs(lastVerification.confirmedAt) : -Infinity;
@@ -162,6 +164,16 @@ export const computeCashKpis = (
     if (t.paymentMethod === 'Espèces') especes += t.totalAmount;
     else if (t.paymentMethod === 'Carte bancaire') carte += t.totalAmount;
     else if (t.paymentMethod === 'Ticket resto') restoNet += t.totalAmount * (1 - RESTO_DEDUCTION_RATE);
+  });
+
+  // Hand-typed chiffres d'affaires: only those with a règlement move the till (an entry without
+  // one, or "Autre", can't be attributed to Espèces / Carte / Tickets resto). Ordered against the
+  // last verification by when they were entered, like expenses and supplier invoices.
+  revenueEntries.forEach((r) => {
+    if (recordCreatedAtMs(r.createdAt) <= cutoff) return;
+    if (r.paymentMethod === 'Espèces') especes += r.amount;
+    else if (r.paymentMethod === 'Carte bancaire') carte += r.amount;
+    else if (r.paymentMethod === 'Ticket resto') restoNet += r.amount * (1 - RESTO_DEDUCTION_RATE);
   });
 
   expenses.forEach((e) => {
@@ -196,13 +208,19 @@ export interface DaySystemTotals {
   achatsCarte: number;
   netEspeces: number;
   netCarte: number;
+  // Hand-typed chiffres d'affaires of the day (already included in ventesEspeces / ventesCarte /
+  // ventesRestoGross when they have a règlement). `revenueEntriesUnallocated` is the part with no
+  // règlement or "Autre", which has no till to reconcile against.
+  revenueEntriesTotal: number;
+  revenueEntriesUnallocated: number;
 }
 
 export const computeDaySystemTotals = (
   date: string,
   salesTransactions: SaleTransaction[],
   expenses: Expense[],
-  supplierInvoices: SupplierInvoice[]
+  supplierInvoices: SupplierInvoice[],
+  revenueEntries: RevenueEntry[] = []
 ): DaySystemTotals => {
   let ventesEspeces = 0;
   let ventesCarte = 0;
@@ -216,6 +234,19 @@ export const computeDaySystemTotals = (
       ventesCarte += t.totalAmount;
       ventesCarteCount += 1;
     } else if (t.paymentMethod === 'Ticket resto') ventesRestoGross += t.totalAmount;
+  });
+
+  // A chiffre d'affaires with a règlement counts like a sale paid that way. It adds to the amount,
+  // never to the number of card payments (an entered total isn't a count of transactions).
+  let revenueEntriesTotal = 0;
+  let revenueEntriesUnallocated = 0;
+  revenueEntries.forEach((r) => {
+    if (r.date !== date) return;
+    revenueEntriesTotal += r.amount;
+    if (r.paymentMethod === 'Espèces') ventesEspeces += r.amount;
+    else if (r.paymentMethod === 'Carte bancaire') ventesCarte += r.amount;
+    else if (r.paymentMethod === 'Ticket resto') ventesRestoGross += r.amount;
+    else revenueEntriesUnallocated += r.amount;
   });
 
   let depensesEspeces = 0;
@@ -247,6 +278,8 @@ export const computeDaySystemTotals = (
     achatsCarte,
     netEspeces: ventesEspeces - depensesEspeces - achatsEspeces,
     netCarte: ventesCarte - depensesCarte - achatsCarte,
+    revenueEntriesTotal,
+    revenueEntriesUnallocated,
   };
 };
 
@@ -280,6 +313,12 @@ export interface CashCheckCalendarData {
   rangeEndIso: string;
 }
 
+// YYYY-MM-DD of a Date in the till's own (local) calendar. `toISOString().slice(0, 10)` must not be
+// used for this: it converts to UTC first, so local midnight in Tunisia (UTC+1) becomes the PREVIOUS
+// day and every cell of the daily grid ended up labelled one day early.
+export const toLocalIsoDate = (d: Date): string =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
 const MONTH_LABELS_FULL_FR = [
   'Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin',
   'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre',
@@ -289,7 +328,8 @@ export const buildCashCheckCalendar = (
   salesTransactions: SaleTransaction[],
   expenses: Expense[],
   supplierInvoices: SupplierInvoice[],
-  monthsBack = 8
+  monthsBack = 8,
+  revenueEntries: RevenueEntry[] = []
 ): CashCheckCalendarData => {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -306,6 +346,11 @@ export const buildCashCheckCalendar = (
   salesTransactions.forEach((t) => {
     if (t.status !== 'Payé') return;
     ventesByDate.set(t.date, (ventesByDate.get(t.date) ?? 0) + t.totalAmount);
+  });
+
+  // Every hand-typed chiffre d'affaires counts as that day's sales in the grid, règlement or not.
+  revenueEntries.forEach((r) => {
+    ventesByDate.set(r.date, (ventesByDate.get(r.date) ?? 0) + r.amount);
   });
 
   const depensesByDate = new Map<string, number>();
@@ -329,7 +374,7 @@ export const buildCashCheckCalendar = (
     const cells: CashCheckCalendarCell[] = [];
     let containsFirstOfMonth = false;
     for (let w = 0; w < 7; w += 1) {
-      const iso = cursor.toISOString().slice(0, 10);
+      const iso = toLocalIsoDate(cursor);
       const cellInRange = cursor >= rangeStart && cursor <= rangeEnd;
       if (cursor.getDate() === 1) containsFirstOfMonth = true;
       const ventes = ventesByDate.get(iso) ?? 0;
@@ -343,7 +388,7 @@ export const buildCashCheckCalendar = (
       cells.push({ dateIso: iso, weekday: w, ventes, depenses, combined, inRange: cellInRange });
       cursor.setDate(cursor.getDate() + 1);
     }
-    const mondayMonth = new Date(cells[0].dateIso).getMonth();
+    const mondayMonth = new Date(`${cells[0].dateIso}T00:00:00`).getMonth();
     if ((weeks.length === 0 || containsFirstOfMonth) && mondayMonth !== lastLabeledMonth) {
       monthLabels.push({ label: MONTH_LABELS_FULL_FR[mondayMonth], weekIndex: weeks.length });
       lastLabeledMonth = mondayMonth;
@@ -357,7 +402,7 @@ export const buildCashCheckCalendar = (
     maxVentes,
     maxDepenses,
     maxCombined,
-    rangeStartIso: rangeStart.toISOString().slice(0, 10),
-    rangeEndIso: rangeEnd.toISOString().slice(0, 10),
+    rangeStartIso: toLocalIsoDate(rangeStart),
+    rangeEndIso: toLocalIsoDate(rangeEnd),
   };
 };

@@ -50,6 +50,8 @@ import * as activityLogApi from './api/activityLog';
 import * as dashboardApi from './api/dashboard';
 import type { MonthlyTarget } from './api/dashboard';
 import * as cashVerificationsApi from './api/cashVerifications';
+import * as revenueEntriesApi from './api/revenueEntries';
+import { RevenueEntry, RevenueEntryInput } from './data/revenueEntriesModel';
 import { CashVerification, CashVerificationInput, computeCashKpis } from './data/cashCheckModel';
 import * as settingsApi from './api/settings';
 import { AppSettings, DEFAULT_APP_SETTINGS, applySettingsToRuntime } from './data/settingsModel';
@@ -223,6 +225,7 @@ export default function App() {
   const [treatedAlerts, setTreatedAlerts] = useState<Record<string, { treatedAt: string; treatedBy: string }>>({});
   const [monthlySalesTargets, setMonthlySalesTargets] = useState<MonthlyTarget[]>([]);
   const [cashVerifications, setCashVerifications] = useState<CashVerification[]>([]);
+  const [revenueEntries, setRevenueEntries] = useState<RevenueEntry[]>([]);
   const [appSettings, setAppSettings] = useState<AppSettings>(DEFAULT_APP_SETTINGS);
   const [isDataLoaded, setIsDataLoaded] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -249,7 +252,7 @@ export default function App() {
       expenseCats, expensesRes,
       suppliersRes, orders, receptions, invoices, productAliasesRes,
       employees, shifts, dayRecords, recurringPlans, financialRecords,
-      treated, log, monthlyTargets, cashVerificationsRes, settingsRes,
+      treated, log, monthlyTargets, cashVerificationsRes, revenueEntriesRes, settingsRes,
     ] = await Promise.all([
       fetchIfAllowed('products:view', () => productCatalogApi.getProductCategories(), []),
       fetchIfAllowed('products:view', () => productCatalogApi.getProductSubCategories(), []),
@@ -277,6 +280,7 @@ export default function App() {
       fetchIfAllowed('activity_log:view', () => activityLogApi.getActivityLog(), []),
       fetchIfAllowed('dashboard:view', () => dashboardApi.getMonthlyTargets(), []),
       fetchIfAllowed('sales:cash_check', () => cashVerificationsApi.getCashVerifications(), []),
+      fetchIfAllowed('sales:cash_check', () => revenueEntriesApi.getRevenueEntries(), []),
       settingsApi.getSettings(), // no permission gate — every authenticated user needs it for runtime config
     ]);
     setCatalogExtras(extras);
@@ -305,6 +309,7 @@ export default function App() {
     setActivityLog(log);
     setMonthlySalesTargets(monthlyTargets);
     setCashVerifications(cashVerificationsRes);
+    setRevenueEntries(revenueEntriesRes);
     setAppSettings(settingsRes);
     applySettingsToRuntime(settingsRes);
   }, [hasPermission]);
@@ -786,6 +791,24 @@ export default function App() {
     setCashVerifications((prev) => [created, ...prev]);
   };
 
+  // Same deliberate bypass of runMutation as above: these are financial figures typed on the
+  // Calcul du quotidien page, so a failure must show inline next to the form (the panel catches
+  // it) instead of a generic alert, and one row never justifies a full app-wide refetch.
+  const handleCreateRevenueEntry = async (input: RevenueEntryInput): Promise<void> => {
+    const created = await revenueEntriesApi.createRevenueEntry(input);
+    setRevenueEntries((prev) => [created, ...prev]);
+  };
+
+  const handleUpdateRevenueEntry = async (id: string, input: RevenueEntryInput): Promise<void> => {
+    const updated = await revenueEntriesApi.updateRevenueEntry(id, input);
+    setRevenueEntries((prev) => prev.map((r) => (r.id === id ? updated : r)));
+  };
+
+  const handleDeleteRevenueEntry = async (id: string): Promise<void> => {
+    await revenueEntriesApi.deleteRevenueEntry(id);
+    setRevenueEntries((prev) => prev.filter((r) => r.id !== id));
+  };
+
 
   const dashboardRange = useMemo(() => resolveDashboardRange(activePeriod, customRange), [activePeriod, customRange]);
 
@@ -793,8 +816,8 @@ export default function App() {
   // actuelle" card must always agree with that page's own KPIs, so it's the exact same call
   // rather than a second, possibly-divergent calculation.
   const cashKpis = useMemo(
-    () => computeCashKpis(salesTransactions, expenses, supplierInvoices, cashVerifications),
-    [salesTransactions, expenses, supplierInvoices, cashVerifications]
+    () => computeCashKpis(salesTransactions, expenses, supplierInvoices, cashVerifications, revenueEntries),
+    [salesTransactions, expenses, supplierInvoices, cashVerifications, revenueEntries]
   );
 
   const dashboardPeriodData = useMemo(
@@ -1006,7 +1029,11 @@ export default function App() {
                   expenses={expenses}
                   supplierInvoices={supplierInvoices}
                   verifications={cashVerifications}
+                  revenueEntries={revenueEntries}
                   onConfirmVerification={handleConfirmCashVerification}
+                  onCreateRevenueEntry={handleCreateRevenueEntry}
+                  onUpdateRevenueEntry={handleUpdateRevenueEntry}
+                  onDeleteRevenueEntry={handleDeleteRevenueEntry}
                   onNavigateToDashboard={() => {
                     setActiveTab('dashboard');
                     setActiveSubItem('');

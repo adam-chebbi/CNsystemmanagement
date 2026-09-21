@@ -3,6 +3,7 @@ import { Banknote, CreditCard, Ticket, CalendarDays, AlertCircle, Receipt } from
 import { SaleTransaction } from '../data/salesTransactions';
 import { Expense } from '../data/expensesModel';
 import { SupplierInvoice } from '../data/purchasesModel';
+import { RevenueEntry, RevenueEntryInput } from '../data/revenueEntriesModel';
 import {
   CashVerification,
   CashVerificationInput,
@@ -11,30 +12,40 @@ import {
   computeDaySystemTotals,
   buildCashCheckCalendar,
   findLatestVerificationForDate,
+  toLocalIsoDate,
 } from '../data/cashCheckModel';
 import { computeVatBreakdown } from '../data/reportsModel';
 import { CashCheckHeatmap } from './cashCheck/CashCheckHeatmap';
 import { CashVerificationPanel } from './cashCheck/CashVerificationPanel';
 import { CashCheckHistory } from './cashCheck/CashCheckHistory';
+import { RevenueEntriesPanel } from './cashCheck/RevenueEntriesPanel';
 
 interface CashCheckPageProps {
   salesTransactions: SaleTransaction[];
   expenses: Expense[];
   supplierInvoices: SupplierInvoice[];
   verifications: CashVerification[];
+  revenueEntries: RevenueEntry[];
   onConfirmVerification: (input: CashVerificationInput) => Promise<void>;
+  onCreateRevenueEntry: (input: RevenueEntryInput) => Promise<void>;
+  onUpdateRevenueEntry: (id: string, input: RevenueEntryInput) => Promise<void>;
+  onDeleteRevenueEntry: (id: string) => Promise<void>;
   onNavigateToDashboard: () => void;
 }
 
 const formatDT = (v: number): string => `${v.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} DT`;
-const todayIso = (): string => new Date().toISOString().slice(0, 10);
+const todayIso = (): string => toLocalIsoDate(new Date());
 
 export const CashCheckPage: React.FC<CashCheckPageProps> = ({
   salesTransactions,
   expenses,
   supplierInvoices,
   verifications,
+  revenueEntries,
   onConfirmVerification,
+  onCreateRevenueEntry,
+  onUpdateRevenueEntry,
+  onDeleteRevenueEntry,
   onNavigateToDashboard,
 }) => {
   const today = useMemo(() => todayIso(), []);
@@ -43,18 +54,18 @@ export const CashCheckPage: React.FC<CashCheckPageProps> = ({
   const [saveError, setSaveError] = useState<string | null>(null);
 
   const kpis = useMemo(
-    () => computeCashKpis(salesTransactions, expenses, supplierInvoices, verifications),
-    [salesTransactions, expenses, supplierInvoices, verifications]
+    () => computeCashKpis(salesTransactions, expenses, supplierInvoices, verifications, revenueEntries),
+    [salesTransactions, expenses, supplierInvoices, verifications, revenueEntries]
   );
 
   const calendar = useMemo(
-    () => buildCashCheckCalendar(salesTransactions, expenses, supplierInvoices, 8),
-    [salesTransactions, expenses, supplierInvoices]
+    () => buildCashCheckCalendar(salesTransactions, expenses, supplierInvoices, 8, revenueEntries),
+    [salesTransactions, expenses, supplierInvoices, revenueEntries]
   );
 
   const dayTotals = useMemo(
-    () => computeDaySystemTotals(selectedDate, salesTransactions, expenses, supplierInvoices),
-    [selectedDate, salesTransactions, expenses, supplierInvoices]
+    () => computeDaySystemTotals(selectedDate, salesTransactions, expenses, supplierInvoices, revenueEntries),
+    [selectedDate, salesTransactions, expenses, supplierInvoices, revenueEntries]
   );
 
   const dayVerification = useMemo(
@@ -160,6 +171,17 @@ export const CashCheckPage: React.FC<CashCheckPageProps> = ({
           {selectedDate === today && <span className="text-emerald-600 dark:text-emerald-400 font-semibold"> (aujourd'hui)</span>}
         </span>
       </div>
+
+      {/* Chiffres d'affaires saisis à la main (CRUD) — placés avant les sections Espèces / Tickets /
+          Carte car un CA avec règlement alimente leurs montants système. */}
+      <RevenueEntriesPanel
+        key={selectedDate}
+        selectedDate={selectedDate}
+        entries={revenueEntries}
+        onCreate={onCreateRevenueEntry}
+        onUpdate={onUpdateRevenueEntry}
+        onDelete={onDeleteRevenueEntry}
+      />
 
       {/* 3. Espèces */}
       <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-[#151D2A] border border-gray-100 dark:border-gray-800 shadow-2xs space-y-3">

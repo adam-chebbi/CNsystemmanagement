@@ -415,3 +415,20 @@ CREATE TABLE IF NOT EXISTS cash_verifications (
   confirmed_at TEXT NOT NULL,
   confirmed_by TEXT NOT NULL
 );
+
+-- "Chiffres d'affaires" saisis à la main depuis Calcul du quotidien (CRUD). Un montant par ligne,
+-- rattaché à une journée ; payment_method NULL = CA général (règlement non précisé), sinon
+-- 'Espèces' | 'Carte bancaire' | 'Ticket resto' | 'Autre'. Table à part de sales_transactions :
+-- pas de produits, pas de décrément de stock, pas de dépense de TVA automatique.
+CREATE TABLE IF NOT EXISTS revenue_entries (
+  id TEXT PRIMARY KEY,
+  revenue_date TEXT NOT NULL,
+  amount REAL NOT NULL,
+  payment_method TEXT,
+  note TEXT,
+  created_at TEXT NOT NULL,
+  created_by TEXT NOT NULL,
+  updated_at TEXT,
+  updated_by TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_revenue_entries_date ON revenue_entries(revenue_date);

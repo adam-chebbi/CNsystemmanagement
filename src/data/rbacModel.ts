@@ -65,7 +65,7 @@ export const PERMISSIONS: PermissionDef[] = [
   { key: 'sales:view', module: 'sales', moduleLabel: 'Gestion des ventes', label: 'Consulter', description: 'Voir la liste des ventes.' },
   { key: 'sales:create', module: 'sales', moduleLabel: 'Gestion des ventes', label: 'Saisir', description: 'Ajouter des ventes manuellement ou par import Excel/CSV.' },
   { key: 'sales:refund', module: 'sales', moduleLabel: 'Gestion des ventes', label: 'Rembourser', description: "Rembourser une vente (réintègre le stock, annule la dépense de TVA associée).", sensitive: true },
-  { key: 'sales:cash_check', module: 'sales', moduleLabel: 'Gestion des ventes', label: 'Calcul du quotidien', description: 'Réaliser et confirmer la réconciliation de caisse de fin de journée.', sensitive: true },
+  { key: 'sales:cash_check', module: 'sales', moduleLabel: 'Gestion des ventes', label: 'Calcul du quotidien', description: "Réaliser et confirmer la réconciliation de caisse de fin de journée, et saisir / modifier / supprimer les chiffres d'affaires manuels.", sensitive: true },
 
   // --- Stock ---------------------------------------------------------------------------------
   { key: 'stock:view', module: 'stock', moduleLabel: 'Stock', label: 'Consulter', description: 'Voir le stock, les mouvements, les lots.' },
