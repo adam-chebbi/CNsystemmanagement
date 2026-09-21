@@ -26,6 +26,26 @@ propre `package.json`, son propre build, et se déploie sur **une autre URL** qu
     tout seul : le site se rafraîchit toutes les 30 secondes et au retour sur l’onglet.
   - Si le système a une photo pour un produit de la catégorie, elle remplace la photo par défaut de la carte.
 
+## SEO
+
+Tout le SEO est généré au build (`seo/seoPlugin.ts`, données dans `src/config/seo.ts`) :
+
+- **Un `<head>` par page**, en HTML statique (donc lu aussi par les robots et les aperçus de liens qui
+  n'exécutent pas JavaScript) : `index.html` pour `/`, `menu/index.html` pour `/menu` — titre, description,
+  canonical, hreflang, Open Graph, Twitter Card, géolocalisation, `robots`.
+- **Données structurées JSON-LD** : `CafeOrCoffeeShop` (adresse, coordonnées GPS, horaires, lien vers le
+  menu et le plan), `WebSite` et `BreadcrumbList` sur `/menu`.
+- **Image de partage (Open Graph / Twitter)** : `public/images/ambiance.jpg`. Sa largeur et sa hauteur sont
+  lues dans le fichier au build : remplacez-le par une autre photo et tout reste juste (idéal : 1200×630 ou
+  1600×900, sujet au centre).
+- **Fichiers générés** : `sitemap.xml`, `robots.txt`, `llms.txt`, avec l'adresse publique du site.
+  `manifest.webmanifest`, `favicon.ico`, les icônes PNG et `apple-touch-icon.png` sont dans `public/`.
+- **Adresse publique** : par défaut `https://test.cafenoir.tn`. Pour un autre domaine, construire avec
+  `VITE_SITE_URL=https://mon-domaine.tn npm run build`.
+- Le titre, la description et le canonical suivent aussi la navigation dans le site ; une adresse inconnue
+  est en `noindex` (et nginx répond un vrai code 404).
+- Le SEO du menu ne cite aucun produit ni aucune catégorie : ils viennent du système.
+
 ## Photos
 
 Les images sont dans `public/images/` : `hero.jpg`, `cafes.jpg`, `boissons.jpg`, `patisseries.jpg`,
@@ -78,7 +98,7 @@ Mise en ligne / mise à jour sur le serveur :
 cd /var/www/CNsystemmanagement && git pull --ff-only
 cd showcase
 npm ci
-VITE_API_BASE_URL=https://cafe.cafenoir.tn npm run build   # typecheck + build -> showcase/dist
+VITE_API_BASE_URL=https://cafe.cafenoir.tn VITE_SITE_URL=https://test.cafenoir.tn npm run build   # typecheck + build -> showcase/dist
 ```
 
 nginx : la configuration exacte utilisée en production est `deploy/test.cafenoir.tn.nginx.conf`

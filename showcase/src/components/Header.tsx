@@ -19,10 +19,12 @@ export function Header() {
   const [open, setOpen] = useState(false);
   useEffect(() => setOpen(false), [path]);
 
-  // "Menu" is its own page; every other entry is a section of the home page (or of the shared footer).
+  // On the home page every entry (including "Menu") scrolls to its section. Elsewhere "Menu" is the menu
+  // page itself and the others go back to their section of the home page (or the shared footer).
+  // The "Voir le menu complet" buttons always open the /menu page.
   const hrefFor = (item: NavItem): string => {
-    if (item.id === 'menu') return '/menu';
     if (onHome) return `#${item.id}`;
+    if (item.id === 'menu') return '/menu';
     if (item.id === 'contact') return '#contact';
     return item.id === 'accueil' ? '/' : `/#${item.id}`;
   };

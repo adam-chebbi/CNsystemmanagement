@@ -20,6 +20,44 @@ function readLocation(): Location {
   return { path: path === '' ? '/' : path, search: window.location.search, hash: window.location.hash };
 }
 
+const USER_SCROLL_EVENTS = ['wheel', 'touchstart', 'keydown', 'mousedown'] as const;
+
+/**
+ * Scrolls to #id and keeps it in place while the page is still settling. The sections above a target
+ * (the menu cards, coming from the API) grow after the first scroll, which used to leave the target
+ * hundreds of pixels off and never corrected. So for a short while, whenever the page height changes,
+ * the target is scrolled back into place — until the visitor scrolls on their own.
+ * Returns a cleanup function.
+ */
+function scrollToAnchor(id: string, smooth: boolean): () => void {
+  const target = document.getElementById(id);
+  if (!target) return () => undefined;
+  target.scrollIntoView({ behavior: smooth ? 'smooth' : 'instant' });
+
+  let userTookOver = false;
+  const onUser = () => {
+    userTookOver = true;
+  };
+  USER_SCROLL_EVENTS.forEach((ev) => window.addEventListener(ev, onUser, { passive: true, once: true }));
+
+  const reanchor = () => {
+    if (!userTookOver) document.getElementById(id)?.scrollIntoView({ behavior: 'instant' });
+  };
+  const observer = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(reanchor) : null;
+  observer?.observe(document.body);
+
+  let done = false;
+  const stop = () => {
+    if (done) return;
+    done = true;
+    observer?.disconnect();
+    window.clearTimeout(timer);
+    USER_SCROLL_EVENTS.forEach((ev) => window.removeEventListener(ev, onUser));
+  };
+  const timer = window.setTimeout(stop, 3000);
+  return stop;
+}
+
 export function Router({ children }: { children: ReactNode }) {
   const [loc, setLoc] = useState<Location>(readLocation);
   // Bumped on every navigation so the scroll effect also fires when only the hash/page changed.
@@ -47,11 +85,8 @@ export function Router({ children }: { children: ReactNode }) {
   // After the new page has rendered: jump to its #anchor, or back to the top. On the very first
   // load only an explicit #anchor is honoured so the browser keeps its own scroll restoration.
   useLayoutEffect(() => {
-    if (loc.hash) {
-      document.getElementById(loc.hash.slice(1))?.scrollIntoView({ behavior: navCount === 0 ? 'auto' : 'smooth' });
-    } else if (navCount > 0) {
-      window.scrollTo({ top: 0, behavior: 'instant' });
-    }
+    if (loc.hash) return scrollToAnchor(loc.hash.slice(1), navCount !== 0);
+    if (navCount > 0) window.scrollTo({ top: 0, behavior: 'instant' });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [navCount]);
 

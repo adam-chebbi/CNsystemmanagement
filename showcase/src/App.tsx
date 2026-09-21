@@ -6,14 +6,9 @@ import { Header } from './components/Header';
 import { Hero } from './components/Hero';
 import { MenuSection } from './components/MenuSection';
 import { Story } from './components/Story';
-import { SITE } from './config/site';
+import { applySeo } from './lib/seoClient';
 import { Link, useRouter } from './lib/router';
 import { MenuPage } from './pages/MenuPage';
-
-const TITLES: Record<string, string> = {
-  '/': `${SITE.name} — ${SITE.tagline} à Tunis`,
-  '/menu': `Menu — ${SITE.name}`,
-};
 
 function Home() {
   return (
@@ -44,7 +39,7 @@ export default function App() {
   const { path } = useRouter();
 
   useEffect(() => {
-    document.title = TITLES[path] ?? `Page introuvable — ${SITE.name}`;
+    applySeo(path);
   }, [path]);
 
   return (

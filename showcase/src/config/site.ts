@@ -1,4 +1,9 @@
+import { BUSINESS } from './seo';
+
 // Single place to edit the showcase's public-facing facts and where its menu data comes from.
+
+/** Public address of the deployed site, for canonical links (set VITE_SITE_URL at build time to change it). */
+export const SITE_URL: string = (import.meta.env.VITE_SITE_URL ?? 'https://test.cafenoir.tn').replace(/\/+$/, '');
 
 /**
  * Base URL of the management app's public API. In dev it's '' so calls go through the Vite `/api`
@@ -23,7 +28,6 @@ interface SiteInfo {
   tagline: string;
   eyebrow: string;
   address: string;
-  mapQuery: string;
   phone: string;
   email: string;
   hours: string;
@@ -36,7 +40,6 @@ export const SITE: SiteInfo = {
   tagline: 'Café · Brunch · Pâtisserie',
   eyebrow: 'Café · Brunch · Pâtisserie',
   address: 'Centre Makni, Rue Ahmed Ghanmi, Tunis 1013',
-  mapQuery: 'Centre Makni, Rue Ahmed Ghanmi, Tunis 1013',
   phone: '+216 71 123 456',
   email: 'contact@cafenoir.tn',
   hours: 'Nous vous accueillons tous les jours de 7h à 22h.',
@@ -48,8 +51,14 @@ export const SITE: SiteInfo = {
   credit: 'Creative Comet',
 };
 
-export const MAPS_URL = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(SITE.mapQuery)}`;
-export const MAPS_EMBED_URL = `https://www.google.com/maps?q=${encodeURIComponent(SITE.mapQuery)}&output=embed`;
+// The café's exact Google Maps place ("Café noir", Centre Makni) — the link opened by "Nous trouver" and
+// the address, and the pin shown by the embedded map in the footer. Both point at the same place id
+// (0x12fd33ac03c1d4ab:0x29f717cb2de59ae7) and coordinates, never at a text search.
+export const MAPS_URL = BUSINESS.mapsUrl;
+export const MAPS_EMBED_URL =
+  'https://www.google.com/maps/embed?pb=' +
+  '!1m18!1m12!1m3!1d3194.2!2d10.1536695!3d36.8465365!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1' +
+  '!3m3!1m2!1s0x12fd33ac03c1d4ab%3A0x29f717cb2de59ae7!2sCaf%C3%A9%20noir!5e0!3m2!1sfr!2stn!4v1758000000000!5m2!1sfr!2stn';
 export const PHONE_HREF = `tel:${SITE.phone.replace(/[^+\d]/g, '')}`;
 
 export const NAV_ITEMS = [

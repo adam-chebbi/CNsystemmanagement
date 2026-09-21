@@ -3,15 +3,15 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <title>Café Noir — Café · Brunch · Pâtisserie à Tunis</title>
-    <meta name="description" content="Plus qu'un café, une expérience. Au cœur de Tunis, Café Noir vous invite à savourer des cafés d'exception, des pâtisseries artisanales et une ambiance unique, entre modernité et tradition." />
-    <meta property="og:title" content="Café Noir — Plus qu'un café, une expérience" />
-    <meta property="og:description" content="Cafés d'exception, pâtisseries artisanales et ambiance unique au cœur de Tunis. Découvrez notre menu." />
-    <meta property="og:type" content="website" />
-    <meta property="og:image" content="/images/hero.jpg" />
-    <meta name="twitter:card" content="summary_large_image" />
     <meta name="theme-color" content="#FAF9F5" />
+    <meta name="format-detection" content="telephone=no" />
+    <!-- Title, description, canonical, Open Graph, Twitter and JSON-LD are generated per page at build time (seo/seoPlugin.ts). -->
+    <!--seo:head-->
+    <link rel="icon" href="/favicon.ico" sizes="any" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/manifest.webmanifest" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -34,6 +34,17 @@
   </head>
   <body>
     <div id="root"></div>
+    <noscript>
+      <main style="max-width:40rem;margin:0 auto;padding:2rem 1.25rem;font-family:system-ui,sans-serif;line-height:1.6">
+        <h1>Café Noir — Café, brunch &amp; pâtisserie à Tunis</h1>
+        <p>
+          Café Noir vous accueille au Centre Makni, Rue Ahmed Ghanmi, Tunis 1013 : cafés d’exception, brunch, pâtisseries
+          artisanales et produits locaux, tous les jours de 7h à 22h.
+        </p>
+        <p><a href="/menu">Voir le menu complet</a> · <a href="/#histoire">Notre histoire</a> · <a href="/#contact">Contact</a></p>
+        <p>Le menu et les prix s’affichent avec JavaScript ; activez-le pour les consulter.</p>
+      </main>
+    </noscript>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
