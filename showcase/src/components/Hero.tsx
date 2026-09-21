@@ -1,13 +1,15 @@
 import { ArrowRight, MapPin } from 'lucide-react';
-import { IMAGES, MAPS_URL, SITE } from '../config/site';
+import { IMAGES } from '../config/site';
+import { useSiteInfo } from '../lib/siteInfo';
 import { Link } from '../lib/router';
 
 export function Hero() {
+  const info = useSiteInfo();
   return (
     <section id="accueil" className="relative scroll-mt-16 overflow-hidden lg:scroll-mt-[72px]">
       <div className="mx-auto flex max-w-[1240px] flex-col px-5 sm:px-8 lg:min-h-[560px] lg:flex-row lg:items-center lg:px-12">
         <div className="animate-fade-up relative z-10 py-12 sm:py-16 lg:w-[52%] lg:py-20">
-          <p className="text-[11px] font-medium uppercase tracking-[0.32em] text-subtle sm:text-xs">{SITE.eyebrow}</p>
+          <p className="text-[11px] font-medium uppercase tracking-[0.32em] text-subtle sm:text-xs">{info.tagline}</p>
           <h1 className="mt-5 font-serif text-[2.6rem] leading-[1.06] tracking-[-0.02em] text-ink sm:text-[3.4rem] lg:text-[3.75rem] xl:text-[4.25rem]">
             Plus qu’un café,
             <br />
@@ -24,12 +26,12 @@ export function Hero() {
             Découvrir notre menu <ArrowRight size={16} />
           </Link>
           <a
-            href={MAPS_URL}
+            href={info.mapUrl}
             target="_blank"
             rel="noopener noreferrer"
             className="mt-9 flex w-fit items-center gap-2 text-[13px] text-muted transition-colors hover:text-ink"
           >
-            <MapPin size={15} className="shrink-0 text-ink" /> {SITE.address}
+            <MapPin size={15} className="shrink-0 text-ink" /> {info.address}
           </a>
         </div>
 

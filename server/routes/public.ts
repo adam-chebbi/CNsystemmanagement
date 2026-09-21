@@ -1,6 +1,8 @@
 import { Router, type RequestHandler } from 'express';
 import { db } from '../db/connection.js';
 import { fromJson, fromBool } from '../db/json.js';
+import { readShowcaseInfo } from '../lib/showcaseInfo.js';
+import { toPublicShowcaseSiteInfo } from '../../src/data/showcaseSettingsModel.js';
 
 // Public, read-only, unauthenticated product catalog — the one slice of this app's data meant to
 // be fetched directly by a future public storefront ("vitrine"), possibly on a different domain
@@ -92,3 +94,12 @@ export const listPublicProducts: RequestHandler = (_req, res) => {
 };
 
 publicRouter.get('/products', listPublicProducts);
+
+// Content of the public site (contact details, hours, social links, Google map), managed from the
+// management app's Paramètres → "Site vitrine". Links without an address are not published.
+// Read-only and unauthenticated like the catalogue; never returns anything but that record.
+publicRouter.get('/site-info', (_req, res) => {
+  const { info, updatedAt } = readShowcaseInfo();
+  res.set('Cache-Control', 'no-cache');
+  res.json({ ...toPublicShowcaseSiteInfo(info), updatedAt });
+});

@@ -1,4 +1,5 @@
-import { NOT_FOUND_TITLE, SEO_PAGES, type SeoPath } from '../config/seo';
+import type { ShowcaseSiteInfo } from '../../../src/data/showcaseSettingsModel';
+import { NOT_FOUND_TITLE, SEO_PAGES, buildBusinessJsonLd, type SeoPath } from '../config/seo';
 import { SITE_URL } from '../config/site';
 
 // The static <head> of each page is generated at build time (seo/seoPlugin.ts). This keeps it accurate
@@ -43,4 +44,12 @@ export function applySeo(path: string): void {
   setMeta('meta[property="og:description"]', 'property', 'og:description', page.description);
   setMeta('meta[name="twitter:title"]', 'name', 'twitter:title', page.title);
   setMeta('meta[name="twitter:description"]', 'name', 'twitter:description', page.description);
+}
+
+/** Rewrites the CafeOrCoffeeShop JSON-LD block of the page (id="ld-business") from the live site info. */
+export function applyBusinessJsonLd(info: ShowcaseSiteInfo): void {
+  const el = document.getElementById('ld-business');
+  if (!el) return;
+  // textContent, not innerHTML: the text is never parsed as HTML, so no escaping is needed here.
+  el.textContent = JSON.stringify(buildBusinessJsonLd(SITE_URL, info));
 }

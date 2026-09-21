@@ -1,6 +1,16 @@
+import {
+  DEFAULT_EMAIL,
+  DEFAULT_MAP_URL,
+  DEFAULT_PHONE,
+  DEFAULT_SHOWCASE_SITE_INFO,
+  SOCIAL_PLATFORMS,
+  parsePlaceCoordinates,
+  type ShowcaseSiteInfo,
+} from '../../../src/data/showcaseSettingsModel';
+
 // SEO facts shared by the site (client-side updates on route change) and the build
 // (seo/seoPlugin.ts: static <head> per page, sitemap.xml, robots.txt, llms.txt, JSON-LD).
-// Pure data on purpose — no import.meta.env, no DOM — because the Vite config imports it in Node.
+// Pure data and functions on purpose — no import.meta.env, no DOM — because the Vite config imports it in Node.
 
 export const SEO_SITE = {
   name: 'Café Noir',
@@ -43,18 +53,62 @@ export const SEO_PAGES: Record<SeoPath, SeoPage> = {
 
 export const NOT_FOUND_TITLE = 'Page introuvable — Café Noir';
 
+// Static facts of the build-time <head> (geo meta, llms.txt, the JSON-LD written into the HTML). They come
+// from the same defaults the management app starts with; once the team edits the site info in Paramètres,
+// the site refreshes the JSON-LD block from the live values (see buildBusinessJsonLd + seoClient.ts).
+const defaultCoords = parsePlaceCoordinates(DEFAULT_MAP_URL) ?? { latitude: 36.8465365, longitude: 10.1536695 };
 export const BUSINESS = {
-  streetAddress: 'Centre Makni, Rue Ahmed Ghanmi',
-  locality: 'Tunis',
-  postalCode: '1013',
+  streetAddress: DEFAULT_SHOWCASE_SITE_INFO.address,
+  locality: DEFAULT_SHOWCASE_SITE_INFO.city,
+  postalCode: DEFAULT_SHOWCASE_SITE_INFO.postalCode,
   country: 'TN',
   region: 'TN-11', // ISO 3166-2: Tunis governorate
-  latitude: 36.8465365,
-  longitude: 10.1536695,
-  // The exact Google Maps place (no tracking parameters).
-  mapsUrl:
-    'https://www.google.com/maps/place/Caf%C3%A9+noir/@36.8465408,10.1510946,17z/data=!3m1!4b1!4m6!3m5!1s0x12fd33ac03c1d4ab:0x29f717cb2de59ae7!8m2!3d36.8465365!4d10.1536695!16s%2Fg%2F11k48pc0zc',
-  // Opening hours announced on the site: every day, 7h to 22h.
-  opens: '07:00',
-  closes: '22:00',
+  latitude: defaultCoords.latitude,
+  longitude: defaultCoords.longitude,
+  mapsUrl: DEFAULT_MAP_URL,
+  opens: DEFAULT_SHOWCASE_SITE_INFO.opensAt,
+  closes: DEFAULT_SHOWCASE_SITE_INFO.closesAt,
 } as const;
+
+/**
+ * schema.org CafeOrCoffeeShop for the given site info (Google reads it for the local result: address, position,
+ * hours, links). The phone and e-mail are only included once they differ from the mockup placeholders, so a
+ * made-up number is never announced to search engines.
+ */
+export function buildBusinessJsonLd(siteUrl: string, info: ShowcaseSiteInfo): Record<string, unknown> {
+  const home = `${siteUrl}/`;
+  const coords = parsePlaceCoordinates(info.mapUrl) ?? defaultCoords;
+  const sameAs = info.socials.filter((s) => s.href && SOCIAL_PLATFORMS.some((p) => p.id === s.platform)).map((s) => s.href);
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'CafeOrCoffeeShop',
+    '@id': `${home}#cafe`,
+    name: SEO_SITE.name,
+    url: home,
+    image: [`${siteUrl}${SEO_SITE.ogImage}`],
+    description: SEO_PAGES['/'].description,
+    hasMenu: `${siteUrl}/menu`,
+    hasMap: info.mapUrl,
+    ...(info.phone && info.phone !== DEFAULT_PHONE ? { telephone: info.phone } : {}),
+    ...(info.email && info.email !== DEFAULT_EMAIL ? { email: info.email } : {}),
+    address: {
+      '@type': 'PostalAddress',
+      streetAddress: info.address,
+      addressLocality: info.city,
+      ...(info.postalCode ? { postalCode: info.postalCode } : {}),
+      addressCountry: BUSINESS.country,
+    },
+    geo: { '@type': 'GeoCoordinates', latitude: coords.latitude, longitude: coords.longitude },
+    openingHoursSpecification: [
+      {
+        '@type': 'OpeningHoursSpecification',
+        dayOfWeek: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'],
+        opens: info.opensAt,
+        closes: info.closesAt,
+      },
+    ],
+    ...(sameAs.length > 0 ? { sameAs } : {}),
+    servesCuisine: ['Café', 'Brunch', 'Pâtisserie'],
+    currenciesAccepted: 'TND',
+  };
+}

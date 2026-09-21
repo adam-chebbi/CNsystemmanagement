@@ -56,8 +56,21 @@ La galerie (`GALLERY` dans `src/config/site.ts`) réutilise ces mêmes fichiers.
 
 ## Contenu à personnaliser
 
-`src/config/site.ts` : adresse, téléphone, e-mail, horaires, liens sociaux (Instagram / Facebook /
-TikTok : tant que le lien est vide, l'icône s'affiche sans lien), crédit du pied de page.
+Les informations du site — phrase d'accroche, adresse, téléphone, e-mail, horaires, ville / code postal,
+**liens des réseaux sociaux** (Instagram, Facebook, TikTok, YouTube, WhatsApp, X, LinkedIn), **plan Google Maps
+interactif** et lien de la fiche du lieu — se gèrent depuis le système, page **Paramètres → « Site vitrine »**
+(`cafe.cafenoir.tn`, permission `settings:manage`). Elles sont servies par `GET /api/public/site-info` et le site
+les reprend en moins d'une minute, sans redéploiement. Un réseau sans adresse n'est pas affiché ; un téléphone ou
+un e-mail vide disparaît du site. Pour le plan : Google Maps → Partager → Intégrer une carte → coller le code
+`<iframe>` en entier (seule l'adresse `src` est conservée ; seules les adresses `https://www.google.com/maps/embed…`
+sont acceptées).
+
+Les valeurs par défaut (avant toute modification) et les règles de validation sont dans le fichier partagé
+`../src/data/showcaseSettingsModel.ts`. Le téléphone et l'e-mail par défaut sont ceux de la maquette : ils ne sont pas
+annoncés à Google (données structurées) tant qu'ils n'ont pas été remplacés.
+
+Le crédit « Site réalisé par **Creative Comet** » (lien vers <https://creativecomet.tn>) est **fixe** : il est écrit
+dans `src/config/site.ts` (`CREDIT`) et n'est pas modifiable depuis les Paramètres.
 Il n'y a pas de système de réservation : le bouton de l'en-tête est « Voir le menu complet ».
 
 ## Développement

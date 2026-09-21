@@ -1,7 +1,8 @@
 import { closeSync, mkdirSync, openSync, readFileSync, readSync, statSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import type { Plugin } from 'vite';
-import { BUSINESS, SEO_PAGES, SEO_SITE, type SeoPath } from '../src/config/seo';
+import { DEFAULT_SHOWCASE_SITE_INFO } from '../../src/data/showcaseSettingsModel';
+import { BUSINESS, SEO_PAGES, SEO_SITE, buildBusinessJsonLd, type SeoPath } from '../src/config/seo';
 
 // Build-time SEO for a static single-page site:
 //  - every page gets its OWN <head> (title, description, canonical, Open Graph, Twitter, JSON-LD) in
@@ -43,36 +44,7 @@ const pageUrl = (siteUrl: string, p: SeoPath): string => (p === '/' ? `${siteUrl
 
 function jsonLd(siteUrl: string, page: SeoPath): string[] {
   const home = pageUrl(siteUrl, '/');
-  const image = `${siteUrl}${SEO_SITE.ogImage}`;
-  const business = {
-    '@context': 'https://schema.org',
-    '@type': 'CafeOrCoffeeShop',
-    '@id': `${home}#cafe`,
-    name: SEO_SITE.name,
-    url: home,
-    image: [image],
-    description: SEO_PAGES['/'].description,
-    hasMenu: pageUrl(siteUrl, '/menu'),
-    hasMap: BUSINESS.mapsUrl,
-    address: {
-      '@type': 'PostalAddress',
-      streetAddress: BUSINESS.streetAddress,
-      addressLocality: BUSINESS.locality,
-      postalCode: BUSINESS.postalCode,
-      addressCountry: BUSINESS.country,
-    },
-    geo: { '@type': 'GeoCoordinates', latitude: BUSINESS.latitude, longitude: BUSINESS.longitude },
-    openingHoursSpecification: [
-      {
-        '@type': 'OpeningHoursSpecification',
-        dayOfWeek: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'],
-        opens: BUSINESS.opens,
-        closes: BUSINESS.closes,
-      },
-    ],
-    servesCuisine: ['Café', 'Brunch', 'Pâtisserie'],
-    currenciesAccepted: 'TND',
-  };
+  const business = buildBusinessJsonLd(siteUrl, DEFAULT_SHOWCASE_SITE_INFO);
   const website = {
     '@context': 'https://schema.org',
     '@type': 'WebSite',
@@ -93,7 +65,8 @@ function jsonLd(siteUrl: string, page: SeoPath): string[] {
       ],
     } as never);
   }
-  return out.map((o) => `<script type="application/ld+json">${JSON.stringify(o).replace(/</g, '\\u003c')}</script>`);
+  // The business block has an id: once the team edits the site info, the site rewrites it from the live values.
+  return out.map((o, i) => `<script type="application/ld+json"${i === 0 ? ' id="ld-business"' : ''}>${JSON.stringify(o).replace(/</g, '\\u003c')}</script>`);
 }
 
 function renderHead(siteUrl: string, page: SeoPath, og: { width: number; height: number } | null): string {

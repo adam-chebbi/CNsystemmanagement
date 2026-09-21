@@ -2,7 +2,8 @@ import { ArrowRight, MapPin, RefreshCw, Search, SearchX, WifiOff } from 'lucide-
 import { useMemo, useState } from 'react';
 import type { Catalog, Product } from '../api/products';
 import { MenuProductCard } from '../components/MenuProductCard';
-import { IMAGES, MAPS_URL, SITE } from '../config/site';
+import { IMAGES } from '../config/site';
+import { useSiteInfo } from '../lib/siteInfo';
 import { buildGroups, categoryImage } from '../lib/catalogView';
 import { normalize } from '../lib/format';
 import { Link, useRouter } from '../lib/router';
@@ -119,6 +120,7 @@ function Catalogue({ catalog, initialCategory }: { catalog: Catalog; initialCate
 }
 
 export function MenuPage() {
+  const info = useSiteInfo();
   const { state, retry } = useCatalog();
   const { search } = useRouter();
   const initialCategory = useMemo(() => new URLSearchParams(search).get('categorie') ?? ALL, [search]);
@@ -217,13 +219,13 @@ export function MenuPage() {
               Une envie de café ? <em className="text-accent">Passez nous voir.</em>
             </h2>
             <p className="mt-3 flex items-center gap-2 text-sm text-muted">
-              <MapPin size={15} className="shrink-0 text-ink" /> {SITE.address}
+              <MapPin size={15} className="shrink-0 text-ink" /> {info.address}
             </p>
-            <p className="mt-1 text-sm text-muted">{SITE.hours}</p>
+            <p className="mt-1 text-sm text-muted">{info.hours}</p>
           </div>
           <div className="flex flex-wrap gap-3">
             <a
-              href={MAPS_URL}
+              href={info.mapUrl}
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-2.5 rounded-full bg-brand px-6 py-3 text-[13px] font-semibold text-on-brand transition-[filter] hover:brightness-95"

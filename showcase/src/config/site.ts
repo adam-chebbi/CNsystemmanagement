@@ -1,6 +1,8 @@
-import { BUSINESS } from './seo';
-
-// Single place to edit the showcase's public-facing facts and where its menu data comes from.
+// Fixed facts of the showcase, and where its data comes from.
+//
+// The editable content of the site (contact details, hours, social links, Google map) is NOT here: the
+// team manages it from the management app (Paramètres → Site vitrine) and the site reads it at runtime
+// (src/lib/siteInfo.tsx). Products and categories come from the catalogue the same way.
 
 /** Public address of the deployed site, for canonical links (set VITE_SITE_URL at build time to change it). */
 export const SITE_URL: string = (import.meta.env.VITE_SITE_URL ?? 'https://test.cafenoir.tn').replace(/\/+$/, '');
@@ -16,50 +18,10 @@ export const API_BASE_URL: string = (
   (import.meta.env.DEV ? '' : 'https://cafe.cafenoir.tn')
 ).replace(/\/+$/, '');
 
-interface SocialLink {
-  id: 'instagram' | 'facebook' | 'tiktok';
-  label: string;
-  /** Leave empty until the real profile URL is known — the icon is then shown without a link. */
-  href: string;
-}
+export const SITE = { name: 'Café Noir' } as const;
 
-interface SiteInfo {
-  name: string;
-  tagline: string;
-  eyebrow: string;
-  address: string;
-  phone: string;
-  email: string;
-  hours: string;
-  socials: SocialLink[];
-  credit: string;
-}
-
-export const SITE: SiteInfo = {
-  name: 'Café Noir',
-  tagline: 'Café · Brunch · Pâtisserie',
-  eyebrow: 'Café · Brunch · Pâtisserie',
-  address: 'Centre Makni, Rue Ahmed Ghanmi, Tunis 1013',
-  phone: '+216 71 123 456',
-  email: 'contact@cafenoir.tn',
-  hours: 'Nous vous accueillons tous les jours de 7h à 22h.',
-  socials: [
-    { id: 'instagram', label: 'Instagram', href: '' },
-    { id: 'facebook', label: 'Facebook', href: '' },
-    { id: 'tiktok', label: 'TikTok', href: '' },
-  ],
-  credit: 'Creative Comet',
-};
-
-// The café's exact Google Maps place ("Café noir", Centre Makni) — the link opened by "Nous trouver" and
-// the address, and the pin shown by the embedded map in the footer. Both point at the same place id
-// (0x12fd33ac03c1d4ab:0x29f717cb2de59ae7) and coordinates, never at a text search.
-export const MAPS_URL = BUSINESS.mapsUrl;
-export const MAPS_EMBED_URL =
-  'https://www.google.com/maps/embed?pb=' +
-  '!1m18!1m12!1m3!1d3194.2!2d10.1536695!3d36.8465365!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1' +
-  '!3m3!1m2!1s0x12fd33ac03c1d4ab%3A0x29f717cb2de59ae7!2sCaf%C3%A9%20noir!5e0!3m2!1sfr!2stn!4v1758000000000!5m2!1sfr!2stn';
-export const PHONE_HREF = `tel:${SITE.phone.replace(/[^+\d]/g, '')}`;
+// The credit in the footer is fixed on purpose: it is not part of the editable site info.
+export const CREDIT = { name: 'Creative Comet', href: 'https://creativecomet.tn' } as const;
 
 export const NAV_ITEMS = [
   { id: 'accueil', label: 'Accueil' },

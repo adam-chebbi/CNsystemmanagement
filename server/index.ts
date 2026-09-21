@@ -16,6 +16,7 @@ import { activityLogRouter } from './routes/activityLog.js';
 import { dashboardRouter } from './routes/dashboard.js';
 import { cashVerificationsRouter } from './routes/cashVerifications.js';
 import { revenueEntriesRouter } from './routes/revenueEntries.js';
+import { showcaseSettingsRouter } from './routes/showcaseSettings.js';
 import { listPublicProducts, openCors, publicRouter } from './routes/public.js';
 import { settingsRouter, applyPersistedSettingsAtBoot } from './routes/settings.js';
 import { rolesRouter } from './routes/roles.js';
@@ -65,6 +66,7 @@ app.use('/api/activity-log', activityLogRouter);
 app.use('/api/dashboard', dashboardRouter);
 app.use('/api/cash-verifications', cashVerificationsRouter);
 app.use('/api/revenue-entries', revenueEntriesRouter);
+app.use('/api/showcase-settings', showcaseSettingsRouter);
 app.use('/api', settingsRouter);
 app.use('/api', rolesRouter);
 

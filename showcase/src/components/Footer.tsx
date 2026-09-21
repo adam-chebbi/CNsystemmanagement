@@ -1,9 +1,11 @@
-import { Mail, MapPin, Phone } from 'lucide-react';
+import { Linkedin, Mail, MapPin, MessageCircle, Phone, Youtube } from 'lucide-react';
 import type { ReactNode } from 'react';
-import { MAPS_EMBED_URL, MAPS_URL, PHONE_HREF, SITE } from '../config/site';
+import type { SocialPlatform } from '../../../src/data/showcaseSettingsModel';
+import { CREDIT, SITE } from '../config/site';
+import { phoneHref, useSiteInfo } from '../lib/siteInfo';
 import { Logo } from './Logo';
 
-const SOCIAL_ICONS: Record<string, ReactNode> = {
+const SOCIAL_ICONS: Record<SocialPlatform, ReactNode> = {
   instagram: (
     <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
       <rect x="3.5" y="3.5" width="17" height="17" rx="5" />
@@ -21,67 +23,101 @@ const SOCIAL_ICONS: Record<string, ReactNode> = {
       <path d="M16.6 3h-3.1v11.7a2.7 2.7 0 1 1-2.7-2.7c.3 0 .6 0 .8.1V8.9a5.8 5.8 0 1 0 5 5.7V8.7a7 7 0 0 0 4 1.3V6.9A4.1 4.1 0 0 1 16.6 3z" />
     </svg>
   ),
+  x: (
+    <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden>
+      <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231Zm-1.161 17.52h1.833L7.084 4.126H5.117Z" />
+    </svg>
+  ),
+  youtube: <Youtube size={18} aria-hidden />,
+  whatsapp: <MessageCircle size={17} aria-hidden />,
+  linkedin: <Linkedin size={17} aria-hidden />,
+};
+
+const SOCIAL_LABELS: Record<SocialPlatform, string> = {
+  instagram: 'Instagram',
+  facebook: 'Facebook',
+  tiktok: 'TikTok',
+  youtube: 'YouTube',
+  whatsapp: 'WhatsApp',
+  x: 'X (Twitter)',
+  linkedin: 'LinkedIn',
 };
 
 export function Footer() {
+  const info = useSiteInfo();
+  const hasSocials = info.socials.length > 0;
+
   return (
     <footer id="contact" className="scroll-mt-16 border-t border-line lg:scroll-mt-[72px]">
-      <div className="mx-auto grid max-w-[1240px] gap-10 px-5 py-12 sm:grid-cols-2 sm:px-8 lg:grid-cols-[1.3fr_1.2fr_0.9fr_1.2fr] lg:gap-12 lg:px-12 lg:py-14">
+      <div
+        className={`mx-auto grid max-w-[1240px] gap-10 px-5 py-12 sm:grid-cols-2 sm:px-8 lg:gap-12 lg:px-12 lg:py-14 ${
+          hasSocials ? 'lg:grid-cols-[1fr_1.05fr_0.6fr_1.7fr]' : 'lg:grid-cols-[1fr_1.05fr_1.9fr]'
+        }`}
+      >
         <div>
           <Logo />
-          <p className="mt-3 text-sm text-subtle">{SITE.tagline}</p>
-          <p className="mt-5 max-w-[15rem] text-[13px] leading-relaxed text-muted">{SITE.hours}</p>
+          <p className="mt-3 text-sm text-subtle">{info.tagline}</p>
+          <p className="mt-5 max-w-[15rem] text-[13px] leading-relaxed text-muted">{info.hours}</p>
         </div>
 
         <div>
           <h3 className="text-sm font-semibold text-ink">Contact</h3>
           <ul className="mt-4 space-y-3.5 text-[13px] text-muted">
-            <li className="flex items-start gap-3">
-              <Phone size={14} className="mt-0.5 shrink-0 text-ink" aria-hidden />
-              <a href={PHONE_HREF} className="hover:text-ink">
-                {SITE.phone}
-              </a>
-            </li>
+            {info.phone && (
+              <li className="flex items-start gap-3">
+                <Phone size={14} className="mt-0.5 shrink-0 text-ink" aria-hidden />
+                <a href={phoneHref(info.phone)} className="hover:text-ink">
+                  {info.phone}
+                </a>
+              </li>
+            )}
             <li className="flex items-start gap-3">
               <MapPin size={14} className="mt-0.5 shrink-0 text-ink" aria-hidden />
-              <a href={MAPS_URL} target="_blank" rel="noopener noreferrer" className="max-w-[14rem] leading-relaxed hover:text-ink">
-                {SITE.address}
+              <a href={info.mapUrl} target="_blank" rel="noopener noreferrer" className="max-w-[14rem] leading-relaxed hover:text-ink">
+                {info.address}
               </a>
             </li>
-            <li className="flex items-start gap-3">
-              <Mail size={14} className="mt-0.5 shrink-0 text-ink" aria-hidden />
-              <a href={`mailto:${SITE.email}`} className="break-all hover:text-ink">
-                {SITE.email}
-              </a>
-            </li>
-          </ul>
-        </div>
-
-        <div>
-          <h3 className="text-sm font-semibold text-ink">Suivez-nous</h3>
-          <ul className="mt-4 flex gap-5 text-ink">
-            {SITE.socials.map((s) => (
-              <li key={s.id}>
-                {s.href ? (
-                  <a href={s.href} target="_blank" rel="noopener noreferrer" aria-label={s.label} className="transition-colors hover:text-accent">
-                    {SOCIAL_ICONS[s.id]}
-                  </a>
-                ) : (
-                  <span role="img" aria-label={s.label}>
-                    {SOCIAL_ICONS[s.id]}
-                  </span>
-                )}
+            {info.email && (
+              <li className="flex items-start gap-3">
+                <Mail size={14} className="mt-0.5 shrink-0 text-ink" aria-hidden />
+                <a href={`mailto:${info.email}`} className="break-all hover:text-ink">
+                  {info.email}
+                </a>
               </li>
-            ))}
+            )}
           </ul>
         </div>
 
-        <div className="h-36 overflow-hidden rounded-xl border border-line bg-section sm:col-span-2 lg:col-span-1 lg:h-[132px]">
+        {hasSocials && (
+          <div>
+            <h3 className="text-sm font-semibold text-ink">Suivez-nous</h3>
+            <ul className="mt-4 flex flex-wrap gap-5 text-ink">
+              {info.socials.map((s) => (
+                <li key={s.platform}>
+                  <a
+                    href={s.href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label={SOCIAL_LABELS[s.platform]}
+                    title={SOCIAL_LABELS[s.platform]}
+                    className="transition-colors hover:text-accent"
+                  >
+                    {SOCIAL_ICONS[s.platform]}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {/* The interactive Google map (drag, zoom, full screen). Its address comes from the site info. */}
+        <div className="h-64 overflow-hidden rounded-xl border border-line bg-section sm:col-span-2 sm:h-72 lg:col-span-1 lg:h-64">
           <iframe
             title={`Plan d’accès — ${SITE.name}`}
-            src={MAPS_EMBED_URL}
+            src={info.mapEmbedUrl}
             loading="lazy"
-            referrerPolicy="no-referrer-when-downgrade"
+            allowFullScreen
+            referrerPolicy="strict-origin-when-cross-origin"
             className="h-full w-full border-0 dark:[filter:invert(92%)_hue-rotate(180deg)_saturate(0.7)]"
           />
         </div>
@@ -92,7 +128,12 @@ export function Footer() {
           <p>
             © {new Date().getFullYear()} {SITE.name}. Tous droits réservés.
           </p>
-          <p>Site réalisé par {SITE.credit}</p>
+          <p>
+            Site réalisé par{' '}
+            <a href={CREDIT.href} target="_blank" rel="noopener noreferrer" className="font-medium text-muted underline-offset-2 transition-colors hover:text-ink hover:underline">
+              {CREDIT.name}
+            </a>
+          </p>
         </div>
       </div>
     </footer>

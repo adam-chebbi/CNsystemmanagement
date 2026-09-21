@@ -2,6 +2,7 @@ import { DecimalInput } from './ui/DecimalInput';
 import React, { useEffect, useState } from 'react';
 import { Settings as SettingsIcon, Save, Loader2, CheckCircle2, AlertCircle, RotateCcw } from 'lucide-react';
 import { AppSettings, APP_SETTING_FIELDS, DEFAULT_APP_SETTINGS } from '../data/settingsModel';
+import { ShowcaseSettingsSection } from './ShowcaseSettingsSection';
 
 interface SettingsPageProps {
   settings: AppSettings;
@@ -138,6 +139,9 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ settings, onSaveSett
           </button>
         </div>
       </div>
+
+      {/* Contenu du site public (test.cafenoir.tn) : coordonnées, horaires, réseaux sociaux, plan. */}
+      <ShowcaseSettingsSection />
     </div>
   );
 };

@@ -178,6 +178,31 @@ La vitrine officielle (`showcase/`) attend la réponse 15 s au maximum, retente 
 coupure réseau ou d'erreur 5xx, puis affiche « Le menu ne peut pas s'afficher » avec un bouton
 Réessayer. Elle se rafraîchit ensuite toute seule chaque minute.
 
+## Informations du site — `GET /api/public/site-info`
+
+Deuxième route publique, en lecture seule (mêmes règles CORS, sans authentification), utilisée par la vitrine pour
+afficher l'adresse, le téléphone, l'e-mail, les horaires, les réseaux sociaux et le plan Google Maps. Ces valeurs se
+modifient dans le système : **Paramètres → « Site vitrine »**. Réponse (`Cache-Control: no-cache`) :
+
+```json
+{
+  "tagline": "Café · Brunch · Pâtisserie",
+  "address": "Centre Makni, Rue Ahmed Ghanmi, Tunis 1013",
+  "city": "Tunis", "postalCode": "1013",
+  "phone": "+216 …", "email": "contact@…",
+  "hours": "Nous vous accueillons tous les jours de 7h à 22h.",
+  "opensAt": "07:00", "closesAt": "22:00",
+  "mapEmbedUrl": "https://www.google.com/maps/embed?pb=…",
+  "mapUrl": "https://www.google.com/maps/place/…",
+  "socials": [{ "platform": "instagram", "href": "https://www.instagram.com/…" }],
+  "updatedAt": "2026-09-21T07:16:00.000Z"
+}
+```
+
+`socials` ne contient que les réseaux dont l'adresse est renseignée (`instagram`, `facebook`, `tiktok`, `youtube`,
+`whatsapp`, `x`, `linkedin`). `phone` et `email` peuvent être vides. Tant que rien n'a été enregistré, la route renvoie
+les valeurs par défaut. Le crédit du site (Creative Comet) n'en fait pas partie : il est fixe dans la vitrine.
+
 ## Ce que cette route ne fait pas (hors périmètre)
 
 - Pas de prise de commande, panier ou paiement — c'est uniquement de la lecture de catalogue.
