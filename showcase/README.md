@@ -23,7 +23,7 @@ propre `package.json`, son propre build, et se déploie sur **une autre URL** qu
   - La page **Menu** (`/menu`) liste tous les produits par catégorie (recherche, filtres, descriptions,
     tailles avec prix, suppléments, photos).
   - Un produit ajouté, modifié, rendu indisponible ou supprimé dans le système apparaît/disparaît
-    tout seul : le site se rafraîchit toutes les minutes et au retour sur l'onglet.
+    tout seul : le site se rafraîchit toutes les 30 secondes et au retour sur l’onglet.
   - Si le système a une photo pour un produit de la catégorie, elle remplace la photo par défaut de la carte.
 
 ## Photos
@@ -65,19 +65,29 @@ En production, le site appelle l'API par URL absolue : par défaut `https://cafe
 
 | Site | URL | Servi par |
 | --- | --- | --- |
-| Système de gestion | `cafe.cafenoir.tn` | Node/PM2 (`cnsystemmanagement`) derrière nginx |
-| Vitrine | un **autre** domaine ou sous-domaine (ex. `cafenoir.tn`) | nginx, fichiers statiques de `showcase/dist` |
+| Système de gestion | `cafe.cafenoir.tn` | Node/PM2 (`cnsystemmanagement`, port 3011) derrière nginx |
+| Vitrine (menu client) | `test.cafenoir.tn` | nginx, fichiers statiques de `showcase/dist` |
 
-1. **DNS** : créer l'enregistrement A/AAAA du domaine choisi vers l'IP du serveur.
-2. **Build** sur le serveur (ou en local puis copie de `dist/`) :
-   ```bash
-   cd /var/www/CNsystemmanagement/showcase
-   npm ci && npm run build
-   ```
-3. **nginx** : copier `deploy/nginx.conf.example` dans `/etc/nginx/sites-available/`, remplacer le
-   `server_name`, activer le site, puis `sudo nginx -t && sudo systemctl reload nginx`.
-4. **HTTPS** : `sudo certbot --nginx -d <domaine>`.
+La vitrine ne partage rien avec le processus du système : le navigateur du visiteur lit le catalogue
+sur `https://cafe.cafenoir.tn/api/products` (route publique, lecture seule, CORS ouvert). Aucun produit
+ni aucune catégorie n'est écrit dans le code de la vitrine.
+
+Mise en ligne / mise à jour sur le serveur :
+
+```bash
+cd /var/www/CNsystemmanagement && git pull --ff-only
+cd showcase
+npm ci
+VITE_API_BASE_URL=https://cafe.cafenoir.tn npm run build   # typecheck + build -> showcase/dist
+```
+
+nginx : la configuration exacte utilisée en production est `deploy/test.cafenoir.tn.nginx.conf`
+(à installer dans `/etc/nginx/sites-available/test.cafenoir.tn`, puis
+`sudo nginx -t && sudo systemctl reload nginx`). `deploy/nginx.conf.example` sert de modèle pour un
+autre domaine (DNS + `sudo certbot --nginx -d <domaine>` à prévoir).
 
 Le déploiement de la vitrine ne touche ni au processus PM2 du système, ni à sa base de données, ni
-à son bloc nginx. Mettre à jour la vitrine = `git pull && cd showcase && npm ci && npm run build`
-(aucun redémarrage nécessaire, nginx sert simplement les nouveaux fichiers).
+à son bloc nginx. Mettre à jour la vitrine ne demande aucun redémarrage : nginx sert les nouveaux
+fichiers (index.html n'est jamais mis en cache ; les fichiers de `assets/` sont versionnés).
+
+Retour arrière : restaurer la sauvegarde de la configuration nginx puis `sudo systemctl reload nginx`.

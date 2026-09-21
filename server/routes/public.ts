@@ -50,15 +50,17 @@ interface ArticleRow {
 
 // Served at both GET /api/public/products and GET /api/products (mounted in server/index.ts).
 export const listPublicProducts: RequestHandler = (_req, res) => {
-  const categories = db.prepare('SELECT id, name FROM product_categories ORDER BY created_at ASC').all() as CategoryRow[];
+  // Order = the order the source keeps them in. created_at is a plain date, so rows created the same
+  // day tie: rowid (insertion order) makes that order stable instead of left to the query planner.
+  const categories = db.prepare('SELECT id, name FROM product_categories ORDER BY created_at ASC, rowid ASC').all() as CategoryRow[];
   const subCategories = db
-    .prepare('SELECT id, category_id, name FROM product_subcategories ORDER BY created_at ASC')
+    .prepare('SELECT id, category_id, name FROM product_subcategories ORDER BY created_at ASC, rowid ASC')
     .all() as SubCategoryRow[];
   const extras = db.prepare('SELECT id, name, price FROM catalog_extras ORDER BY rowid ASC').all() as ExtraRow[];
   const articleRows = db
     .prepare(
       `SELECT id, name, category, sub_category, price, description, image_url, is_available, extra_ids, variants
-       FROM catalog_articles ORDER BY created_at ASC`
+       FROM catalog_articles ORDER BY created_at ASC, rowid ASC`
     )
     .all() as ArticleRow[];
 
@@ -78,6 +80,9 @@ export const listPublicProducts: RequestHandler = (_req, res) => {
       variants: r.variants ? fromJson<{ id: string; label: string; priceDelta?: number }[]>(r.variants, []) : [],
     }));
 
+  // 'no-cache' = a copy may be kept but must be revalidated (ETag) every time, so a change made in
+  // the system reaches the public menu on its next refresh.
+  res.set('Cache-Control', 'no-cache');
   res.json({
     categories: categories.map((c) => ({ id: c.id, name: c.name })),
     subCategories: subCategories.map((s) => ({ id: s.id, categoryId: s.category_id, name: s.name })),

@@ -54,6 +54,8 @@ async function requestCatalog(): Promise<Catalog> {
     // A plain GET with only a CORS-safelisted header: no preflight request is needed cross-origin.
     const res = await fetch(`${API_BASE_URL}/api/products`, {
       headers: { Accept: 'application/json' },
+      // Always revalidate with the server (ETag): a product changed in the system must show up on the next refresh.
+      cache: 'no-cache',
       signal: controller.signal,
     });
     if (res.status >= 500) throw new Error(`HTTP ${res.status}`);

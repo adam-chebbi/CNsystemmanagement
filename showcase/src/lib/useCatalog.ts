@@ -6,11 +6,11 @@ type State =
   | { status: 'error' }
   | { status: 'ready'; catalog: Catalog };
 
-const REFRESH_MS = 60_000;
+const REFRESH_MS = 30_000;
 
 /**
  * Loads the live catalog from the management system's public API and keeps it fresh: it refetches
- * quietly every minute and whenever the visitor comes back to the tab, so a product added, edited
+ * quietly every 30 seconds and whenever the visitor comes back to the tab, so a product added, edited
  * or hidden in the system shows up (or disappears) without a page reload.
  */
 export function useCatalog() {
