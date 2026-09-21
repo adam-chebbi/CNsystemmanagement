@@ -5,6 +5,7 @@
 // stock through the SAME append-only mechanism as every other stock movement — never a second,
 // parallel way to change quantities.
 
+import { todayIso } from './dateUtils';
 import { normalizeKey } from './textUtils';
 import { StockZone, StockLedgerEntry, StockProduct, generateStockId, getZoneQty } from './stockModel';
 
@@ -14,7 +15,6 @@ export const generatePurchaseId = (prefix: string): string => {
   return `${prefix}-${idCounter}-${Date.now().toString(36)}`;
 };
 
-const todayIso = (): string => new Date().toISOString().slice(0, 10);
 
 // --- Suppliers -----------------------------------------------------------------------------
 
@@ -114,7 +114,7 @@ export const buildSupplierFromDraft = (draft: DraftSupplier): Supplier => ({
   address: draft.address.trim() || undefined,
   mainContact: draft.mainContact.trim() || undefined,
   notes: draft.notes.trim() || undefined,
-  createdAt: draft.createdAt ?? new Date().toISOString().slice(0, 10),
+  createdAt: draft.createdAt ?? todayIso(),
 });
 
 // A product can have several suppliers, and the purchase price history is never a separate
@@ -167,13 +167,18 @@ export interface PurchaseOrder {
 }
 
 export const generatePurchaseOrderNumber = (existing: PurchaseOrder[]): string => {
-  const year = new Date().getFullYear();
+  const year = Number(todayIso().slice(0, 4));
   const countThisYear = existing.filter((o) => o.orderNumber.startsWith(`PO-${year}-`)).length;
   return `PO-${year}-${String(countThisYear + 1).padStart(4, '0')}`;
 };
 
 export const computeOrderTotal = (order: PurchaseOrder): number =>
   order.lines.reduce((sum, l) => sum + l.quantity * l.unitPrice, 0);
+
+// Whether an order counts as an actual purchase in "Achats" totals (dashboard + reports): a
+// cancelled order never happened and a draft hasn't been sent to the supplier yet.
+export const isCountedPurchase = (order: Pick<PurchaseOrder, 'status'>): boolean =>
+  order.status !== 'Annulée' && order.status !== 'Brouillon';
 
 export const computeOrderReceivedRatio = (order: PurchaseOrder): 'none' | 'partial' | 'full' => {
   const totalQty = order.lines.reduce((sum, l) => sum + l.quantity, 0);

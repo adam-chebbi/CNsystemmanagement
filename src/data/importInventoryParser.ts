@@ -1,3 +1,4 @@
+import { parseDecimalCell } from './decimalInput';
 import {
   StockProduct,
   StockZone,
@@ -101,7 +102,7 @@ const parseInventoryImportRow = (
   if (!rawReal.trim()) {
     issues.push({ field: 'stock_reel', value: rawReal, message: 'Le stock réel est obligatoire.' });
   } else {
-    const n = Number(rawReal);
+    const n = parseDecimalCell(rawReal);
     if (Number.isNaN(n) || n < 0) issues.push({ field: 'stock_reel', value: rawReal, message: 'Le stock réel doit être un nombre positif ou nul.' });
   }
 
@@ -157,7 +158,7 @@ export const buildInventoryPreviewRows = (rows: ImportedInventoryRowDraft[], pro
     .map((r) => {
       const product = products.find((p) => p.id === r.productId)!;
       const theoreticalQty = getZoneQty(product, r.zone as StockZone);
-      const realQty = Number(r.realQty);
+      const realQty = parseDecimalCell(r.realQty);
       const discrepancyQty = realQty - theoreticalQty;
       return { row: r, product, theoreticalQty, realQty, discrepancyQty, discrepancyValue: discrepancyQty * product.averageCost };
     });

@@ -1,3 +1,4 @@
+import { DecimalInput } from './ui/DecimalInput';
 import React, { useMemo, useRef, useState } from 'react';
 import { useUnsavedWorkGuard } from '../hooks/useUnsavedWorkGuard';
 import {
@@ -392,8 +393,7 @@ export const StockMovementsImportForm: React.FC<StockMovementsImportFormProps> =
 
                   <div>
                     <label className={labelClass}>Quantité à ajouter</label>
-                    <input
-                      type="number"
+                    <DecimalInput
                       min={0}
                       value={row.quantity}
                       onChange={(e) => updateRow(row.id, { quantity: e.target.value })}
@@ -405,8 +405,7 @@ export const StockMovementsImportForm: React.FC<StockMovementsImportFormProps> =
                   <div className="grid grid-cols-2 gap-3">
                     <div>
                       <label className={labelClass}>Seuil minimum</label>
-                      <input
-                        type="number"
+                      <DecimalInput
                         min={0}
                         value={row.minThreshold}
                         onChange={(e) => updateRow(row.id, { minThreshold: e.target.value })}
@@ -416,8 +415,7 @@ export const StockMovementsImportForm: React.FC<StockMovementsImportFormProps> =
                     </div>
                     <div>
                       <label className={labelClass}>Stock cible</label>
-                      <input
-                        type="number"
+                      <DecimalInput
                         min={0}
                         value={row.targetStock}
                         onChange={(e) => updateRow(row.id, { targetStock: e.target.value })}

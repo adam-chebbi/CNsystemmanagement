@@ -1,3 +1,4 @@
+import { DecimalInput } from './ui/DecimalInput';
 import React, { useMemo, useState } from 'react';
 import {
   LineChart,
@@ -573,27 +574,27 @@ export const FinancialsPage: React.FC<FinancialsPageProps> = ({
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                   <div>
                     <label className={labelClass}>Salaire de base (DT) *</label>
-                    <input type="number" min={0} step="any" value={draft.baseSalary} onChange={(e) => updateDraft({ baseSalary: e.target.value })} className={`${inputBaseClass} ${showErrors && issuesByField.has('baseSalary') ? inputErrorClass : inputValidClass}`} />
+                    <DecimalInput min={0} step="any" value={draft.baseSalary} onChange={(e) => updateDraft({ baseSalary: e.target.value })} className={`${inputBaseClass} ${showErrors && issuesByField.has('baseSalary') ? inputErrorClass : inputValidClass}`} />
                     {showErrors && issuesByField.get('baseSalary') && (<p className="text-[11px] text-red-500 mt-1 flex items-center gap-1"><AlertCircle size={11} /> {issuesByField.get('baseSalary')}</p>)}
                   </div>
                   <div>
                     <label className={labelClass}>Avances (DT)</label>
-                    <input type="number" min={0} step="any" value={draft.advances} onChange={(e) => updateDraft({ advances: e.target.value })} className={`${inputBaseClass} ${showErrors && issuesByField.has('advances') ? inputErrorClass : inputValidClass}`} />
+                    <DecimalInput min={0} step="any" value={draft.advances} onChange={(e) => updateDraft({ advances: e.target.value })} className={`${inputBaseClass} ${showErrors && issuesByField.has('advances') ? inputErrorClass : inputValidClass}`} />
                     {showErrors && issuesByField.get('advances') && (<p className="text-[11px] text-red-500 mt-1 flex items-center gap-1"><AlertCircle size={11} /> {issuesByField.get('advances')}</p>)}
                   </div>
                   <div>
                     <label className={labelClass}>Primes (DT)</label>
-                    <input type="number" min={0} step="any" value={draft.bonuses} onChange={(e) => updateDraft({ bonuses: e.target.value })} className={`${inputBaseClass} ${showErrors && issuesByField.has('bonuses') ? inputErrorClass : inputValidClass}`} />
+                    <DecimalInput min={0} step="any" value={draft.bonuses} onChange={(e) => updateDraft({ bonuses: e.target.value })} className={`${inputBaseClass} ${showErrors && issuesByField.has('bonuses') ? inputErrorClass : inputValidClass}`} />
                     {showErrors && issuesByField.get('bonuses') && (<p className="text-[11px] text-red-500 mt-1 flex items-center gap-1"><AlertCircle size={11} /> {issuesByField.get('bonuses')}</p>)}
                   </div>
                   <div>
                     <label className={labelClass}>Retenues (DT)</label>
-                    <input type="number" min={0} step="any" value={draft.deductions} onChange={(e) => updateDraft({ deductions: e.target.value })} className={`${inputBaseClass} ${showErrors && issuesByField.has('deductions') ? inputErrorClass : inputValidClass}`} />
+                    <DecimalInput min={0} step="any" value={draft.deductions} onChange={(e) => updateDraft({ deductions: e.target.value })} className={`${inputBaseClass} ${showErrors && issuesByField.has('deductions') ? inputErrorClass : inputValidClass}`} />
                     {showErrors && issuesByField.get('deductions') && (<p className="text-[11px] text-red-500 mt-1 flex items-center gap-1"><AlertCircle size={11} /> {issuesByField.get('deductions')}</p>)}
                   </div>
                   <div>
                     <label className={labelClass}>Montant payé (DT)</label>
-                    <input type="number" min={0} step="any" value={draft.amountPaid} onChange={(e) => updateDraft({ amountPaid: e.target.value })} className={`${inputBaseClass} ${showErrors && issuesByField.has('amountPaid') ? inputErrorClass : inputValidClass}`} />
+                    <DecimalInput min={0} step="any" value={draft.amountPaid} onChange={(e) => updateDraft({ amountPaid: e.target.value })} className={`${inputBaseClass} ${showErrors && issuesByField.has('amountPaid') ? inputErrorClass : inputValidClass}`} />
                     {showErrors && issuesByField.get('amountPaid') && (<p className="text-[11px] text-red-500 mt-1 flex items-center gap-1"><AlertCircle size={11} /> {issuesByField.get('amountPaid')}</p>)}
                   </div>
                   <div>

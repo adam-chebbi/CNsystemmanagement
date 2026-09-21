@@ -1,3 +1,4 @@
+import { DecimalInput } from './ui/DecimalInput';
 import React, { useMemo, useRef, useState } from 'react';
 import { useUnsavedWorkGuard } from '../hooks/useUnsavedWorkGuard';
 import {
@@ -522,8 +523,7 @@ export const InvoiceOcrPage: React.FC<InvoiceOcrPageProps> = ({
                 <div className="grid grid-cols-3 gap-3">
                   <div>
                     <label className={labelClass}>Montant HT</label>
-                    <input
-                      type="number" min={0} step="0.001"
+                    <DecimalInput min={0} step="0.001"
                       value={amountHT}
                       onChange={(e) => setAmountHT(e.target.value)}
                       className={`${inputBaseClass} ${inputValidClass}`}
@@ -531,8 +531,7 @@ export const InvoiceOcrPage: React.FC<InvoiceOcrPageProps> = ({
                   </div>
                   <div>
                     <label className={labelClass}>TVA</label>
-                    <input
-                      type="number" min={0} step="0.001"
+                    <DecimalInput min={0} step="0.001"
                       value={vatAmount}
                       onChange={(e) => setVatAmount(e.target.value)}
                       className={`${inputBaseClass} ${inputValidClass}`}
@@ -540,8 +539,7 @@ export const InvoiceOcrPage: React.FC<InvoiceOcrPageProps> = ({
                   </div>
                   <div>
                     <label className={labelClass}>Montant TTC *</label>
-                    <input
-                      type="number" min={0} step="0.001"
+                    <DecimalInput min={0} step="0.001"
                       value={amountTTC}
                       onChange={(e) => setAmountTTC(e.target.value)}
                       className={`${inputBaseClass} ${!amountTTC || Number.isNaN(ttcNumber) || ttcNumber <= 0 ? inputErrorClass : inputValidClass}`}
@@ -614,8 +612,7 @@ export const InvoiceOcrPage: React.FC<InvoiceOcrPageProps> = ({
                           </div>
                           <div>
                             <label className={labelClass}>Quantité *</label>
-                            <input
-                              type="number" min={0} step="0.001"
+                            <DecimalInput min={0} step="0.001"
                               value={line.quantity}
                               onChange={(e) => updateLine(line.id, { quantity: e.target.value })}
                               className={`${inputBaseClass} ${!line.quantity || Number(line.quantity) <= 0 ? inputErrorClass : inputValidClass}`}
@@ -623,8 +620,7 @@ export const InvoiceOcrPage: React.FC<InvoiceOcrPageProps> = ({
                           </div>
                           <div>
                             <label className={labelClass}>Prix unitaire (DT) *</label>
-                            <input
-                              type="number" min={0} step="0.001"
+                            <DecimalInput min={0} step="0.001"
                               value={line.unitPrice}
                               onChange={(e) => updateLine(line.id, { unitPrice: e.target.value })}
                               className={`${inputBaseClass} ${line.unitPrice === '' || Number(line.unitPrice) < 0 ? inputErrorClass : inputValidClass}`}

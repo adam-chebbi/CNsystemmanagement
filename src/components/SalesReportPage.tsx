@@ -91,8 +91,8 @@ export const SalesReportPage: React.FC<SalesReportPageProps> = ({ transactions, 
         },
         {
           heading: 'Produits à faible marge (sous la cible)',
-          columns: ['Produit', 'Coût matière', 'Prix de vente', 'Marge brute', 'Taux', 'Cible'],
-          rows: lowMarginProducts.map((p) => [p.article.name, formatAmount(p.cost), formatAmount(p.article.price), formatAmount(p.grossMargin), formatPercent(p.marginRate), formatPercent(p.targetRate)]),
+          columns: ['Produit', 'Coût matière', 'Prix de vente HT', 'Marge brute', 'Taux', 'Cible'],
+          rows: lowMarginProducts.map((p) => [p.article.name, formatAmount(p.cost), formatAmount(p.priceHT), formatAmount(p.grossMargin), formatPercent(p.marginRate), formatPercent(p.targetRate)]),
           align: ['left', 'right', 'right', 'right', 'right', 'right'],
         },
       ],
@@ -146,12 +146,12 @@ export const SalesReportPage: React.FC<SalesReportPageProps> = ({ transactions, 
 
       <ReportSection title="Produits à faible marge" description="Produits dont la marge réelle est inférieure à la marge cible — à surveiller pour la rentabilité.">
         <ReportTable
-          columns={['Produit', 'Coût matière', 'Prix', 'Marge', 'Taux', 'Cible']}
+          columns={['Produit', 'Coût matière', 'Prix HT', 'Marge', 'Taux', 'Cible']}
           align={['left', 'right', 'right', 'right', 'right', 'right']}
           rows={lowMarginProducts.map((p) => [
             p.article.name,
             formatAmount(p.cost),
-            formatAmount(p.article.price),
+            formatAmount(p.priceHT),
             formatAmount(p.grossMargin),
             <span key="rate" className="font-semibold text-red-600 dark:text-red-400">{formatPercent(p.marginRate)}</span>,
             formatPercent(p.targetRate),

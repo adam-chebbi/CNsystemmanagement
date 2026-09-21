@@ -1,3 +1,4 @@
+import { DecimalInput } from './ui/DecimalInput';
 import React, { useMemo, useState } from 'react';
 import {
   PackageMinus,
@@ -396,8 +397,7 @@ export const StockLossesPage: React.FC<StockLossesPageProps> = ({
 
                 <div>
                   <label className={labelClass}>Quantité *</label>
-                  <input
-                    type="number"
+                  <DecimalInput
                     min={0}
                     step="any"
                     value={form.quantity}

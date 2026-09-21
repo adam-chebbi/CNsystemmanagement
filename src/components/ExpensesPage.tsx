@@ -1,3 +1,4 @@
+import { DecimalInput } from './ui/DecimalInput';
 import React, { useMemo, useRef, useState } from 'react';
 import {
   Receipt,
@@ -611,8 +612,7 @@ export const ExpensesPage: React.FC<ExpensesPageProps> = ({
 
                   <div>
                     <label className={labelClass}>Montant (DT) *</label>
-                    <input
-                      type="number"
+                    <DecimalInput
                       min={0}
                       step="any"
                       value={draft.amount}

@@ -1,3 +1,4 @@
+import { DecimalInput } from './ui/DecimalInput';
 import React, { useMemo, useRef, useState } from 'react';
 import { useUnsavedWorkGuard } from '../hooks/useUnsavedWorkGuard';
 import {
@@ -114,7 +115,10 @@ export const ProductFormPage: React.FC<ProductFormPageProps> = ({
     [draft.recipe, ingredients, subRecipes, articles]
   );
   const priceNum = Number(draft.price) || 0;
-  const margin = computeMargin(priceNum, recipeCostResult.cost);
+  // Margins are computed on the price WITHOUT VAT: the VAT inside a TTC price belongs to the state.
+  const vatRateNum = draft.vatRate.trim() !== '' && Number.isFinite(Number(draft.vatRate)) ? Number(draft.vatRate) : DEFAULT_VAT_RATE;
+  const priceHT = draft.priceIncludesTax ? priceNum / (1 + vatRateNum) : priceNum;
+  const margin = computeMargin(priceHT, recipeCostResult.cost);
   const targetRate = draft.targetMarginRate.trim() !== '' ? Number(draft.targetMarginRate) : DEFAULT_TARGET_MARGIN_RATE;
   const comparison = compareToTargetMargin(margin.marginRate, targetRate);
 
@@ -375,7 +379,7 @@ export const ProductFormPage: React.FC<ProductFormPageProps> = ({
           <div className={cardClass}>
             <h3 className="text-sm font-bold text-gray-900 dark:text-white">Marges</h3>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
-              <div><span className="text-gray-400 font-semibold block mb-0.5">Prix de vente</span><span className="font-bold text-gray-900 dark:text-white">{priceNum.toFixed(2)} DT</span></div>
+              <div><span className="text-gray-400 font-semibold block mb-0.5">Prix de vente HT</span><span className="font-bold text-gray-900 dark:text-white">{priceHT.toFixed(2)} DT</span></div>
               <div><span className="text-gray-400 font-semibold block mb-0.5">Coût matière</span><span className="font-bold text-gray-900 dark:text-white">{recipeCostResult.cost.toFixed(2)} DT</span></div>
               <div><span className="text-gray-400 font-semibold block mb-0.5">Marge brute</span><span className="font-bold text-gray-900 dark:text-white">{margin.grossMargin.toFixed(2)} DT</span></div>
               <div>
@@ -386,7 +390,7 @@ export const ProductFormPage: React.FC<ProductFormPageProps> = ({
               </div>
             </div>
             <p className="text-[11px] text-gray-400">
-              Marge cible : {(targetRate * 100).toFixed(0)}% —{' '}
+              Marge calculée sur le prix hors taxes (TVA {(vatRateNum * 100).toFixed(0)}%). Marge cible : {(targetRate * 100).toFixed(0)}% —{' '}
               {comparison === 'atteint' ? 'objectif atteint' : comparison === 'inferieur' ? 'en dessous de la cible' : 'au-dessus de la cible'}.
             </p>
           </div>
@@ -454,7 +458,7 @@ export const ProductFormPage: React.FC<ProductFormPageProps> = ({
               </div>
               <div>
                 <label className={labelClass}>Prix de vente (DT) *</label>
-                <input type="number" min={0} step="any" value={draft.price} onChange={(e) => updateDraft({ price: e.target.value })} className={`${inputBaseClass} ${showErrors && issuesByField.has('price') ? inputErrorClass : inputValidClass}`} />
+                <DecimalInput min={0} step="any" value={draft.price} onChange={(e) => updateDraft({ price: e.target.value })} className={`${inputBaseClass} ${showErrors && issuesByField.has('price') ? inputErrorClass : inputValidClass}`} />
               </div>
               <div className="sm:col-span-2">
                 <label className={labelClass}>Description</label>
@@ -493,13 +497,12 @@ export const ProductFormPage: React.FC<ProductFormPageProps> = ({
               </div>
               <div>
                 <label className={labelClass}>Marge cible (optionnel)</label>
-                <input type="number" min={0} max={1} step="0.01" value={draft.targetMarginRate} onChange={(e) => updateDraft({ targetMarginRate: e.target.value })} placeholder={`Défaut ${(DEFAULT_TARGET_MARGIN_RATE * 100).toFixed(0)}%`} className={`${inputBaseClass} ${showErrors && issuesByField.has('targetMarginRate') ? inputErrorClass : inputValidClass}`} />
+                <DecimalInput min={0} max={1} step="0.01" value={draft.targetMarginRate} onChange={(e) => updateDraft({ targetMarginRate: e.target.value })} placeholder={`Défaut ${(DEFAULT_TARGET_MARGIN_RATE * 100).toFixed(0)}%`} className={`${inputBaseClass} ${showErrors && issuesByField.has('targetMarginRate') ? inputErrorClass : inputValidClass}`} />
               </div>
               <div>
                 <label className={labelClass}>Taux de TVA (optionnel)</label>
                 <div className="flex items-center gap-1.5">
-                  <input
-                    type="number"
+                  <DecimalInput
                     min={0}
                     max={1}
                     step="0.01"
@@ -612,8 +615,7 @@ export const ProductFormPage: React.FC<ProductFormPageProps> = ({
                         </div>
                       )}
 
-                      <input
-                        type="number"
+                      <DecimalInput
                         min={0}
                         step={line.kind === 'product' ? 1 : 'any'}
                         value={line.quantity || ''}
@@ -659,7 +661,7 @@ export const ProductFormPage: React.FC<ProductFormPageProps> = ({
               {draft.variants.map((v) => (
                 <div key={v.id} className="flex items-center gap-2">
                   <input type="text" value={v.label} onChange={(e) => updateVariant(v.id, { label: e.target.value })} placeholder="Nom de la variante (ex: Grande)" className={`${inputBaseClass} ${inputValidClass} flex-1`} />
-                  <input type="number" step="any" value={v.priceDelta ?? 0} onChange={(e) => updateVariant(v.id, { priceDelta: Number(e.target.value) || 0 })} placeholder="+ Prix" className={`${inputBaseClass} ${inputValidClass} w-28`} />
+                  <DecimalInput step="any" value={v.priceDelta ?? 0} onChange={(e) => updateVariant(v.id, { priceDelta: Number(e.target.value) || 0 })} placeholder="+ Prix" className={`${inputBaseClass} ${inputValidClass} w-28`} />
                   <button onClick={() => removeVariant(v.id)} className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40 cursor-pointer"><Trash2 size={14} /></button>
                 </div>
               ))}
@@ -697,7 +699,7 @@ export const ProductFormPage: React.FC<ProductFormPageProps> = ({
           <div className={cardClass}>
             <h2 className="text-sm font-bold text-gray-900 dark:text-white">Aperçu des marges</h2>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
-              <div><span className="text-gray-400 font-semibold block mb-0.5">Prix</span><span className="font-bold text-gray-900 dark:text-white">{priceNum.toFixed(2)} DT</span></div>
+              <div><span className="text-gray-400 font-semibold block mb-0.5">Prix HT</span><span className="font-bold text-gray-900 dark:text-white">{priceHT.toFixed(2)} DT</span></div>
               <div><span className="text-gray-400 font-semibold block mb-0.5">Coût matière</span><span className="font-bold text-gray-900 dark:text-white">{recipeCostResult.cost.toFixed(2)} DT</span></div>
               <div><span className="text-gray-400 font-semibold block mb-0.5">Marge brute</span><span className="font-bold text-gray-900 dark:text-white">{margin.grossMargin.toFixed(2)} DT</span></div>
               <div>

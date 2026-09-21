@@ -1,12 +1,9 @@
+import { todayIso, addDaysIso } from '../../src/data/dateUtils.js';
 import { randomUUID } from 'node:crypto';
 import { db } from '../db/connection.js';
 import { DEFAULT_EXPENSE_CATEGORY_NAMES } from '../../src/data/expensesModel.js';
 
-const isoDate = (offsetDays = 0): string => {
-  const d = new Date();
-  d.setDate(d.getDate() + offsetDays);
-  return d.toISOString().slice(0, 10);
-};
+const isoDate = (offsetDays = 0): string => addDaysIso(todayIso(), offsetDays);
 
 // --- Product categories & subcategories (relocated as-is from the former productsModel.ts seed) --
 

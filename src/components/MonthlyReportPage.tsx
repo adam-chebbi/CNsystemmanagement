@@ -39,6 +39,7 @@ import {
   computeLowStockProducts,
   computePersonnelCost,
   computeFinancialSummary,
+  getResultSynthesisLines,
   computeTaxSummary,
   computeGlobalAlerts,
 } from '../data/reportsModel';
@@ -195,14 +196,7 @@ export const MonthlyReportPage: React.FC<MonthlyReportPageProps> = ({
         {
           heading: 'Synthèse du résultat estimé',
           columns: ['Poste', 'Montant'],
-          rows: [
-            ["Chiffre d'affaires", formatAmount(financialSummary.revenue)],
-            ['Coût matière estimé', `- ${formatAmount(financialSummary.cogs)}`],
-            ['Marge brute estimée', formatAmount(financialSummary.grossMargin)],
-            ['Achats', `- ${formatAmount(financialSummary.purchases)}`],
-            ['Dépenses', `- ${formatAmount(financialSummary.expenses)}`],
-            ['Coût du personnel', `- ${formatAmount(financialSummary.personnelCost)}`],
-          ],
+          rows: getResultSynthesisLines(financialSummary).map((l) => [l.label, l.kind === 'minus' ? `- ${formatAmount(l.value)}` : formatAmount(l.value)]),
           align: ['left', 'right'],
           totalsRow: ['Résultat estimé', formatAmount(financialSummary.estimatedResult)],
         },
@@ -345,13 +339,7 @@ export const MonthlyReportPage: React.FC<MonthlyReportPageProps> = ({
           <ReportTable
             columns={['Poste', 'Montant']}
             align={['left', 'right']}
-            rows={[
-              ["Chiffre d'affaires", formatAmount(financialSummary.revenue)],
-              ['Coût matière estimé', `- ${formatAmount(financialSummary.cogs)}`],
-              ['Achats', `- ${formatAmount(financialSummary.purchases)}`],
-              ['Dépenses', `- ${formatAmount(financialSummary.expenses)}`],
-              ['Coût du personnel', `- ${formatAmount(financialSummary.personnelCost)}`],
-            ]}
+            rows={getResultSynthesisLines(financialSummary).map((l) => [l.label, l.kind === 'minus' ? `- ${formatAmount(l.value)}` : formatAmount(l.value)])}
             totalsRow={['Résultat estimé', formatAmount(financialSummary.estimatedResult)]}
           />
         </ReportSection>

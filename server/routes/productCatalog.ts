@@ -1,3 +1,4 @@
+import { todayIso } from '../../src/data/dateUtils.js';
 import { randomUUID } from 'node:crypto';
 import { Router } from 'express';
 import { z } from 'zod';
@@ -10,7 +11,7 @@ import type { ProductCategory, ProductSubCategory } from '../../src/data/product
 import { getCategoryUsageCount, getSubCategoryUsageCount, getSubRecipeUsageCount, detectCircularReference, type SubRecipe } from '../../src/data/productsModel.js';
 import type { CatalogArticle, CatalogExtra, RecipeLine, VariantOption } from '../../src/data/manualSalesCatalog.js';
 
-const nowIso = () => new Date().toISOString().slice(0, 10);
+const nowIso = () => todayIso();
 
 // --- Row <-> entity mappers ------------------------------------------------------------------
 

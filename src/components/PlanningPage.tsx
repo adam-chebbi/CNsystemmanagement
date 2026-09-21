@@ -1,3 +1,4 @@
+import { todayIso } from '../data/dateUtils';
 import React, { useMemo, useState } from 'react';
 import { useQueryParam } from '../hooks/useQueryParam';
 import {
@@ -100,7 +101,6 @@ const STATUS_ICONS: Record<AttendanceStatus, React.ComponentType<{ size?: number
   Planifié: CalendarClock, Présent: CheckCircle2, Absent: XCircle, Congé: Plane, Repos: Moon, Retard: Clock, Doublage: Layers,
 };
 
-const todayIso = (): string => new Date().toISOString().slice(0, 10);
 
 const shiftLabel = (shiftId: string, shifts: Shift[]): string => shifts.find((s) => s.id === shiftId)?.name ?? 'Shift';
 

@@ -1,3 +1,4 @@
+import { DecimalInput } from './ui/DecimalInput';
 import React, { useEffect, useState } from 'react';
 import { Settings as SettingsIcon, Save, Loader2, CheckCircle2, AlertCircle, RotateCcw } from 'lucide-react';
 import { AppSettings, APP_SETTING_FIELDS, DEFAULT_APP_SETTINGS } from '../data/settingsModel';
@@ -94,8 +95,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ settings, onSaveSett
               <p className="text-[11px] text-gray-500 dark:text-gray-400">{field.description}</p>
             </div>
             <div className="flex items-center gap-2">
-              <input
-                type="number"
+              <DecimalInput
                 min={field.min}
                 max={field.max}
                 step={field.step}

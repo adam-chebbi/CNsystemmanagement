@@ -10,9 +10,9 @@
 import { normalizeKey } from './textUtils';
 import { SaleTransaction, MONTHS_LIST } from './salesTransactions';
 import { CatalogArticle, DEFAULT_VAT_RATE } from './manualSalesCatalog';
-import { ProductCategory, SubRecipe, computeRecipeCost, computeMargin, DEFAULT_TARGET_MARGIN_RATE } from './productsModel';
+import { ProductCategory, SubRecipe, computeRecipeCost, computeArticleMargin, DEFAULT_TARGET_MARGIN_RATE } from './productsModel';
 import { StockProduct, StockLedgerEntry, getTotalQty } from './stockModel';
-import { Expense, ExpenseCategory } from './expensesModel';
+import { Expense, ExpenseCategory, excludeOverlappingExpenses } from './expensesModel';
 import {
   Supplier,
   PurchaseOrder,
@@ -20,6 +20,7 @@ import {
   SupplierInvoice,
   computeOrderTotal,
   computeInvoiceStatus,
+  isCountedPurchase,
   isInvoiceDueSoon,
   isInvoiceOverdue,
 } from './purchasesModel';
@@ -174,6 +175,7 @@ export const estimateCogs = (
 export interface LowMarginProduct {
   article: CatalogArticle;
   cost: number;
+  priceHT: number; // the price WITHOUT VAT the margin below is computed on
   grossMargin: number;
   marginRate: number;
   targetRate: number;
@@ -184,8 +186,8 @@ export const computeLowMarginProducts = (articles: CatalogArticle[], stockProduc
     .filter((a) => a.recipe && a.recipe.length > 0 && a.isAvailable !== false)
     .map((a) => {
       const cost = computeRecipeCost(a.recipe!, stockProducts, subRecipes, articles).cost;
-      const { grossMargin, marginRate } = computeMargin(a.price, cost);
-      return { article: a, cost, grossMargin, marginRate, targetRate: a.targetMarginRate ?? DEFAULT_TARGET_MARGIN_RATE };
+      const { grossMargin, marginRate, priceHT } = computeArticleMargin(a, cost);
+      return { article: a, cost, priceHT, grossMargin, marginRate, targetRate: a.targetMarginRate ?? DEFAULT_TARGET_MARGIN_RATE };
     })
     .filter((r) => r.marginRate < r.targetRate)
     .sort((a, b) => a.marginRate - b.marginRate)
@@ -201,12 +203,13 @@ export interface PurchasesMetrics {
 }
 
 export const computePurchasesMetrics = (orders: PurchaseOrder[], period: ReportPeriod): PurchasesMetrics => {
-  const inPeriod = orders.filter((o) => isDateInPeriod(o.orderDate, period) && o.status !== 'Annulée');
+  // Cancelled orders never happened and drafts haven't been sent to the supplier: neither is a purchase.
+  const inPeriod = orders.filter((o) => isDateInPeriod(o.orderDate, period) && isCountedPurchase(o));
   return {
     total: inPeriod.reduce((s, o) => s + computeOrderTotal(o), 0),
     orderCount: inPeriod.length,
     receivedCount: inPeriod.filter((o) => o.status === 'Reçue').length,
-    pendingCount: inPeriod.filter((o) => o.status === 'Brouillon' || o.status === 'Commandée' || o.status === 'Partiellement reçue').length,
+    pendingCount: inPeriod.filter((o) => o.status === 'Commandée' || o.status === 'Partiellement reçue').length,
   };
 };
 
@@ -228,7 +231,7 @@ export const computeSupplierPerformance = (
 ): SupplierPerformance[] =>
   suppliers
     .map((s) => {
-      const supOrders = orders.filter((o) => o.supplierId === s.id && isDateInPeriod(o.orderDate, period));
+      const supOrders = orders.filter((o) => o.supplierId === s.id && isDateInPeriod(o.orderDate, period) && isCountedPurchase(o));
       const totalAmount = supOrders.reduce((sum, o) => sum + computeOrderTotal(o), 0);
       const days: number[] = [];
       supOrders.forEach((o) => {
@@ -332,15 +335,23 @@ export const computePersonnelCost = (financialRecords: FinancialRecord[], period
 // --- Rapport financier (marge / résultat estimé) ----------------------------------------------
 
 export interface FinancialSummary {
-  revenue: number;
+  revenue: number; // TTC — what customers actually paid
+  vatCollected: number; // the VAT inside that revenue, owed to the state
+  revenueHT: number; // revenue - vatCollected: the real turnover of the café
   cogs: number;
-  grossMargin: number;
-  purchases: number;
-  expenses: number;
+  grossMargin: number; // revenueHT - cogs
+  purchases: number; // information only: already reflected by the cost of goods sold, never deducted again
+  expenses: number; // operating expenses, without the overlaps described on computeFinancialSummary
   personnelCost: number;
   estimatedResult: number;
 }
 
+// Résultat estimé = Chiffre d'affaires HT - coût matière (COGS) - dépenses d'exploitation - coût du personnel.
+// Each cost is deducted exactly once:
+//  - VAT is taken out of the revenue (HT), so the automatic "TVA collectée" expenses are ignored;
+//  - ingredients are costed through COGS, so purchases (orders) are shown but not deducted, and the
+//    automatic supplier-payment expenses are ignored;
+//  - staff is costed through the salary records, so the automatic salary-payment expenses are ignored.
 export const computeFinancialSummary = (
   transactions: SaleTransaction[],
   articles: CatalogArticle[],
@@ -352,21 +363,46 @@ export const computeFinancialSummary = (
   period: ReportPeriod
 ): FinancialSummary => {
   const sales = computeSalesMetrics(transactions, period);
+  const vatCollected = computeVatBreakdown(transactions.filter((t) => isDateInPeriod(t.date, period))).totalTax;
   const { cogs } = estimateCogs(transactions, period, articles, stockProducts, subRecipes);
   const purchases = computePurchasesMetrics(orders, period).total;
-  const expensesTotal = computeExpensesMetrics(expenses, period).total;
+  const operatingExpenses = computeExpensesMetrics(
+    excludeOverlappingExpenses(expenses, 'sale_vat', 'invoice_payment', 'salary_payment'),
+    period
+  ).total;
   const personnel = computePersonnelCost(financialRecords, period).total;
-  const grossMargin = sales.revenue - cogs;
+  const revenueHT = sales.revenue - vatCollected;
+  const grossMargin = revenueHT - cogs;
   return {
     revenue: sales.revenue,
+    vatCollected,
+    revenueHT,
     cogs,
     grossMargin,
     purchases,
-    expenses: expensesTotal,
+    expenses: operatingExpenses,
     personnelCost: personnel,
-    estimatedResult: grossMargin - expensesTotal - personnel,
+    estimatedResult: grossMargin - operatingExpenses - personnel,
   };
 };
+
+// The lines of the "Synthèse du résultat estimé" table, in the order they add up to the result, so
+// every report page (screen and PDF) shows the same steps and the table always sums to its total.
+export interface ResultSynthesisLine {
+  label: string;
+  value: number;
+  kind: 'plus' | 'minus' | 'subtotal';
+}
+
+export const getResultSynthesisLines = (s: FinancialSummary): ResultSynthesisLine[] => [
+  { label: "Chiffre d'affaires TTC", value: s.revenue, kind: 'plus' },
+  { label: 'TVA collectée', value: s.vatCollected, kind: 'minus' },
+  { label: "Chiffre d'affaires HT", value: s.revenueHT, kind: 'subtotal' },
+  { label: 'Coût matière estimé (COGS)', value: s.cogs, kind: 'minus' },
+  { label: 'Marge brute estimée', value: s.grossMargin, kind: 'subtotal' },
+  { label: "Dépenses d'exploitation", value: s.expenses, kind: 'minus' },
+  { label: 'Coût du personnel', value: s.personnelCost, kind: 'minus' },
+];
 
 // --- TVA (VAT) breakdown by rate — the single source of truth for every Gross/Net/TVA figure in
 // the app (Rapport fiscal, dashboard Bénéfices, printed receipts, "Calcul du quotidien"'s

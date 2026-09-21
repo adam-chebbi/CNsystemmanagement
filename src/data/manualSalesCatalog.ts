@@ -70,6 +70,11 @@ export const getArticleVatRate = (article: Pick<CatalogArticle, 'vatRate'>): num
 export const getArticleTtcPrice = (article: Pick<CatalogArticle, 'price' | 'vatRate' | 'priceIncludesTax'>): number =>
   article.priceIncludesTax === false ? article.price * (1 + getArticleVatRate(article)) : article.price;
 
+// The price without VAT — the base every margin is computed on (VAT collected belongs to the state,
+// it is never part of what the café earns).
+export const getArticleHtPrice = (article: Pick<CatalogArticle, 'price' | 'vatRate' | 'priceIncludesTax'>): number =>
+  article.priceIncludesTax === false ? article.price : article.price / (1 + getArticleVatRate(article));
+
 export interface VariantOption {
   id: string;
   label: string;

@@ -1,3 +1,4 @@
+import { DecimalInput } from './ui/DecimalInput';
 import React, { useMemo, useState } from 'react';
 import {
   Beaker,
@@ -357,7 +358,7 @@ export const SubRecipesPage: React.FC<SubRecipesPageProps> = ({
                   <div className="grid grid-cols-2 gap-2">
                     <div>
                       <label className={labelClass}>Quantité produite *</label>
-                      <input type="number" min={0} step="any" value={draft.yieldQuantity} onChange={(e) => updateDraft({ yieldQuantity: e.target.value })} placeholder="1000" className={`${inputBaseClass} ${showErrors && issuesByField.has('yieldQuantity') ? inputErrorClass : inputValidClass}`} />
+                      <DecimalInput min={0} step="any" value={draft.yieldQuantity} onChange={(e) => updateDraft({ yieldQuantity: e.target.value })} placeholder="1000" className={`${inputBaseClass} ${showErrors && issuesByField.has('yieldQuantity') ? inputErrorClass : inputValidClass}`} />
                     </div>
                     <div>
                       <label className={labelClass}>Unité *</label>
@@ -413,7 +414,7 @@ export const SubRecipesPage: React.FC<SubRecipesPageProps> = ({
                               {nestableSubRecipes.map((sr) => (<option key={sr.id} value={sr.id}>{sr.name} ({sr.yieldQuantity} {sr.yieldUnit})</option>))}
                             </select>
                           )}
-                          <input type="number" min={0} step="any" value={line.quantity || ''} onChange={(e) => updateLine(line.id, { quantity: Number(e.target.value) || 0 })} placeholder="Quantité" className={`${inputBaseClass} ${inputValidClass}`} />
+                          <DecimalInput min={0} step="any" value={line.quantity || ''} onChange={(e) => updateLine(line.id, { quantity: Number(e.target.value) || 0 })} placeholder="Quantité" className={`${inputBaseClass} ${inputValidClass}`} />
                           <select value={line.unit} onChange={(e) => updateLine(line.id, { unit: e.target.value })} className={`${inputBaseClass} appearance-none cursor-pointer ${inputValidClass}`}>
                             <option value="">Unité</option>
                             {getUnitOptionsForLine(line).map((u) => (<option key={u.id} value={u.name}>{u.name}</option>))}

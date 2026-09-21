@@ -1,3 +1,4 @@
+import { todayIso } from '../data/dateUtils';
 import React, { useMemo, useState } from 'react';
 import {
   Ruler,
@@ -120,7 +121,7 @@ export const StockUnitsPage: React.FC<StockUnitsPageProps> = ({
       await new Promise((resolve) => setTimeout(resolve, 500));
       const trimmed = name.trim();
       if (mode === 'create') {
-        onCreateUnit({ id: generateStockId('unit'), name: trimmed, createdAt: new Date().toISOString().slice(0, 10) });
+        onCreateUnit({ id: generateStockId('unit'), name: trimmed, createdAt: todayIso() });
       } else if (editingUnitId) {
         onRenameUnit(editingUnitId, trimmed);
       }

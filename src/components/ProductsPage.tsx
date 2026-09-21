@@ -24,17 +24,7 @@ import { useQueryParam } from '../hooks/useQueryParam';
 import { CatalogArticle, CatalogExtra } from '../data/manualSalesCatalog';
 import { StockProduct } from '../data/stockModel';
 import { SaleTransaction } from '../data/salesTransactions';
-import {
-  ProductCategory,
-  ProductSubCategory,
-  SubRecipe,
-  computeRecipeCost,
-  computeMargin,
-  compareToTargetMargin,
-  DEFAULT_TARGET_MARGIN_RATE,
-  computeTheoreticalConsumption,
-  getExtrasForArticle,
-} from '../data/productsModel';
+import { ProductCategory, ProductSubCategory, SubRecipe, computeRecipeCost, compareToTargetMargin, DEFAULT_TARGET_MARGIN_RATE, computeTheoreticalConsumption, getExtrasForArticle, computeArticleMargin } from '../data/productsModel';
 
 interface ProductsPageProps {
   articles: CatalogArticle[];
@@ -105,7 +95,7 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({
       articles.map((article) => {
         const recipeResult = article.recipe && article.recipe.length > 0 ? computeRecipeCost(article.recipe, ingredients, subRecipes, articles) : null;
         const cost = recipeResult?.cost ?? 0;
-        const margin = computeMargin(article.price, cost);
+        const margin = computeArticleMargin(article, cost);
         return { article, cost, hasRecipe: Boolean(recipeResult), ...margin };
       }),
     [articles, ingredients, subRecipes]
@@ -325,7 +315,7 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({
                 <th className="py-3.5 px-4">Sous-catégorie</th>
                 <th className="py-3.5 px-4 text-right">Prix</th>
                 <th className="py-3.5 px-4 text-right">Coût matière</th>
-                <th className="py-3.5 px-4 text-right">Marge brute</th>
+                <th className="py-3.5 px-4 text-right" title="Prix de vente hors taxes moins le coût matière">Marge brute (HT)</th>
                 <th className="py-3.5 px-4 text-right">Taux marge</th>
                 <th className="py-3.5 px-4 text-center">Disponibilité</th>
                 <th className="py-3.5 px-4 text-center">Variantes</th>
@@ -523,7 +513,7 @@ const ProductDetailModal: React.FC<{
 }> = ({ article, articles, ingredients, subRecipes, extras: catalogExtras, onClose }) => {
   const recipeResult = article.recipe && article.recipe.length > 0 ? computeRecipeCost(article.recipe, ingredients, subRecipes, articles) : null;
   const cost = recipeResult?.cost ?? 0;
-  const { grossMargin, marginRate } = computeMargin(article.price, cost);
+  const { grossMargin, marginRate, priceHT } = computeArticleMargin(article, cost);
   const targetRate = article.targetMarginRate ?? DEFAULT_TARGET_MARGIN_RATE;
   const comparison = compareToTargetMargin(marginRate, targetRate);
   const extras = getExtrasForArticle(article, catalogExtras);
@@ -551,7 +541,7 @@ const ProductDetailModal: React.FC<{
           </div>
 
           <div className="p-3.5 rounded-xl bg-gray-50 dark:bg-gray-800/50 border border-gray-100 dark:border-gray-800 grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <div><span className="text-gray-400 font-semibold block mb-0.5">Prix</span><span className="font-bold text-gray-900 dark:text-white">{article.price.toFixed(2)} DT</span></div>
+            <div><span className="text-gray-400 font-semibold block mb-0.5">Prix</span><span className="font-bold text-gray-900 dark:text-white">{article.price.toFixed(2)} DT</span><span className="block text-[10px] font-normal text-gray-400">HT : {priceHT.toFixed(2)} DT</span></div>
             <div><span className="text-gray-400 font-semibold block mb-0.5">Coût matière</span><span className="font-bold text-gray-900 dark:text-white">{cost.toFixed(2)} DT</span></div>
             <div><span className="text-gray-400 font-semibold block mb-0.5">Marge brute</span><span className="font-bold text-gray-900 dark:text-white">{grossMargin.toFixed(2)} DT</span></div>
             <div>

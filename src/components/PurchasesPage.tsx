@@ -1,3 +1,5 @@
+import { DecimalInput } from './ui/DecimalInput';
+import { todayIso } from '../data/dateUtils';
 import React, { useMemo, useState } from 'react';
 import {
   Truck,
@@ -115,7 +117,6 @@ const formatDate = (iso: string) => {
   const [y, m, d] = (iso || '').split('-');
   return y && m && d ? `${d}/${m}/${y}` : iso || '—';
 };
-const todayIso = () => new Date().toISOString().slice(0, 10);
 const getInitials = (name: string): string =>
   name
     .trim()
@@ -271,7 +272,7 @@ export const PurchasesPage: React.FC<PurchasesPageProps> = ({
       address: newSupplierDraft.address.trim() || undefined,
       mainContact: newSupplierDraft.mainContact.trim() || undefined,
       notes: newSupplierDraft.notes.trim() || undefined,
-      createdAt: new Date().toISOString().slice(0, 10),
+      createdAt: todayIso(),
     };
     onCreateSupplier(supplier);
     updateDraft({ supplierId: supplier.id });
@@ -815,8 +816,7 @@ export const PurchasesPage: React.FC<PurchasesPageProps> = ({
                             )}
                           </div>
                           <div>
-                            <input
-                              type="number"
+                            <DecimalInput
                               min={0}
                               step="any"
                               value={line.quantity}
@@ -829,8 +829,7 @@ export const PurchasesPage: React.FC<PurchasesPageProps> = ({
                             )}
                           </div>
                           <div>
-                            <input
-                              type="number"
+                            <DecimalInput
                               min={0}
                               step="any"
                               value={line.unitPrice}
@@ -1254,8 +1253,7 @@ const PurchaseDetailModal: React.FC<{
                     return (
                       <div key={l.id} className="flex items-center gap-2.5">
                         <span className="flex-1 font-medium text-gray-700 dark:text-gray-300">{products.find((p) => p.id === l.productId)?.name}</span>
-                        <input
-                          type="number"
+                        <DecimalInput
                           min={0}
                           max={remaining}
                           step="any"
@@ -1312,8 +1310,7 @@ const PurchaseDetailModal: React.FC<{
                 )}
                 {showPaymentForm && (
                   <div className="flex items-center gap-2 pt-1">
-                    <input
-                      type="number"
+                    <DecimalInput
                       min={0}
                       max={remainingDue}
                       step="any"
@@ -1351,19 +1348,19 @@ const PurchaseDetailModal: React.FC<{
                   </div>
                   <div>
                     <label className={labelClass}>Montant HT *</label>
-                    <input type="number" min={0} step="any" value={invoiceDraft.amountHT} onChange={(e) => setInvoiceDraft((p) => ({ ...p, amountHT: e.target.value }))} className={`${inputBaseClass} ${invoiceErrors && invoiceIssuesByField.has('amountHT') ? inputErrorClass : inputValidClass}`} />
+                    <DecimalInput min={0} step="any" value={invoiceDraft.amountHT} onChange={(e) => setInvoiceDraft((p) => ({ ...p, amountHT: e.target.value }))} className={`${inputBaseClass} ${invoiceErrors && invoiceIssuesByField.has('amountHT') ? inputErrorClass : inputValidClass}`} />
                   </div>
                   <div>
                     <label className={labelClass}>TVA *</label>
-                    <input type="number" min={0} step="any" value={invoiceDraft.vatAmount} onChange={(e) => setInvoiceDraft((p) => ({ ...p, vatAmount: e.target.value }))} className={`${inputBaseClass} ${invoiceErrors && invoiceIssuesByField.has('vatAmount') ? inputErrorClass : inputValidClass}`} />
+                    <DecimalInput min={0} step="any" value={invoiceDraft.vatAmount} onChange={(e) => setInvoiceDraft((p) => ({ ...p, vatAmount: e.target.value }))} className={`${inputBaseClass} ${invoiceErrors && invoiceIssuesByField.has('vatAmount') ? inputErrorClass : inputValidClass}`} />
                   </div>
                   <div>
                     <label className={labelClass}>Montant TTC *</label>
-                    <input type="number" min={0} step="any" value={invoiceDraft.amountTTC} onChange={(e) => setInvoiceDraft((p) => ({ ...p, amountTTC: e.target.value }))} className={`${inputBaseClass} ${invoiceErrors && invoiceIssuesByField.has('amountTTC') ? inputErrorClass : inputValidClass}`} />
+                    <DecimalInput min={0} step="any" value={invoiceDraft.amountTTC} onChange={(e) => setInvoiceDraft((p) => ({ ...p, amountTTC: e.target.value }))} className={`${inputBaseClass} ${invoiceErrors && invoiceIssuesByField.has('amountTTC') ? inputErrorClass : inputValidClass}`} />
                   </div>
                   <div>
                     <label className={labelClass}>Montant déjà payé</label>
-                    <input type="number" min={0} step="any" value={invoiceDraft.amountPaid} onChange={(e) => setInvoiceDraft((p) => ({ ...p, amountPaid: e.target.value }))} className={`${inputBaseClass} ${invoiceErrors && invoiceIssuesByField.has('amountPaid') ? inputErrorClass : inputValidClass}`} />
+                    <DecimalInput min={0} step="any" value={invoiceDraft.amountPaid} onChange={(e) => setInvoiceDraft((p) => ({ ...p, amountPaid: e.target.value }))} className={`${inputBaseClass} ${invoiceErrors && invoiceIssuesByField.has('amountPaid') ? inputErrorClass : inputValidClass}`} />
                   </div>
                 </div>
                 <div className="flex justify-end gap-2">

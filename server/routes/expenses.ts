@@ -16,6 +16,7 @@ const rowToCategory = (r: CategoryRow): ExpenseCategory => ({ id: r.id, name: r.
 interface ExpenseRow {
   id: string; title: string; amount: number; date: string; category_id: string; nature: string;
   recurrence: string; payment_method: string; status: string; comment: string | null; attachment: string | null; created_at: string;
+  source_type?: string | null; // set on auto-generated expenses only (sale_vat / invoice_payment / salary_payment)
 }
 const rowToExpense = (r: ExpenseRow): Expense => ({
   id: r.id, title: r.title, amount: r.amount, date: r.date, categoryId: r.category_id,
@@ -23,6 +24,7 @@ const rowToExpense = (r: ExpenseRow): Expense => ({
   paymentMethod: r.payment_method as Expense['paymentMethod'], status: r.status as Expense['status'],
   comment: r.comment ?? undefined, attachment: r.attachment ? fromJson<ExpenseAttachment>(r.attachment, undefined as never) : undefined,
   createdAt: r.created_at,
+  sourceType: r.source_type ?? undefined,
 });
 
 const getAllExpenses = (): Expense[] => (db.prepare('SELECT * FROM expenses').all() as ExpenseRow[]).map(rowToExpense);

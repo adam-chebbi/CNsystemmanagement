@@ -1,3 +1,4 @@
+import { DecimalInput } from './ui/DecimalInput';
 import React, { useMemo } from 'react';
 import {
   Minus,
@@ -294,8 +295,7 @@ export const QuantitySalesFormStep: React.FC<QuantitySalesFormStepProps> = ({
                                 </button>
                               </div>
                               <div className="flex items-center gap-1.5">
-                                <input
-                                  type="number"
+                                <DecimalInput
                                   min={0}
                                   max={row.discountMode === 'percent' ? 100 : undefined}
                                   step={row.discountMode === 'percent' ? 1 : 0.1}
@@ -408,8 +408,7 @@ export const QuantitySalesFormStep: React.FC<QuantitySalesFormStepProps> = ({
             <label className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 mb-1 flex items-center gap-1.5">
               <Banknote size={12} className="text-emerald-500" /> Espèces
             </label>
-            <input
-              type="number"
+            <DecimalInput
               min={0}
               step={0.1}
               value={form.paidCash}
@@ -421,8 +420,7 @@ export const QuantitySalesFormStep: React.FC<QuantitySalesFormStepProps> = ({
             <label className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 mb-1 flex items-center gap-1.5">
               <CreditCard size={12} className="text-blue-500" /> Carte bancaire
             </label>
-            <input
-              type="number"
+            <DecimalInput
               min={0}
               step={0.1}
               value={form.paidCard}
@@ -434,8 +432,7 @@ export const QuantitySalesFormStep: React.FC<QuantitySalesFormStepProps> = ({
             <label className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 mb-1 flex items-center gap-1.5">
               <Ticket size={12} className="text-amber-500" /> Tickets restaurant
             </label>
-            <input
-              type="number"
+            <DecimalInput
               min={0}
               step={0.1}
               value={form.paidRestoTicket}

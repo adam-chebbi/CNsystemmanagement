@@ -1,3 +1,4 @@
+import { DecimalInput } from './ui/DecimalInput';
 import React, { useMemo, useState } from 'react';
 import {
   Receipt,
@@ -618,22 +619,22 @@ export const InvoicesPage: React.FC<InvoicesPageProps> = ({
 
                   <div>
                     <label className={labelClass}>Montant HT *</label>
-                    <input type="number" min={0} step="any" value={draft.amountHT} onChange={(e) => updateDraft({ amountHT: e.target.value })} className={`${inputBaseClass} ${showErrors && issuesByField.has('amountHT') ? inputErrorClass : inputValidClass}`} />
+                    <DecimalInput min={0} step="any" value={draft.amountHT} onChange={(e) => updateDraft({ amountHT: e.target.value })} className={`${inputBaseClass} ${showErrors && issuesByField.has('amountHT') ? inputErrorClass : inputValidClass}`} />
                     {showErrors && issuesByField.get('amountHT') && (<p className="text-[11px] text-red-500 mt-1 flex items-center gap-1"><AlertCircle size={11} /> {issuesByField.get('amountHT')}</p>)}
                   </div>
                   <div>
                     <label className={labelClass}>TVA *</label>
-                    <input type="number" min={0} step="any" value={draft.vatAmount} onChange={(e) => updateDraft({ vatAmount: e.target.value })} className={`${inputBaseClass} ${showErrors && issuesByField.has('vatAmount') ? inputErrorClass : inputValidClass}`} />
+                    <DecimalInput min={0} step="any" value={draft.vatAmount} onChange={(e) => updateDraft({ vatAmount: e.target.value })} className={`${inputBaseClass} ${showErrors && issuesByField.has('vatAmount') ? inputErrorClass : inputValidClass}`} />
                     {showErrors && issuesByField.get('vatAmount') && (<p className="text-[11px] text-red-500 mt-1 flex items-center gap-1"><AlertCircle size={11} /> {issuesByField.get('vatAmount')}</p>)}
                   </div>
                   <div>
                     <label className={labelClass}>Montant TTC *</label>
-                    <input type="number" min={0} step="any" value={draft.amountTTC} onChange={(e) => updateDraft({ amountTTC: e.target.value })} className={`${inputBaseClass} ${showErrors && issuesByField.has('amountTTC') ? inputErrorClass : inputValidClass}`} />
+                    <DecimalInput min={0} step="any" value={draft.amountTTC} onChange={(e) => updateDraft({ amountTTC: e.target.value })} className={`${inputBaseClass} ${showErrors && issuesByField.has('amountTTC') ? inputErrorClass : inputValidClass}`} />
                     {showErrors && issuesByField.get('amountTTC') && (<p className="text-[11px] text-red-500 mt-1 flex items-center gap-1"><AlertCircle size={11} /> {issuesByField.get('amountTTC')}</p>)}
                   </div>
                   <div>
                     <label className={labelClass}>Montant déjà payé</label>
-                    <input type="number" min={0} step="any" value={draft.amountPaid} onChange={(e) => updateDraft({ amountPaid: e.target.value })} className={`${inputBaseClass} ${showErrors && issuesByField.has('amountPaid') ? inputErrorClass : inputValidClass}`} />
+                    <DecimalInput min={0} step="any" value={draft.amountPaid} onChange={(e) => updateDraft({ amountPaid: e.target.value })} className={`${inputBaseClass} ${showErrors && issuesByField.has('amountPaid') ? inputErrorClass : inputValidClass}`} />
                     {showErrors && issuesByField.get('amountPaid') && (<p className="text-[11px] text-red-500 mt-1 flex items-center gap-1"><AlertCircle size={11} /> {issuesByField.get('amountPaid')}</p>)}
                   </div>
                 </div>
@@ -669,7 +670,7 @@ export const InvoicesPage: React.FC<InvoicesPageProps> = ({
             </div>
             <div className="p-5 text-xs space-y-3">
               <p className="text-gray-500">Facture <strong className="text-gray-900 dark:text-white">{paymentTarget.invoiceNumber}</strong> — restant dû <strong className="text-gray-900 dark:text-white">{formatAmount(remainingDue)}</strong></p>
-              <input type="number" min={0} max={remainingDue} step="any" value={paymentAmount} onChange={(e) => setPaymentAmount(e.target.value)} placeholder={`Max ${formatAmount(remainingDue)}`} className={`${inputBaseClass} ${inputValidClass}`} />
+              <DecimalInput min={0} max={remainingDue} step="any" value={paymentAmount} onChange={(e) => setPaymentAmount(e.target.value)} placeholder={`Max ${formatAmount(remainingDue)}`} className={`${inputBaseClass} ${inputValidClass}`} />
             </div>
             <div className="p-4 bg-gray-50 dark:bg-gray-800/50 border-t border-gray-100 dark:border-gray-800 flex items-center justify-end gap-2">
               <button onClick={() => setPaymentTarget(null)} className={secondaryButtonClass}><span>Annuler</span></button>

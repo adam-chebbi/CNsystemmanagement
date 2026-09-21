@@ -3,6 +3,7 @@
 // via normalizeKey, draft/validation helpers for the Saisie → Validation → Confirmation workflow,
 // and usage-count guards so a category in use can never be silently deleted.
 
+import { todayIso } from './dateUtils';
 import { normalizeKey } from './textUtils';
 
 let idCounter = 0;
@@ -69,9 +70,21 @@ export interface Expense {
   comment?: string;
   attachment?: ExpenseAttachment;
   createdAt: string;
+  // Only set on expenses the system generated itself, each one the cash side of a figure that is
+  // already counted elsewhere: 'sale_vat' (TVA collected on a sale), 'invoice_payment' (a supplier
+  // invoice payment) and 'salary_payment' (a salary payment). Manual expenses leave it undefined.
+  sourceType?: string;
 }
 
-const todayIso = (): string => new Date().toISOString().slice(0, 10);
+export type AutoExpenseSource = 'sale_vat' | 'invoice_payment' | 'salary_payment';
+
+// Profit figures must not subtract the same money twice. The sale's VAT is already taken out of
+// net sales, a supplier payment is the purchase already counted in "Achats" (or in the cost of
+// goods sold), and a salary payment is the staff cost already counted in "Coût du personnel". Pass
+// the sources a given calculation already covers elsewhere and get back the remaining expenses.
+export const excludeOverlappingExpenses = (expenses: Expense[], ...alreadyCounted: AutoExpenseSource[]): Expense[] =>
+  expenses.filter((e) => !(e.sourceType && (alreadyCounted as string[]).includes(e.sourceType)));
+
 
 // --- Draft / workflow helpers (Saisie → Validation → Prévisualisation → Confirmation) ----------
 

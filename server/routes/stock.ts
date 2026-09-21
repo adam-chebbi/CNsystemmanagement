@@ -1,3 +1,4 @@
+import { todayIso } from '../../src/data/dateUtils.js';
 import { randomUUID } from 'node:crypto';
 import { Router } from 'express';
 import { z } from 'zod';
@@ -17,7 +18,7 @@ import {
   type StockZone,
 } from '../../src/data/stockModel.js';
 
-const nowIso = () => new Date().toISOString().slice(0, 10);
+const nowIso = () => todayIso();
 
 // --- Row <-> entity mappers ---------------------------------------------------------------------
 

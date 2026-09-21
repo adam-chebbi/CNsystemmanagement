@@ -12,8 +12,8 @@ import {
   computeDaySystemTotals,
   buildCashCheckCalendar,
   findLatestVerificationForDate,
-  toLocalIsoDate,
 } from '../data/cashCheckModel';
+import { todayIso } from '../data/dateUtils';
 import { computeVatBreakdown } from '../data/reportsModel';
 import { CashCheckHeatmap } from './cashCheck/CashCheckHeatmap';
 import { CashVerificationPanel } from './cashCheck/CashVerificationPanel';
@@ -34,7 +34,6 @@ interface CashCheckPageProps {
 }
 
 const formatDT = (v: number): string => `${v.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} DT`;
-const todayIso = (): string => toLocalIsoDate(new Date());
 
 export const CashCheckPage: React.FC<CashCheckPageProps> = ({
   salesTransactions,

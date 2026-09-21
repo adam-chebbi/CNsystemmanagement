@@ -1,3 +1,4 @@
+import { DecimalInput } from './ui/DecimalInput';
 import React, { useMemo, useRef, useState } from 'react';
 import {
   UploadCloud,
@@ -342,20 +343,20 @@ export const IngredientsImportForm: React.FC<IngredientsImportFormProps> = ({ pr
                     {fieldIssue('unite') && <p className="text-[10px] text-red-500 mt-0.5">{fieldIssue('unite')}</p>}
                   </div>
                   <div>
-                    <input value={row.averageCost} onChange={(e) => updateRow(row.id, { averageCost: e.target.value })} placeholder="Coût moyen (DT)" type="number" min={0} step="any" className={`${inputBaseClass} ${fieldIssue('cout_moyen') ? inputErrorClass : inputValidClass}`} />
+                    <DecimalInput value={row.averageCost} onChange={(e) => updateRow(row.id, { averageCost: e.target.value })} placeholder="Coût moyen (DT)" min={0} step="any" className={`${inputBaseClass} ${fieldIssue('cout_moyen') ? inputErrorClass : inputValidClass}`} />
                     {fieldIssue('cout_moyen') && <p className="text-[10px] text-red-500 mt-0.5">{fieldIssue('cout_moyen')}</p>}
                   </div>
                   <div>
-                    <input value={row.minThreshold} onChange={(e) => updateRow(row.id, { minThreshold: e.target.value })} placeholder="Seuil minimum" type="number" min={0} step="any" className={`${inputBaseClass} ${inputValidClass}`} />
+                    <DecimalInput value={row.minThreshold} onChange={(e) => updateRow(row.id, { minThreshold: e.target.value })} placeholder="Seuil minimum" min={0} step="any" className={`${inputBaseClass} ${inputValidClass}`} />
                   </div>
                   <div>
-                    <input value={row.targetStock} onChange={(e) => updateRow(row.id, { targetStock: e.target.value })} placeholder="Stock cible" type="number" min={0} step="any" className={`${inputBaseClass} ${inputValidClass}`} />
+                    <DecimalInput value={row.targetStock} onChange={(e) => updateRow(row.id, { targetStock: e.target.value })} placeholder="Stock cible" min={0} step="any" className={`${inputBaseClass} ${inputValidClass}`} />
                   </div>
                   <div>
-                    <input value={row.reserveQty} onChange={(e) => updateRow(row.id, { reserveQty: e.target.value })} placeholder="Stock initial (Réserve)" type="number" min={0} step="any" className={`${inputBaseClass} ${inputValidClass}`} />
+                    <DecimalInput value={row.reserveQty} onChange={(e) => updateRow(row.id, { reserveQty: e.target.value })} placeholder="Stock initial (Réserve)" min={0} step="any" className={`${inputBaseClass} ${inputValidClass}`} />
                   </div>
                   <div>
-                    <input value={row.depotQty} onChange={(e) => updateRow(row.id, { depotQty: e.target.value })} placeholder="Stock initial (Dépôt)" type="number" min={0} step="any" className={`${inputBaseClass} ${inputValidClass}`} />
+                    <DecimalInput value={row.depotQty} onChange={(e) => updateRow(row.id, { depotQty: e.target.value })} placeholder="Stock initial (Dépôt)" min={0} step="any" className={`${inputBaseClass} ${inputValidClass}`} />
                   </div>
                   <div className="flex items-center">
                     <button

@@ -1,3 +1,4 @@
+import { parseDecimalCell } from './decimalInput';
 import { normalizeKey } from './textUtils';
 import {
   StockProduct,
@@ -148,7 +149,7 @@ const parseIngredientImportRow = (
       if (required) issues.push({ field, value: raw, message: `${label} est obligatoire.` });
       return;
     }
-    const n = Number(raw);
+    const n = parseDecimalCell(raw);
     if (Number.isNaN(n) || n < 0) issues.push({ field, value: raw, message: `${label} doit être un nombre positif ou nul.` });
   };
   numericField(rawMinThreshold, 'seuil_minimum', 'Le seuil minimum', false);
@@ -213,7 +214,7 @@ export const recomputeIngredientRowIssues = (
   }
   if (!row.category) issues.push({ field: 'categorie', value: '', message: 'La catégorie est obligatoire.' });
   if (!row.unit) issues.push({ field: 'unite', value: '', message: "L'unité est obligatoire." });
-  const cost = Number(row.averageCost);
+  const cost = parseDecimalCell(row.averageCost);
   if (!row.averageCost.trim() || Number.isNaN(cost) || cost < 0) {
     issues.push({ field: 'cout_moyen', value: row.averageCost, message: 'Le coût moyen doit être un nombre positif ou nul.' });
   }
@@ -226,12 +227,12 @@ export const buildStockProductsFromImportRows = (rows: ImportedIngredientRowDraf
     sku: row.sku || slugifySku(row.name),
     category: row.category as StockCategory,
     unit: row.unit,
-    minThreshold: Number(row.minThreshold) || 0,
-    targetStock: Number(row.targetStock) || 0,
+    minThreshold: parseDecimalCell(row.minThreshold) || 0,
+    targetStock: parseDecimalCell(row.targetStock) || 0,
     lotTracked: row.lotTracked,
-    averageCost: Number(row.averageCost) || 0,
-    reserveQty: Number(row.reserveQty) || 0,
-    depotQty: Number(row.depotQty) || 0,
+    averageCost: parseDecimalCell(row.averageCost) || 0,
+    reserveQty: parseDecimalCell(row.reserveQty) || 0,
+    depotQty: parseDecimalCell(row.depotQty) || 0,
   }));
 
 export const buildIngredientImportTemplateCsv = (): string => {

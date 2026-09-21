@@ -1,3 +1,4 @@
+import { DecimalInput } from './ui/DecimalInput';
 import React, { useMemo, useState } from 'react';
 import { Target, Sparkles, X, Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
 
@@ -166,8 +167,7 @@ export const ObjectivePicker: React.FC<ObjectivePickerProps> = ({
           <div>
             <label className="text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1.5 block">Montant personnalisé</label>
             <div className="relative">
-              <input
-                type="number"
+              <DecimalInput
                 min={0}
                 step="10"
                 value={customInput}

@@ -1,3 +1,4 @@
+import { DecimalInput } from './ui/DecimalInput';
 import React, { useMemo, useRef, useState } from 'react';
 import { useUnsavedWorkGuard } from '../hooks/useUnsavedWorkGuard';
 import {
@@ -513,8 +514,7 @@ export const PurchaseOrdersImportPage: React.FC<PurchaseOrdersImportPageProps> =
                               </div>
 
                               <div className="flex items-center gap-1.5 shrink-0">
-                                <input
-                                  type="number"
+                                <DecimalInput
                                   min={0}
                                   step="0.01"
                                   value={line.quantity}
@@ -522,8 +522,7 @@ export const PurchaseOrdersImportPage: React.FC<PurchaseOrdersImportPageProps> =
                                   placeholder={product ? `Qté (${product.unit})` : 'Qté'}
                                   className="w-24 text-center text-xs py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
                                 />
-                                <input
-                                  type="number"
+                                <DecimalInput
                                   min={0}
                                   step="0.001"
                                   value={line.unitPrice}

@@ -1,3 +1,4 @@
+import { todayIso, addDaysIso, mondayOfWeekIso } from './dateUtils';
 // Shared domain model for "Gestion du personnel" — Employés / Planning & Présence / Suivi financier.
 // Follows the same conventions as the rest of the app: canonical id generation, draft/validation
 // helpers for the Saisie → Validation → Confirmation workflow, and relational references (IDs)
@@ -13,7 +14,6 @@ export const generateHrId = (prefix: string): string => {
   return `${prefix}-${idCounter}-${Date.now().toString(36)}`;
 };
 
-const todayIso = (): string => new Date().toISOString().slice(0, 10);
 
 // --- Weekday / date helpers (Monday-first week, matching French UI convention) ----------------
 
@@ -30,19 +30,10 @@ const JS_DAY_TO_KEY: WeekdayKey[] = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', '
 
 export const getWeekdayKeyForDate = (iso: string): WeekdayKey => JS_DAY_TO_KEY[new Date(`${iso}T00:00:00`).getDay()];
 
-export const addDaysIso = (iso: string, days: number): string => {
-  const d = new Date(`${iso}T00:00:00`);
-  d.setDate(d.getDate() + days);
-  return d.toISOString().slice(0, 10);
-};
+// Re-exported so existing importers keep working; the arithmetic itself is UTC-safe (dateUtils).
+export { addDaysIso };
 
-export const getMondayOfWeek = (iso: string): string => {
-  const d = new Date(`${iso}T00:00:00`);
-  const jsDay = d.getDay();
-  const diff = jsDay === 0 ? -6 : 1 - jsDay;
-  d.setDate(d.getDate() + diff);
-  return d.toISOString().slice(0, 10);
-};
+export const getMondayOfWeek = (iso: string): string => mondayOfWeekIso(iso);
 
 export const getWeekDates = (mondayIso: string): string[] => Array.from({ length: 7 }, (_, i) => addDaysIso(mondayIso, i));
 
@@ -181,7 +172,7 @@ export const buildEmployeeFromDraft = (draft: DraftEmployee): Employee => ({
   cinNumber: draft.cinNumber.trim(),
   cinIssueDate: draft.cinIssueDate,
   cinDocument: draft.cinDocument ?? undefined,
-  createdAt: draft.createdAt ?? new Date().toISOString().slice(0, 10),
+  createdAt: draft.createdAt ?? todayIso(),
 });
 
 export const getEmployeeReferenceCount = (employeeId: string, dayRecords: DayRecord[], financialRecords: FinancialRecord[]): number =>
@@ -242,7 +233,7 @@ export const validateDraftShift = (draft: DraftShift, shifts: Shift[]): HrValida
 
 export const buildShiftFromDraft = (draft: DraftShift): Shift => ({
   id: draft.id, name: draft.name.trim(), startTime: draft.startTime, endTime: draft.endTime,
-  description: draft.description.trim() || undefined, createdAt: draft.createdAt ?? new Date().toISOString().slice(0, 10),
+  description: draft.description.trim() || undefined, createdAt: draft.createdAt ?? todayIso(),
 });
 
 export const getShiftUsageCount = (shiftId: string, dayRecords: DayRecord[]): number =>

@@ -3,9 +3,10 @@
 // ingredient/unit catalog (StockProduct/StockUnit, already used by Stock), rather than a second,
 // parallel representation of products, ingredients, units or extras.
 
+import { todayIso } from './dateUtils';
 import { normalizeKey } from './textUtils';
 import { StockProduct, convertQuantity, areUnitsCompatible } from './stockModel';
-import { CatalogArticle, CatalogExtra, RecipeLine, VariantOption, ArticleCategory } from './manualSalesCatalog';
+import { CatalogArticle, CatalogExtra, RecipeLine, VariantOption, ArticleCategory, getArticleHtPrice } from './manualSalesCatalog';
 import { SaleTransaction } from './salesTransactions';
 
 export { areUnitsCompatible, convertQuantity };
@@ -66,11 +67,23 @@ export interface MarginResult {
   marginRate: number;
 }
 
-// Marge brute = Prix de vente - Coût matière ; Taux de marge = Marge brute / Prix de vente.
+// Marge brute = Prix de vente HT - Coût matière ; Taux de marge = Marge brute / Prix de vente HT.
+// `price` must be the price WITHOUT VAT (see computeArticleMargin): a TTC price would count the
+// VAT owed to the state as if it were margin and overstate every rate by the VAT share.
 export const computeMargin = (price: number, cost: number): MarginResult => {
   const grossMargin = price - cost;
   const marginRate = price > 0 ? grossMargin / price : 0;
   return { grossMargin, marginRate };
+};
+
+// The margin of a catalog article, always on its HT price. Also returns that HT price so screens
+// can show the figure the margin was computed from.
+export const computeArticleMargin = (
+  article: Pick<CatalogArticle, 'price' | 'vatRate' | 'priceIncludesTax'>,
+  cost: number
+): MarginResult & { priceHT: number } => {
+  const priceHT = getArticleHtPrice(article);
+  return { ...computeMargin(priceHT, cost), priceHT };
 };
 
 export type MarginComparison = 'atteint' | 'inferieur' | 'depasse';
@@ -511,7 +524,7 @@ export const buildCatalogArticleFromDraft = (
     targetMarginRate: draft.targetMarginRate.trim() !== '' ? Number(draft.targetMarginRate) : undefined,
     vatRate: draft.vatRate.trim() !== '' ? Number(draft.vatRate) : undefined,
     priceIncludesTax: draft.priceIncludesTax,
-    createdAt: new Date().toISOString().slice(0, 10),
+    createdAt: todayIso(),
   };
 };
 
@@ -627,5 +640,5 @@ export const buildSubRecipeFromDraft = (draft: DraftSubRecipe): SubRecipe => ({
   yieldQuantity: Number(draft.yieldQuantity),
   yieldUnit: draft.yieldUnit,
   ingredients: draft.ingredients,
-  createdAt: new Date().toISOString().slice(0, 10),
+  createdAt: todayIso(),
 });

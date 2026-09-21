@@ -1,3 +1,4 @@
+import { todayIso } from './data/dateUtils';
 import React, { useState, useEffect, useCallback, useMemo, Suspense, lazy } from 'react';
 import { useCookieConsent } from './context/CookieConsentContext';
 import { getCookie, setCookie } from './lib/cookies';
@@ -875,7 +876,7 @@ export default function App() {
 
   const dailySalesCalendarData = useMemo(() => buildDailySalesCalendar(salesTransactions, 8), [salesTransactions]);
   const salesByPeriodData = useMemo(() => buildSalesByPeriod(salesTransactions), [salesTransactions]);
-  const currentMonthKey = new Date().toISOString().slice(0, 7);
+  const currentMonthKey = todayIso().slice(0, 7);
   const customMonthlyTarget = monthlySalesTargets.find((t) => t.month === currentMonthKey)?.targetAmount;
   const categoryShareData = useMemo(
     () => buildCategoryShares(salesTransactions, dashboardRange, customMonthlyTarget),

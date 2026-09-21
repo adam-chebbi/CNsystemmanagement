@@ -5,14 +5,15 @@
 // Custom-range, so the range-based aggregations below are written directly against a plain
 // {start, end} ISO range instead of reusing reportsModel's period type.
 
+import { todayIso, addDaysIso, diffDaysIso, firstOfMonthIso, mondayOfWeekIso, weekdayMondayFirst, dayOfMonth, monthIndexOf, yearOf } from './dateUtils';
 import { TimeFilterPeriod, MetricCardData, TopProduct, LowStockProduct, CoffeeAlert } from '../types';
 import { SaleTransaction } from './salesTransactions';
 import { StockProduct, StockLot, StockLedgerEntry, getTotalQty } from './stockModel';
 import { computeStockValue, computeLowStockProducts, computeVatBreakdown } from './reportsModel';
-import { CatalogArticle } from './manualSalesCatalog';
-import { SubRecipe, computeRecipeCost, computeMargin } from './productsModel';
-import { Supplier, PurchaseOrder, SupplierInvoice, computeOrderTotal } from './purchasesModel';
-import { Expense } from './expensesModel';
+import { CatalogArticle, DEFAULT_VAT_RATE } from './manualSalesCatalog';
+import { SubRecipe, computeRecipeCost, computeMargin, computeArticleMargin } from './productsModel';
+import { Supplier, PurchaseOrder, SupplierInvoice, computeOrderTotal, isCountedPurchase } from './purchasesModel';
+import { Expense, excludeOverlappingExpenses } from './expensesModel';
 import { FinancialRecord } from './hrModel';
 import { OperationalAlert, AlertsContext, computeOperationalAlerts } from './alertsModel';
 import { normalizeKey } from './textUtils';
@@ -22,14 +23,10 @@ export interface DateRange {
   end: string; // ISO yyyy-mm-dd, inclusive
 }
 
-const todayIso = (): string => new Date().toISOString().slice(0, 10);
 const inRange = (dateIso: string, range: DateRange): boolean => dateIso >= range.start && dateIso <= range.end;
-const addDays = (iso: string, days: number): string => {
-  const d = new Date(`${iso}T00:00:00`);
-  d.setDate(d.getDate() + days);
-  return d.toISOString().slice(0, 10);
-};
-const daysBetween = (start: string, end: string): number => Math.round((new Date(`${end}T00:00:00`).getTime() - new Date(`${start}T00:00:00`).getTime()) / 86400000) + 1;
+// Calendar-day arithmetic lives in dateUtils (business-clock "today", no UTC round-trip).
+const addDays = addDaysIso;
+const daysBetween = (start: string, end: string): number => diffDaysIso(start, end) + 1;
 const startOfMonth = (iso: string): string => `${iso.slice(0, 7)}-01`;
 
 // --- Range resolution (mirrors AnalysisFilterBar's Today/Yesterday/Week/Month/Custom choices) ---
@@ -85,24 +82,36 @@ const sumSales = (transactions: SaleTransaction[], range: DateRange): { revenue:
   return { revenue, ticketCount, itemsCount };
 };
 
-// Excludes 'Annulée' orders — a cancelled order was never actually purchased, so it must never
-// count toward "achats" (matches reportsModel.computePurchasesMetrics' convention).
+// Only orders that were really placed count as "achats": a cancelled order was never purchased and a
+// draft ('Brouillon') hasn't been sent to the supplier yet (see purchasesModel.isCountedPurchase,
+// shared with the reports so the two never disagree).
 const sumPurchases = (orders: PurchaseOrder[], range: DateRange): number =>
   orders
-    .filter((o) => inRange(o.orderDate, range) && o.status !== 'Annulée')
+    .filter((o) => inRange(o.orderDate, range) && isCountedPurchase(o))
     .reduce((sum, o) => sum + computeOrderTotal(o), 0);
 
 // Only 'Approuvé' expenses represent real money actually spent — matches the "dépenses
 // approuvées" label already shown under this card (the Rapport sur les dépenses page
 // intentionally counts pending expenses too, for budgeting oversight — a different, equally
 // valid purpose that stays untouched in reportsModel.ts's own computeExpensesMetrics).
+//
+// The automatic "TVA collectée" and supplier-payment expenses are left out here on purpose: the VAT
+// is already removed from the net sales, and a supplier payment is a purchase already counted in
+// "Achats". Keeping them would subtract the same money a second time in Bénéfices, and the four
+// cards (Ventes − TVA − Achats − Dépenses = Bénéfices) could never add up.
 const sumExpenses = (expenses: Expense[], range: DateRange): number =>
-  expenses.filter((e) => inRange(e.date, range) && e.status === 'Approuvé').reduce((sum, e) => sum + e.amount, 0);
+  excludeOverlappingExpenses(
+    expenses.filter((e) => inRange(e.date, range) && e.status === 'Approuvé'),
+    'sale_vat',
+    'invoice_payment'
+  ).reduce((sum, e) => sum + e.amount, 0);
 
 // Recipe-cost-based COGS estimate for the transactions in range: items whose name matches a
 // CatalogArticle with a recipe cost that recipe (converted through sub-recipes); anything without
 // a resolvable recipe is treated as zero-cost (its full price counts as margin), matching the
 // conservative "never invent a cost we can't derive" approach used across the app.
+// The revenue here is HT (VAT excluded): margin is what's left of the café's own turnover, the VAT
+// collected is owed to the state.
 const estimateMargin = (
   transactions: SaleTransaction[],
   range: DateRange,
@@ -115,7 +124,9 @@ const estimateMargin = (
   transactions.forEach((t) => {
     if (t.status !== 'Payé' || !inRange(t.date, range)) return;
     t.items.forEach((item) => {
-      revenue += item.price * item.qty;
+      const gross = item.price * item.qty;
+      // Prefer the net amount frozen at sale time; derive it only for items that predate it.
+      revenue += item.netAmount ?? gross / (1 + (item.vatRate ?? DEFAULT_VAT_RATE));
       const article = articles.find((a) => normalizeKey(a.name) === normalizeKey(item.name));
       if (article?.recipe) {
         const { cost: unitCost } = computeRecipeCost(article.recipe, stockProducts, subRecipes, articles);
@@ -182,14 +193,18 @@ export const computeDashboardPeriodData = (range: DateRange, sources: DashboardD
   const benefice = netSales - purchases - expensesTotal;
   const prevBenefice = prevNetSales - prevPurchases - prevExpensesTotal;
 
-  const now = new Date();
+  const thisMonthStart = firstOfMonthIso(todayIso());
+  const prevMonthStart = firstOfMonthIso(todayIso(), -1);
   const staffCost = financialRecords
-    .filter((r) => r.periodMonthIndex === now.getMonth() && r.periodYear === now.getFullYear())
+    .filter((r) => r.periodMonthIndex === monthIndexOf(thisMonthStart) && r.periodYear === yearOf(thisMonthStart))
     .reduce((sum, r) => sum + r.baseSalary + r.bonuses - r.deductions, 0);
-  const prevMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
   const prevStaffCost = financialRecords
-    .filter((r) => r.periodMonthIndex === prevMonthDate.getMonth() && r.periodYear === prevMonthDate.getFullYear())
+    .filter((r) => r.periodMonthIndex === monthIndexOf(prevMonthStart) && r.periodYear === yearOf(prevMonthStart))
     .reduce((sum, r) => sum + r.baseSalary + r.bonuses - r.deductions, 0);
+
+  // The staff cost is a whole calendar month, so its ratio must be against that month's revenue —
+  // dividing it by a single day's (or week's) revenue gave absurd figures like 4000% du CA.
+  const monthRevenue = sumSales(transactions, { start: thisMonthStart, end: todayIso() }).revenue;
 
   const { revenue: marginRevenue, margin } = estimateMargin(transactions, range, articles, stockProducts, subRecipes);
   const { margin: prevMargin } = estimateMargin(transactions, prevRange, articles, stockProducts, subRecipes);
@@ -206,7 +221,7 @@ export const computeDashboardPeriodData = (range: DateRange, sources: DashboardD
     stockValue: formatDT(computeStockValue(stockProducts)),
     staffCost: formatDT(staffCost),
     staffCostChange: formatPercentChange(staffCost, prevStaffCost),
-    staffCostRatio: current.revenue > 0 ? `${((staffCost / current.revenue) * 100).toFixed(1)}% du CA` : '—',
+    staffCostRatio: monthRevenue > 0 ? `${((staffCost / monthRevenue) * 100).toFixed(1)}% du CA du mois` : '—',
     ticketCount: current.ticketCount,
     ticketCountChange: formatPercentChange(current.ticketCount, previous.ticketCount),
     averageBasket: formatDT(current.ticketCount > 0 ? current.revenue / current.ticketCount : 0),
@@ -252,8 +267,12 @@ export const buildProductRankings = (
     let costPrice: string | undefined;
     if (article?.recipe) {
       const { cost } = computeRecipeCost(article.recipe, stockProducts, subRecipes, articles);
-      const price = article.price || (v.qty > 0 ? v.revenue / v.qty : 0);
-      const { marginRate } = computeMargin(price, cost);
+      // Margin on the price WITHOUT VAT; an article with no price yet falls back to the average
+      // price it actually sold at (TTC, so its VAT share is removed at the default rate).
+      const { marginRate } =
+        article.price > 0
+          ? computeArticleMargin(article, cost)
+          : computeMargin((v.qty > 0 ? v.revenue / v.qty : 0) / (1 + DEFAULT_VAT_RATE), cost);
       marginPercent = Math.round(marginRate * 100);
       costPrice = formatPrice(cost);
     }
@@ -347,41 +366,42 @@ const WEEKDAY_SHORT_FR = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
 
 export const buildSalesByPeriod = (transactions: SaleTransaction[]): { days: SeriesPoint[]; months: SeriesPoint[]; years: SeriesPoint[] } => {
   const paid = transactions.filter((t) => t.status === 'Payé');
-  const today = new Date();
+  const today = todayIso();
+  const sumOf = (list: SaleTransaction[]) => list.reduce((s, t) => s + t.totalAmount, 0);
 
   const days: SeriesPoint[] = Array.from({ length: 7 }, (_, i) => {
-    const d = new Date(today);
-    d.setDate(d.getDate() - (6 - i));
-    const iso = d.toISOString().slice(0, 10);
-    const prevIso = new Date(d.getTime() - 7 * 86400000).toISOString().slice(0, 10);
+    const iso = addDaysIso(today, -(6 - i));
     const dayTx = paid.filter((t) => t.date === iso);
-    const prevTx = paid.filter((t) => t.date === prevIso);
+    const prevTx = paid.filter((t) => t.date === addDaysIso(iso, -7));
     return {
-      label: `${WEEKDAY_SHORT_FR[(d.getDay() + 6) % 7]} ${d.getDate().toString().padStart(2, '0')}/${(d.getMonth() + 1).toString().padStart(2, '0')}`,
-      current: dayTx.reduce((s, t) => s + t.totalAmount, 0),
-      previous: prevTx.reduce((s, t) => s + t.totalAmount, 0),
+      label: `${WEEKDAY_SHORT_FR[weekdayMondayFirst(iso)]} ${String(dayOfMonth(iso)).padStart(2, '0')}/${String(monthIndexOf(iso) + 1).padStart(2, '0')}`,
+      current: sumOf(dayTx),
+      previous: sumOf(prevTx),
       tickets: dayTx.length,
     };
   });
 
+  // Buckets are 'YYYY-MM' keys taken straight from the ISO dates — never a Date converted through
+  // UTC, which used to shift every month bar onto the previous month east of UTC.
   const months: SeriesPoint[] = Array.from({ length: 9 }, (_, i) => {
-    const d = new Date(today.getFullYear(), today.getMonth() - (8 - i), 1);
-    const prevD = new Date(d.getFullYear(), d.getMonth() - 1, 1);
-    const monthTx = paid.filter((t) => t.date.slice(0, 7) === d.toISOString().slice(0, 7));
-    const prevTx = paid.filter((t) => t.date.slice(0, 7) === prevD.toISOString().slice(0, 7));
+    const monthStart = firstOfMonthIso(today, -(8 - i));
+    const key = monthStart.slice(0, 7);
+    const prevKey = firstOfMonthIso(monthStart, -1).slice(0, 7);
+    const monthTx = paid.filter((t) => t.date.slice(0, 7) === key);
+    const prevTx = paid.filter((t) => t.date.slice(0, 7) === prevKey);
     return {
-      label: MONTH_LABELS_FR[d.getMonth()].replace('.', ''),
-      current: monthTx.reduce((s, t) => s + t.totalAmount, 0),
-      previous: prevTx.reduce((s, t) => s + t.totalAmount, 0),
+      label: MONTH_LABELS_FR[monthIndexOf(monthStart)].replace('.', ''),
+      current: sumOf(monthTx),
+      previous: sumOf(prevTx),
       tickets: monthTx.length,
     };
   });
 
   const years: SeriesPoint[] = Array.from({ length: 4 }, (_, i) => {
-    const y = today.getFullYear() - (3 - i);
+    const y = yearOf(today) - (3 - i);
     const yearTx = paid.filter((t) => t.year === y);
     const prevTx = paid.filter((t) => t.year === y - 1);
-    return { label: String(y), current: yearTx.reduce((s, t) => s + t.totalAmount, 0), previous: prevTx.reduce((s, t) => s + t.totalAmount, 0), tickets: yearTx.length };
+    return { label: String(y), current: sumOf(yearTx), previous: sumOf(prevTx), tickets: yearTx.length };
   });
 
   return { days, months, years };
@@ -423,17 +443,13 @@ const MONTH_LABELS_FULL_FR = [
 
 export const buildDailySalesCalendar = (transactions: SaleTransaction[], monthsBack = 6): DailySalesCalendarData => {
   const paid = transactions.filter((t) => t.status === 'Payé');
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
 
-  const rangeEnd = today;
-  const rangeStart = new Date(today.getFullYear(), today.getMonth() - (monthsBack - 1), 1);
+  const rangeEnd = todayIso();
+  const rangeStart = firstOfMonthIso(rangeEnd, -(monthsBack - 1));
 
   // Snap the grid to full Monday-to-Sunday weeks so every column has all 7 rows.
-  const gridStart = new Date(rangeStart);
-  gridStart.setDate(gridStart.getDate() - ((gridStart.getDay() + 6) % 7));
-  const gridEnd = new Date(rangeEnd);
-  gridEnd.setDate(gridEnd.getDate() + (6 - ((gridEnd.getDay() + 6) % 7)));
+  const gridStart = mondayOfWeekIso(rangeStart);
+  const gridEnd = addDaysIso(rangeEnd, 6 - weekdayMondayFirst(rangeEnd));
 
   const byDate = new Map<string, { revenue: number; operations: number; itemsSold: number }>();
   paid.forEach((t) => {
@@ -449,13 +465,13 @@ export const buildDailySalesCalendar = (transactions: SaleTransaction[], monthsB
   let maxValue = 0;
   let lastLabeledMonth = -1;
 
-  for (let cursor = new Date(gridStart); cursor <= gridEnd; ) {
+  for (let cursor = gridStart; cursor <= gridEnd; ) {
     const cells: DailySalesCalendarCell[] = [];
     let containsFirstOfMonth = false;
     for (let w = 0; w < 7; w += 1) {
-      const iso = cursor.toISOString().slice(0, 10);
-      const cellInRange = cursor >= rangeStart && cursor <= rangeEnd;
-      if (cursor.getDate() === 1) containsFirstOfMonth = true;
+      const iso = cursor;
+      const cellInRange = iso >= rangeStart && iso <= rangeEnd;
+      if (dayOfMonth(iso) === 1) containsFirstOfMonth = true;
       const bucket = byDate.get(iso);
       const revenue = bucket?.revenue ?? 0;
       if (cellInRange && revenue > maxValue) maxValue = revenue;
@@ -467,9 +483,9 @@ export const buildDailySalesCalendar = (transactions: SaleTransaction[], monthsB
         itemsSold: bucket?.itemsSold ?? 0,
         inRange: cellInRange,
       });
-      cursor.setDate(cursor.getDate() + 1);
+      cursor = addDaysIso(cursor, 1);
     }
-    const mondayMonth = new Date(cells[0].dateIso).getMonth();
+    const mondayMonth = monthIndexOf(cells[0].dateIso);
     if ((weeks.length === 0 || containsFirstOfMonth) && mondayMonth !== lastLabeledMonth) {
       monthLabels.push({ label: MONTH_LABELS_FULL_FR[mondayMonth], weekIndex: weeks.length });
       lastLabeledMonth = mondayMonth;
@@ -477,48 +493,43 @@ export const buildDailySalesCalendar = (transactions: SaleTransaction[], monthsB
     weeks.push({ cells });
   }
 
-  return {
-    weeks,
-    monthLabels,
-    maxValue,
-    rangeStartIso: rangeStart.toISOString().slice(0, 10),
-    rangeEndIso: rangeEnd.toISOString().slice(0, 10),
-  };
+  return { weeks, monthLabels, maxValue, rangeStartIso: rangeStart, rangeEndIso: rangeEnd };
 };
 
 // Purchase orders only carry a date (no time-of-day field), so — unlike sales — there's no real
 // hourly data for purchases; day/month/year buckets (matching the Sales chart's Jours/Mois/Année
 // filter) are the finest granularity purchases actually support.
 export const buildPurchasesByPeriod = (orders: PurchaseOrder[]): { days: PurchasesPeriodPoint[]; months: PurchasesPeriodPoint[]; years: PurchasesPeriodPoint[] } => {
-  const today = new Date();
+  const today = todayIso();
+  // Same rule as the "Achat total" card: cancelled and draft orders are not purchases.
+  const counted = orders.filter(isCountedPurchase);
+  const sumOf = (list: PurchaseOrder[]) => list.reduce((s, o) => s + computeOrderTotal(o), 0);
 
   const days: PurchasesPeriodPoint[] = Array.from({ length: 7 }, (_, i) => {
-    const d = new Date(today);
-    d.setDate(d.getDate() - (6 - i));
-    const iso = d.toISOString().slice(0, 10);
+    const iso = addDaysIso(today, -(6 - i));
     return {
-      label: `${d.getDate().toString().padStart(2, '0')}/${(d.getMonth() + 1).toString().padStart(2, '0')}`,
+      label: `${String(dayOfMonth(iso)).padStart(2, '0')}/${String(monthIndexOf(iso) + 1).padStart(2, '0')}`,
       dateKey: iso,
-      amount: orders.filter((o) => o.orderDate === iso).reduce((s, o) => s + computeOrderTotal(o), 0),
+      amount: sumOf(counted.filter((o) => o.orderDate === iso)),
     };
   });
 
   const months: PurchasesPeriodPoint[] = Array.from({ length: 9 }, (_, i) => {
-    const d = new Date(today.getFullYear(), today.getMonth() - (8 - i), 1);
-    const key = d.toISOString().slice(0, 7);
+    const monthStart = firstOfMonthIso(today, -(8 - i));
+    const key = monthStart.slice(0, 7);
     return {
-      label: MONTH_LABELS_FR[d.getMonth()].replace('.', ''),
+      label: MONTH_LABELS_FR[monthIndexOf(monthStart)].replace('.', ''),
       dateKey: key,
-      amount: orders.filter((o) => o.orderDate.slice(0, 7) === key).reduce((s, o) => s + computeOrderTotal(o), 0),
+      amount: sumOf(counted.filter((o) => o.orderDate.slice(0, 7) === key)),
     };
   });
 
   const years: PurchasesPeriodPoint[] = Array.from({ length: 4 }, (_, i) => {
-    const y = today.getFullYear() - (3 - i);
+    const y = yearOf(today) - (3 - i);
     return {
       label: String(y),
       dateKey: String(y),
-      amount: orders.filter((o) => o.orderDate.startsWith(String(y))).reduce((s, o) => s + computeOrderTotal(o), 0),
+      amount: sumOf(counted.filter((o) => o.orderDate.startsWith(String(y)))),
     };
   });
 

@@ -1,3 +1,4 @@
+import { todayIso } from './dateUtils';
 import { SaleItem, SaleTransaction, ServiceType, PaymentMethod, MONTHS_LIST } from './salesTransactions';
 import { CatalogArticle, getArticleById, getArticleVatRate, getArticleTtcPrice } from './manualSalesCatalog';
 import { SalesCatalogContext } from './salesEntryModel';
@@ -78,7 +79,7 @@ export const setQuantityForArticle = (rows: DraftQuantityRow[], articleId: strin
 };
 
 export const createEmptyQuantityForm = (): QuantitySalesFormState => ({
-  date: new Date().toISOString().slice(0, 10),
+  date: todayIso(),
   shift: '',
   employee: '',
   rows: [],

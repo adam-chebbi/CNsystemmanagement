@@ -1,3 +1,4 @@
+import { DecimalInput } from '../ui/DecimalInput';
 import React, { useMemo, useState } from 'react';
 import {
   ClipboardCheck,
@@ -223,8 +224,7 @@ export const CashVerificationPanel: React.FC<CashVerificationPanelProps> = ({
           </h3>
           <div>
             <label className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 mb-1 block">Montant compté (DT)</label>
-            <input
-              type="number"
+            <DecimalInput
               min={0}
               step={0.1}
               value={restoCountedAmount}
@@ -259,8 +259,7 @@ export const CashVerificationPanel: React.FC<CashVerificationPanelProps> = ({
           <div className="flex flex-wrap items-end gap-3">
             <div>
               <label className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 mb-1 block">Montant vérifié (DT)</label>
-              <input
-                type="number"
+              <DecimalInput
                 min={0}
                 step={0.1}
                 value={cardVerifiedAmount}

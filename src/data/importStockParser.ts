@@ -1,3 +1,4 @@
+import { parseDecimalCell } from './decimalInput';
 import { normalizeKey, parseDateFlexible } from './textUtils';
 import {
   StockProduct,
@@ -101,7 +102,7 @@ const validateStockImportRow = (
 
   const hasQuantity = row.quantity.trim() !== '';
   if (hasQuantity) {
-    const qty = Number(row.quantity);
+    const qty = parseDecimalCell(row.quantity);
     if (Number.isNaN(qty) || qty <= 0) {
       issues.push({ field: 'quantite', value: row.quantity, message: `${label} — Quantité : doit être un nombre supérieur à 0.` });
     }
@@ -119,11 +120,11 @@ const validateStockImportRow = (
   }
 
   if (row.minThreshold.trim() !== '') {
-    const v = Number(row.minThreshold);
+    const v = parseDecimalCell(row.minThreshold);
     if (Number.isNaN(v) || v < 0) issues.push({ field: 'seuil_minimum', value: row.minThreshold, message: `${label} — Seuil minimum : doit être un nombre positif ou nul.` });
   }
   if (row.targetStock.trim() !== '') {
-    const v = Number(row.targetStock);
+    const v = parseDecimalCell(row.targetStock);
     if (Number.isNaN(v) || v < 0) issues.push({ field: 'stock_cible', value: row.targetStock, message: `${label} — Stock cible : doit être un nombre positif ou nul.` });
   }
 
@@ -281,7 +282,7 @@ export const buildStockOperationsFromRows = (
     if (!product) return;
 
     if (row.quantity.trim() !== '' && row.zone) {
-      const qty = Number(row.quantity);
+      const qty = parseDecimalCell(row.quantity);
       const before = getZoneQty(product, row.zone);
       let lotId: string | undefined;
       if (product.lotTracked) {
@@ -317,8 +318,8 @@ export const buildStockOperationsFromRows = (
       });
     }
 
-    const minThreshold = row.minThreshold.trim() !== '' ? Number(row.minThreshold) : undefined;
-    const targetStock = row.targetStock.trim() !== '' ? Number(row.targetStock) : undefined;
+    const minThreshold = row.minThreshold.trim() !== '' ? parseDecimalCell(row.minThreshold) : undefined;
+    const targetStock = row.targetStock.trim() !== '' ? parseDecimalCell(row.targetStock) : undefined;
     if (minThreshold !== undefined || targetStock !== undefined) {
       productUpdates.push({ id: product.id, minThreshold, targetStock });
     }

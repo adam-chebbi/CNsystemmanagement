@@ -1,3 +1,4 @@
+import { todayIso } from '../data/dateUtils';
 import React, { useMemo, useState } from 'react';
 import { Download, PackageCheck, CheckSquare, Square, ListChecks, AlertCircle, Loader2, CheckCircle2, RefreshCw, FileArchive } from 'lucide-react';
 import JSZip from 'jszip';
@@ -14,7 +15,6 @@ const primaryButtonClass =
 const secondaryButtonClass =
   'inline-flex items-center justify-center gap-2 px-3.5 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700/80 text-xs font-semibold text-gray-700 dark:text-gray-200 shadow-2xs transition active:scale-98 cursor-pointer';
 
-const todayIso = (): string => new Date().toISOString().slice(0, 10);
 
 export const ExportDataPage: React.FC<ExportDataPageProps> = (props) => {
   const { onNavigateToDashboard } = props;

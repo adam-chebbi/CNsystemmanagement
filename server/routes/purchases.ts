@@ -1,3 +1,4 @@
+import { todayIso } from '../../src/data/dateUtils.js';
 import { randomUUID } from 'node:crypto';
 import { Router } from 'express';
 import { z } from 'zod';
@@ -342,7 +343,7 @@ purchasesRouter.post('/invoices/:id/payment', requirePermission('purchases:pay')
   recordAutoExpense({
     title: `Facture fournisseur ${existing.invoice_number}${supplier ? ` — ${supplier.name}` : ''}`,
     amount: body.amount,
-    date: new Date().toISOString().slice(0, 10),
+    date: todayIso(),
     categoryName: 'Fournitures',
     paymentMethod: existing.payment_method as 'Espèces' | 'Carte bancaire' | 'Chèque' | 'Virement bancaire',
     comment: `Paiement de la facture ${existing.invoice_number} — généré automatiquement.`,

@@ -1,3 +1,4 @@
+import { todayIso } from './dateUtils';
 import { SaleItem, SaleTransaction, ServiceType, PaymentMethod, MONTHS_LIST } from './salesTransactions';
 import {
   CatalogArticle,
@@ -82,7 +83,7 @@ export const createEmptyTicket = (): DraftTicket => ({
 });
 
 export const createEmptyForm = (): ManualSalesFormState => ({
-  date: new Date().toISOString().slice(0, 10),
+  date: todayIso(),
   shift: '',
   employee: '',
   tickets: [createEmptyTicket()],

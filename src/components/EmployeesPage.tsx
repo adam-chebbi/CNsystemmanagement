@@ -1,3 +1,5 @@
+import { DecimalInput } from './ui/DecimalInput';
+import { todayIso, addDaysIso } from '../data/dateUtils';
 import React, { useMemo, useRef, useState } from 'react';
 import {
   Users,
@@ -285,9 +287,7 @@ export const EmployeesPage: React.FC<EmployeesPageProps> = ({
   const activeEmployees = useMemo(() => employees.filter((e) => e.status === 'Actif').length, [employees]);
   const inactiveEmployees = totalEmployees - activeEmployees;
   const recentEmployees = useMemo(() => {
-    const cutoff = new Date();
-    cutoff.setDate(cutoff.getDate() - 30);
-    const cutoffIso = cutoff.toISOString().slice(0, 10);
+    const cutoffIso = addDaysIso(todayIso(), -30);
     return employees.filter((e) => e.entryDate >= cutoffIso).length;
   }, [employees]);
 
@@ -612,7 +612,7 @@ export const EmployeesPage: React.FC<EmployeesPageProps> = ({
                     </div>
                     <div>
                       <label className={labelClass}>Salaire (DT) *</label>
-                      <input type="number" min={0} step="any" value={draft.salary} onChange={(e) => updateDraft({ salary: e.target.value })} className={`${inputBaseClass} ${showErrors && issuesByField.has('salary') ? inputErrorClass : inputValidClass}`} />
+                      <DecimalInput min={0} step="any" value={draft.salary} onChange={(e) => updateDraft({ salary: e.target.value })} className={`${inputBaseClass} ${showErrors && issuesByField.has('salary') ? inputErrorClass : inputValidClass}`} />
                       {showErrors && issuesByField.get('salary') && (<p className="text-[11px] text-red-500 mt-1 flex items-center gap-1"><AlertCircle size={11} /> {issuesByField.get('salary')}</p>)}
                     </div>
                   </div>

@@ -6,9 +6,10 @@
 //
 // V1 scope: alerts are shown only inside the platform (no SMS/WhatsApp/email).
 
+import { todayIso, addDaysIso } from './dateUtils';
 import { StockProduct, StockLot, StockLedgerEntry, getTotalQty, getLotStatus, DEFAULT_EXPIRY_ALERT_DAYS } from './stockModel';
 import { CatalogArticle } from './manualSalesCatalog';
-import { SubRecipe, computeRecipeCost, computeMargin, DEFAULT_TARGET_MARGIN_RATE } from './productsModel';
+import { SubRecipe, computeRecipeCost, DEFAULT_TARGET_MARGIN_RATE, computeArticleMargin } from './productsModel';
 import { Supplier, SupplierInvoice, computeInvoiceStatus, isInvoiceDueSoon, isInvoiceOverdue } from './purchasesModel';
 
 export type AlertType =
@@ -70,7 +71,6 @@ const daysBetween = (fromIso: string, toIso: string): number => {
   return Math.round((to - from) / 86400000);
 };
 
-const todayIso = (): string => new Date().toISOString().slice(0, 10);
 
 export interface AlertsContext {
   stockProducts: StockProduct[];
@@ -231,7 +231,7 @@ export const computeOperationalAlerts = (ctx: AlertsContext): OperationalAlert[]
   });
 
   // --- Écarts de stock importants (inventaires récents) ---
-  const lookbackIso = new Date(Date.now() - discrepancyLookbackDays * 86400000).toISOString().slice(0, 10);
+  const lookbackIso = addDaysIso(todayIso(), -discrepancyLookbackDays);
   ctx.stockLedger
     .filter((e) => e.type === 'Inventaire' && e.status === 'Confirmé' && e.timestamp.slice(0, 10) >= lookbackIso && Math.abs(e.discrepancyValue ?? 0) >= discrepancyThreshold)
     .forEach((e) => {
@@ -256,7 +256,7 @@ export const computeOperationalAlerts = (ctx: AlertsContext): OperationalAlert[]
     .filter((a) => a.recipe && a.recipe.length > 0 && a.isAvailable !== false)
     .forEach((a) => {
       const cost = computeRecipeCost(a.recipe!, ctx.stockProducts, ctx.subRecipes, ctx.articles).cost;
-      const { marginRate } = computeMargin(a.price, cost);
+      const { marginRate } = computeArticleMargin(a, cost);
       const target = a.targetMarginRate ?? DEFAULT_TARGET_MARGIN_RATE;
       if (marginRate < target) {
         alerts.push({

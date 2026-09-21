@@ -1,3 +1,5 @@
+import { parseDecimalCell } from './decimalInput';
+import { todayIso } from './dateUtils';
 import { normalizeKey } from './textUtils';
 import { StockProduct, resolveStockUnitByName, StockUnit, areUnitsCompatible } from './stockModel';
 import { CatalogArticle, CatalogExtra, RecipeLine, VariantOption, ArticleCategory } from './manualSalesCatalog';
@@ -119,7 +121,7 @@ const parseProductImportRow = (
 
   if (!rawName.trim()) issues.push({ field: 'nom', value: rawName, message: 'Le nom est obligatoire.' });
 
-  const priceNum = Number(rawPrice);
+  const priceNum = parseDecimalCell(rawPrice);
   if (!rawPrice.trim()) issues.push({ field: 'prix', value: rawPrice, message: 'Le prix est obligatoire.' });
   else if (Number.isNaN(priceNum) || priceNum <= 0) issues.push({ field: 'prix', value: rawPrice, message: 'Le prix doit être un nombre supérieur à 0.' });
 
@@ -163,7 +165,7 @@ const parseProductImportRow = (
       issues.push({ field: 'variantes', value: entry, message: `Variante ${idx + 1} : nom manquant dans « ${entry} ».` });
       return;
     }
-    const delta = deltaPart ? Number(deltaPart) : 0;
+    const delta = deltaPart ? parseDecimalCell(deltaPart) : 0;
     if (deltaPart && Number.isNaN(delta)) {
       issues.push({ field: 'variantes', value: entry, message: `Variante « ${labelPart} » : supplément invalide « ${deltaPart} ».` });
       return;
@@ -197,7 +199,7 @@ const parseProductImportRow = (
         issues.push({ field: 'fiche_technique', value: entry, message: `Produit composé introuvable : « ${prodName} ». Il doit déjà exister (importez-le dans un fichier séparé au préalable).` });
         return;
       }
-      const qty = Number(qtyStr);
+      const qty = parseDecimalCell(qtyStr);
       if (!qtyStr || Number.isNaN(qty) || qty <= 0) {
         issues.push({ field: 'fiche_technique', value: entry, message: `Produit composé « ${prodName} » : quantité invalide « ${qtyStr ?? ''} ».` });
         return;
@@ -216,7 +218,7 @@ const parseProductImportRow = (
         issues.push({ field: 'fiche_technique', value: entry, message: `Sous-recette introuvable : « ${subName} ».` });
         return;
       }
-      const qty = Number(qtyStr);
+      const qty = parseDecimalCell(qtyStr);
       if (!qtyStr || Number.isNaN(qty) || qty <= 0) {
         issues.push({ field: 'fiche_technique', value: entry, message: `Sous-recette « ${subName} » : quantité invalide « ${qtyStr ?? ''} ».` });
         return;
@@ -248,7 +250,7 @@ const parseProductImportRow = (
       issues.push({ field: 'fiche_technique', value: entry, message: `Ingrédient introuvable : « ${ingName} ».` });
       return;
     }
-    const qty = Number(qtyStr);
+    const qty = parseDecimalCell(qtyStr);
     if (!qtyStr || Number.isNaN(qty) || qty <= 0) {
       issues.push({ field: 'fiche_technique', value: entry, message: `Ingrédient « ${ingName} » : quantité invalide « ${qtyStr ?? ''} ».` });
       return;
@@ -315,7 +317,7 @@ export const recomputeProductRowIssues = (row: ImportedProductRowDraft, subCateg
   const issues: ProductImportRowIssue[] = [...structural];
 
   if (!row.name.trim()) issues.push({ field: 'nom', value: '', message: 'Le nom est obligatoire.' });
-  const priceNum = Number(row.price);
+  const priceNum = parseDecimalCell(row.price);
   if (!row.price.trim()) issues.push({ field: 'prix', value: '', message: 'Le prix est obligatoire.' });
   else if (Number.isNaN(priceNum) || priceNum <= 0) issues.push({ field: 'prix', value: row.price, message: 'Le prix doit être un nombre supérieur à 0.' });
 
@@ -340,13 +342,13 @@ export const buildCatalogArticlesFromImportRows = (rows: ImportedProductRowDraft
       name: row.name,
       category: (category?.name ?? '') as ArticleCategory,
       subCategory: subCategory?.name,
-      price: Number(row.price),
+      price: parseDecimalCell(row.price),
       description: row.description || undefined,
       isAvailable: row.isAvailable,
       extraIds: row.extraIds.length > 0 ? row.extraIds : undefined,
       variants: row.variants.length > 0 ? row.variants : undefined,
       recipe: row.recipe.length > 0 ? row.recipe : undefined,
-      createdAt: new Date().toISOString().slice(0, 10),
+      createdAt: todayIso(),
     };
   });
 

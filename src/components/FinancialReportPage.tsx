@@ -14,6 +14,7 @@ import {
   formatPeriodShort,
   formatPeriodLabel,
   computeFinancialSummary,
+  getResultSynthesisLines,
   computeLowMarginProducts,
   computeGlobalAlerts,
 } from '../data/reportsModel';
@@ -56,7 +57,10 @@ export const FinancialReportPage: React.FC<FinancialReportPageProps> = ({
     [transactions, articles, stockProducts, subRecipes, orders, expenses, financialRecords, period]
   );
   const lowMarginProducts = useMemo(() => computeLowMarginProducts(articles, stockProducts, subRecipes, 6), [articles, stockProducts, subRecipes]);
-  const marginRate = summary.revenue > 0 ? summary.grossMargin / summary.revenue : 0;
+  // Rate on the turnover WITHOUT VAT, like the margin itself.
+  const marginRate = summary.revenueHT > 0 ? summary.grossMargin / summary.revenueHT : 0;
+  const synthesisLines = getResultSynthesisLines(summary);
+  const signed = (l: { value: number; kind: string }) => (l.kind === 'minus' ? `- ${formatAmount(l.value)}` : formatAmount(l.value));
 
   const alerts = useMemo(() => {
     const base = computeGlobalAlerts({ stockProducts: [], invoices: [], expenses: [], orders: [], lowMarginProducts, employees, period });
@@ -66,8 +70,7 @@ export const FinancialReportPage: React.FC<FinancialReportPageProps> = ({
 
   const costBreakdown = [
     { label: 'Coût matière (COGS)', value: summary.cogs },
-    { label: 'Achats', value: summary.purchases },
-    { label: 'Dépenses', value: summary.expenses },
+    { label: "Dépenses d'exploitation", value: summary.expenses },
     { label: 'Coût du personnel', value: summary.personnelCost },
   ];
 
@@ -86,14 +89,7 @@ export const FinancialReportPage: React.FC<FinancialReportPageProps> = ({
         {
           heading: 'Synthèse du résultat estimé',
           columns: ['Poste', 'Montant'],
-          rows: [
-            ["Chiffre d'affaires", formatAmount(summary.revenue)],
-            ['Coût matière estimé (COGS)', `- ${formatAmount(summary.cogs)}`],
-            ['Marge brute estimée', formatAmount(summary.grossMargin)],
-            ['Achats', `- ${formatAmount(summary.purchases)}`],
-            ['Dépenses', `- ${formatAmount(summary.expenses)}`],
-            ['Coût du personnel', `- ${formatAmount(summary.personnelCost)}`],
-          ],
+          rows: synthesisLines.map((l) => [l.label, signed(l)]),
           align: ['left', 'right'],
           totalsRow: ['Résultat estimé', formatAmount(summary.estimatedResult)],
         },
@@ -109,7 +105,9 @@ export const FinancialReportPage: React.FC<FinancialReportPageProps> = ({
       insights: [
         "Le coût matière (COGS) est estimé à partir des fiches techniques des produits vendus ; les articles sans fiche technique ne sont pas inclus dans l'estimation.",
         "Ce rapport est une estimation de gestion interne — il ne constitue pas un bilan comptable ou fiscal officiel.",
-        'Achats et dépenses sont comptés sur leur date de commande / de dépense, indépendamment de leur statut de paiement.',
+        `Achats de la période (${formatAmount(summary.purchases)}) : donnés à titre d'information, ils ne sont pas déduits car déjà reflétés par le coût matière.`,
+        "La TVA collectée, les paiements fournisseurs et les salaires versés ne sont pas recomptés dans les dépenses d'exploitation : ils sont déjà pris en compte ailleurs.",
+        'Dépenses comptées sur leur date de dépense, indépendamment de leur statut de paiement.',
       ],
     });
   };
@@ -139,18 +137,18 @@ export const FinancialReportPage: React.FC<FinancialReportPageProps> = ({
         />
       </div>
 
-      <ReportSection title="Synthèse du résultat estimé" description="Chiffre d'affaires moins coût matière, achats, dépenses et coût du personnel.">
+      <ReportSection title="Synthèse du résultat estimé" description="Chiffre d'affaires HT moins coût matière, dépenses d'exploitation et coût du personnel. Les achats de la période sont donnés à titre d'information : ils sont déjà reflétés par le coût matière.">
         <ReportTable
           columns={['Poste', 'Montant']}
           align={['left', 'right']}
-          rows={[
-            ["Chiffre d'affaires", formatAmount(summary.revenue)],
-            ['Coût matière estimé (COGS)', `- ${formatAmount(summary.cogs)}`],
-            [<span key="gm" className="font-semibold text-gray-900 dark:text-white">Marge brute estimée</span>, <span key="gmv" className="font-semibold text-gray-900 dark:text-white">{formatAmount(summary.grossMargin)}</span>],
-            ['Achats', `- ${formatAmount(summary.purchases)}`],
-            ['Dépenses', `- ${formatAmount(summary.expenses)}`],
-            ['Coût du personnel', `- ${formatAmount(summary.personnelCost)}`],
-          ]}
+          rows={synthesisLines.map((l) =>
+            l.kind === 'subtotal'
+              ? [
+                  <span key={`${l.label}-l`} className="font-semibold text-gray-900 dark:text-white">{l.label}</span>,
+                  <span key={`${l.label}-v`} className="font-semibold text-gray-900 dark:text-white">{formatAmount(l.value)}</span>,
+                ]
+              : [l.label, signed(l)]
+          )}
           totalsRow={['Résultat estimé', formatAmount(summary.estimatedResult)]}
         />
       </ReportSection>

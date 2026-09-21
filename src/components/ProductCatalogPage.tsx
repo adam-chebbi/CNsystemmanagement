@@ -1,3 +1,5 @@
+import { DecimalInput } from './ui/DecimalInput';
+import { todayIso } from '../data/dateUtils';
 import React, { useMemo, useState } from 'react';
 import {
   BookOpen,
@@ -229,10 +231,10 @@ export const ProductCatalogPage: React.FC<ProductCatalogPageProps> = ({
       await new Promise((resolve) => setTimeout(resolve, 500));
       const trimmed = name.trim();
       if (activeTab === 'category') {
-        if (mode === 'create') onCreateCategory({ id: generateProductId('pcat'), name: trimmed, createdAt: new Date().toISOString().slice(0, 10) });
+        if (mode === 'create') onCreateCategory({ id: generateProductId('pcat'), name: trimmed, createdAt: todayIso() });
         else if (editingId) onRenameCategory(editingId, trimmed);
       } else {
-        if (mode === 'create') onCreateSubCategory({ id: generateProductId('psub'), categoryId, name: trimmed, createdAt: new Date().toISOString().slice(0, 10) });
+        if (mode === 'create') onCreateSubCategory({ id: generateProductId('psub'), categoryId, name: trimmed, createdAt: todayIso() });
         else if (editingId) onRenameSubCategory(editingId, trimmed, categoryId);
       }
       setStep('success');
@@ -538,8 +540,7 @@ export const ProductCatalogPage: React.FC<ProductCatalogPageProps> = ({
               </div>
               <div>
                 <label className={labelClass}>Prix (DT) *</label>
-                <input
-                  type="number"
+                <DecimalInput
                   min={0}
                   step="0.1"
                   value={extraPrice}

@@ -1,3 +1,4 @@
+import { DecimalInput } from '../ui/DecimalInput';
 import React, { useMemo, useState } from 'react';
 import {
   AlertCircle,
@@ -212,9 +213,8 @@ export const RevenueEntriesPanel: React.FC<RevenueEntriesPanelProps> = ({ select
             <label htmlFor="ca-amount" className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 mb-1 block">
               Montant (DT) *
             </label>
-            <input
+            <DecimalInput
               id="ca-amount"
-              type="number"
               min={0}
               step={0.001}
               inputMode="decimal"

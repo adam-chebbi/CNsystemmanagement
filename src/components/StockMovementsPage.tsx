@@ -1,3 +1,4 @@
+import { DecimalInput } from './ui/DecimalInput';
 import React, { useMemo, useState } from 'react';
 import {
   ArrowRightLeft,
@@ -596,8 +597,7 @@ export const StockMovementsPage: React.FC<StockMovementsPageProps> = ({
 
                 <div>
                   <label className={labelClass}>Quantité *</label>
-                  <input
-                    type="number"
+                  <DecimalInput
                     min={0}
                     step="any"
                     value={form.quantity}

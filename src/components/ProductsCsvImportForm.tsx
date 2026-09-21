@@ -1,3 +1,4 @@
+import { DecimalInput } from './ui/DecimalInput';
 import React, { useMemo, useRef, useState } from 'react';
 import { useUnsavedWorkGuard } from '../hooks/useUnsavedWorkGuard';
 import {
@@ -297,7 +298,7 @@ export const ProductsCsvImportForm: React.FC<ProductsCsvImportFormProps> = ({
                   </div>
                   <div>
                     <label className={labelClass}>Prix (DT) *</label>
-                    <input type="number" min={0} step="any" value={row.price} onChange={(e) => updateRow(row.id, { price: e.target.value })} className={`${inputBaseClass} ${fieldsWithError.has('prix') ? inputErrorClass : inputValidClass}`} />
+                    <DecimalInput min={0} step="any" value={row.price} onChange={(e) => updateRow(row.id, { price: e.target.value })} className={`${inputBaseClass} ${fieldsWithError.has('prix') ? inputErrorClass : inputValidClass}`} />
                   </div>
                   <div>
                     <label className={labelClass}>Catégorie *</label>

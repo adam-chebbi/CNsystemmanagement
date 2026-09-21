@@ -1,3 +1,4 @@
+import { todayIso } from '../../src/data/dateUtils.js';
 import { randomUUID } from 'node:crypto';
 import { db } from '../db/connection.js';
 import { toJson } from '../db/json.js';
@@ -31,7 +32,7 @@ export const seedCoffeeProducts = (): void => {
     `INSERT INTO catalog_articles (id, name, category, sub_category, price, recipe, target_margin_rate, created_at)
      VALUES (@id, @name, 'Café chaud', @subCategory, @price, @recipe, 0.65, @createdAt)`
   );
-  const createdAt = new Date().toISOString().slice(0, 10);
+  const createdAt = todayIso();
   COFFEE_ITEMS.forEach((item) => {
     insert.run({
       id: randomUUID(),

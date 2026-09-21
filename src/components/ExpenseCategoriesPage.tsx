@@ -1,3 +1,4 @@
+import { todayIso } from '../data/dateUtils';
 import React, { useMemo, useState } from 'react';
 import {
   Tag,
@@ -78,7 +79,7 @@ export const ExpenseCategoriesPage: React.FC<ExpenseCategoriesPageProps> = ({
     setIsRecreatingDefaults(true);
     try {
       for (const catName of missingDefaultNames) {
-        await onCreateCategory({ id: generateExpenseId('ecat'), name: catName, createdAt: new Date().toISOString().slice(0, 10) });
+        await onCreateCategory({ id: generateExpenseId('ecat'), name: catName, createdAt: todayIso() });
       }
     } finally {
       setIsRecreatingDefaults(false);
@@ -140,7 +141,7 @@ export const ExpenseCategoriesPage: React.FC<ExpenseCategoriesPageProps> = ({
       await new Promise((resolve) => setTimeout(resolve, 500));
       const trimmed = name.trim();
       if (mode === 'create') {
-        onCreateCategory({ id: generateExpenseId('ecat'), name: trimmed, createdAt: new Date().toISOString().slice(0, 10) });
+        onCreateCategory({ id: generateExpenseId('ecat'), name: trimmed, createdAt: todayIso() });
       } else if (editingId) {
         onRenameCategory(editingId, trimmed);
       }

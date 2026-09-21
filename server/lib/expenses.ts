@@ -1,3 +1,4 @@
+import { todayIso } from '../../src/data/dateUtils.js';
 import { randomUUID } from 'node:crypto';
 import { db } from '../db/connection.js';
 import { normalizeKey } from '../../src/data/textUtils.js';
@@ -17,7 +18,7 @@ export const ensureExpenseCategoryId = (categoryName: string): string => {
   if (existing) return existing.id;
   const id = randomUUID();
   db.prepare('INSERT INTO expense_categories (id, name, created_at) VALUES (?, ?, ?)').run(
-    id, categoryName, new Date().toISOString().slice(0, 10)
+    id, categoryName, todayIso()
   );
   return id;
 };

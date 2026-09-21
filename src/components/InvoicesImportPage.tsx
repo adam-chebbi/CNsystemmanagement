@@ -1,3 +1,4 @@
+import { DecimalInput } from './ui/DecimalInput';
 import React, { useMemo, useRef, useState } from 'react';
 import { useUnsavedWorkGuard } from '../hooks/useUnsavedWorkGuard';
 import {
@@ -454,8 +455,7 @@ export const InvoicesImportPage: React.FC<InvoicesImportPageProps> = ({
                     </div>
                     <div>
                       <label className={labelClass}>Montant HT *</label>
-                      <input
-                        type="number"
+                      <DecimalInput
                         min={0}
                         step="0.001"
                         value={row.draft.amountHT}
@@ -465,8 +465,7 @@ export const InvoicesImportPage: React.FC<InvoicesImportPageProps> = ({
                     </div>
                     <div>
                       <label className={labelClass}>TVA *</label>
-                      <input
-                        type="number"
+                      <DecimalInput
                         min={0}
                         step="0.001"
                         value={row.draft.vatAmount}
@@ -476,8 +475,7 @@ export const InvoicesImportPage: React.FC<InvoicesImportPageProps> = ({
                     </div>
                     <div>
                       <label className={labelClass}>Montant TTC *</label>
-                      <input
-                        type="number"
+                      <DecimalInput
                         min={0}
                         step="0.001"
                         value={row.draft.amountTTC}
@@ -487,8 +485,7 @@ export const InvoicesImportPage: React.FC<InvoicesImportPageProps> = ({
                     </div>
                     <div>
                       <label className={labelClass}>Montant payé</label>
-                      <input
-                        type="number"
+                      <DecimalInput
                         min={0}
                         step="0.001"
                         value={row.draft.amountPaid}

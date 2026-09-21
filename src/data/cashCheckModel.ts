@@ -1,3 +1,4 @@
+import { toLocalIsoDate, todayIso } from './dateUtils';
 import { SaleTransaction } from './salesTransactions';
 import { Expense } from './expensesModel';
 import { SupplierInvoice } from './purchasesModel';
@@ -313,12 +314,6 @@ export interface CashCheckCalendarData {
   rangeEndIso: string;
 }
 
-// YYYY-MM-DD of a Date in the till's own (local) calendar. `toISOString().slice(0, 10)` must not be
-// used for this: it converts to UTC first, so local midnight in Tunisia (UTC+1) becomes the PREVIOUS
-// day and every cell of the daily grid ended up labelled one day early.
-export const toLocalIsoDate = (d: Date): string =>
-  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-
 const MONTH_LABELS_FULL_FR = [
   'Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin',
   'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre',
@@ -331,8 +326,9 @@ export const buildCashCheckCalendar = (
   monthsBack = 8,
   revenueEntries: RevenueEntry[] = []
 ): CashCheckCalendarData => {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  // Local midnight of the business date, so the local-time grid arithmetic below and the ISO dates
+  // read back through toLocalIsoDate always agree with the sales' own date strings.
+  const today = new Date(`${todayIso()}T00:00:00`);
 
   const rangeEnd = today;
   const rangeStart = new Date(today.getFullYear(), today.getMonth() - (monthsBack - 1), 1);

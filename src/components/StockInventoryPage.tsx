@@ -1,3 +1,4 @@
+import { DecimalInput } from './ui/DecimalInput';
 import React, { useMemo, useState } from 'react';
 import {
   ClipboardList,
@@ -415,8 +416,7 @@ export const StockInventoryPage: React.FC<StockInventoryPageProps> = ({
                         </td>
                         <td className="py-3 px-4 text-center text-gray-600 dark:text-gray-300">{theoretical}</td>
                         <td className="py-3 px-4 text-center">
-                          <input
-                            type="number"
+                          <DecimalInput
                             min={0}
                             value={raw}
                             onChange={(e) => updateRealInput(p.id, e.target.value)}
