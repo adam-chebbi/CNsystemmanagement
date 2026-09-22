@@ -11,14 +11,12 @@ n'importe quelle URL du site sans être déjà connecté à l'application de ges
 avant même qu'une seule ligne de contenu ne quitte le serveur. Ce n'est pas une page protégée par
 un mot de passe séparé : c'est la **même session** que celle de l'application de gestion.
 
-> **Note sur le nom de domaine.** Ce plan utilise `system.cafenoir.tn` comme nom du système de
-> gestion, tel que demandé. Le nom de domaine actuellement utilisé en production pour ce même
-> système est `cafe.cafenoir.tn` (voir [PUBLIC_PRODUCTS_API.md](PUBLIC_PRODUCTS_API.md)). Tout ce
-> qui suit s'applique à l'identique quel que soit le nom retenu — remplacer `system.cafenoir.tn`
-> par `cafe.cafenoir.tn` dans ce document si aucun renommage de domaine n'est prévu avant la mise
-> en œuvre. Le point important, dans les deux cas, est que le système de gestion et le site de
-> documentation partagent le **même domaine racine** `cafenoir.tn` (l'un et l'autre n'étant que
-> des sous-domaines) — c'est ce qui permet le partage de session décrit ci-dessous.
+> **Note sur le nom de domaine.** `system.cafenoir.tn` est désormais le nom de domaine réel du
+> système de gestion en production (`cafe.cafenoir.tn`, l'ancien nom utilisé un temps pendant la
+> migration vers ce nouveau serveur, redirige maintenant vers `system.cafenoir.tn`). Le point
+> important reste que le système de gestion et le site de documentation partagent le **même
+> domaine racine** `cafenoir.tn` (l'un et l'autre n'étant que des sous-domaines) — c'est ce qui
+> permet le partage de session décrit ci-dessous.
 
 ---
 

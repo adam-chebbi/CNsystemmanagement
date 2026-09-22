@@ -9,7 +9,7 @@ import { seoPlugin } from './seo/seoPlugin';
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
   // The public address of the deployed site: canonical links, Open Graph URLs, sitemap, robots.
-  const siteUrl = env.VITE_SITE_URL || 'https://test.cafenoir.tn';
+  const siteUrl = env.VITE_SITE_URL || 'https://cafenoir.tn';
   return {
     plugins: [react(), tailwindcss(), seoPlugin(siteUrl)],
     server: {

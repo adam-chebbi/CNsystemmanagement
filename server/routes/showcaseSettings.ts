@@ -14,7 +14,7 @@ import {
   type ShowcaseSiteInfo,
 } from '../../src/data/showcaseSettingsModel.js';
 
-// Content of the public site (test.cafenoir.tn), managed from Paramètres → "Site vitrine". Read/update/
+// Content of the public site (cafenoir.tn), managed from Paramètres → "Site vitrine". Read/update/
 // reset of one record; the public site reads it through GET /api/public/site-info (routes/public.ts).
 // Same permission as the other general settings.
 export const showcaseSettingsRouter = Router();

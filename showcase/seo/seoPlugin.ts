@@ -9,7 +9,7 @@ import { BUSINESS, SEO_PAGES, SEO_SITE, buildBusinessJsonLd, type SeoPath } from
 //    static HTML — /menu is emitted as dist/menu/index.html — so crawlers and link previews that do
 //    not run JavaScript still see the right tags;
 //  - sitemap.xml, robots.txt and llms.txt are generated with the absolute URLs of the deployed domain
-//    (VITE_SITE_URL, default https://test.cafenoir.tn).
+//    (VITE_SITE_URL, default https://cafenoir.tn).
 
 const START = '<!--seo:start-->';
 const END = '<!--seo:end-->';

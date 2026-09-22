@@ -15,7 +15,7 @@ Menu **Paramètres** (réservé aux comptes ayant la permission de gestion des p
 
 - **Informations générales** — nom, coordonnées, horaires du café.
 - **Taux et seuils** — taux de TVA appliqués, seuils d'alerte de stock par défaut, marge cible.
-- **Page vitrine (test.cafenoir.tn)** — coordonnées de contact, réseaux sociaux, carte
+- **Page vitrine (cafenoir.tn)** — coordonnées de contact, réseaux sociaux, carte
   interactive affichés sur le site public de présentation.
 
 > 📸 **Capture d'écran à ajouter :** page Paramètres, section informations générales.

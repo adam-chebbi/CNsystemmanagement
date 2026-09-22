@@ -11,10 +11,10 @@ propre déploiement) et consomme cette API. Un autre site tiers peut la consomme
 Une seule route est publique et ne demande aucune authentification :
 
 ```
-GET https://cafe.cafenoir.tn/api/products
+GET https://system.cafenoir.tn/api/products
 ```
 
-(`GET https://cafe.cafenoir.tn/api/public/products` renvoie exactement la même réponse ; les deux
+(`GET https://system.cafenoir.tn/api/public/products` renvoie exactement la même réponse ; les deux
 adresses sont équivalentes. Seule la lecture `GET` est publique : `/api/products` n'accepte ni
 création ni modification, le CRUD des produits se fait dans l'application de gestion, après connexion.)
 
@@ -48,7 +48,7 @@ prévues pour un usage public.
 Exemple d'appel :
 
 ```js
-const res = await fetch('https://cafe.cafenoir.tn/api/products');
+const res = await fetch('https://system.cafenoir.tn/api/products');
 const { categories, subCategories, extras, products } = await res.json();
 ```
 

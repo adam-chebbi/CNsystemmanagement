@@ -5,7 +5,7 @@
 // (src/lib/siteInfo.tsx). Products and categories come from the catalogue the same way.
 
 /** Public address of the deployed site, for canonical links (set VITE_SITE_URL at build time to change it). */
-export const SITE_URL: string = (import.meta.env.VITE_SITE_URL ?? 'https://test.cafenoir.tn').replace(/\/+$/, '');
+export const SITE_URL: string = (import.meta.env.VITE_SITE_URL ?? 'https://cafenoir.tn').replace(/\/+$/, '');
 
 /**
  * Base URL of the management app's public API. In dev it's '' so calls go through the Vite `/api`
@@ -15,7 +15,7 @@ export const SITE_URL: string = (import.meta.env.VITE_SITE_URL ?? 'https://test.
  */
 export const API_BASE_URL: string = (
   import.meta.env.VITE_API_BASE_URL ??
-  (import.meta.env.DEV ? '' : 'https://cafe.cafenoir.tn')
+  (import.meta.env.DEV ? '' : 'https://system.cafenoir.tn')
 ).replace(/\/+$/, '');
 
 export const SITE = { name: 'Café Noir' } as const;

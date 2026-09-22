@@ -1,4 +1,4 @@
-// Content of the public site (test.cafenoir.tn) that the team manages from Paramètres → "Site vitrine":
+// Content of the public site (cafenoir.tn) that the team manages from Paramètres → "Site vitrine":
 // contact details, opening hours, social links and the Google map. One record, stored server-side
 // (app_settings, key SHOWCASE_SETTINGS_KEY), read by the public site through /api/public/site-info.
 //

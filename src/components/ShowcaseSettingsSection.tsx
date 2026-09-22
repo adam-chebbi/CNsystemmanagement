@@ -24,7 +24,7 @@ import {
 } from '../data/showcaseSettingsModel';
 import { useUnsavedWorkGuard } from '../hooks/useUnsavedWorkGuard';
 
-const SITE_ADDRESS = 'https://test.cafenoir.tn';
+const SITE_ADDRESS = 'https://cafenoir.tn';
 
 const inputClass =
   'w-full px-3.5 py-2 text-xs rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:border-emerald-500 focus:ring-emerald-500 transition';
@@ -53,7 +53,7 @@ const Field: React.FC<{ label: string; hint?: string; children: React.ReactNode 
 const errorText = (err: unknown): string => (err instanceof Error && err.message ? err.message : "Une erreur est survenue. Réessayez.");
 
 /**
- * Paramètres → "Site vitrine": everything the public site (test.cafenoir.tn) shows besides the menu —
+ * Paramètres → "Site vitrine": everything the public site (cafenoir.tn) shows besides the menu —
  * contact details, opening hours, social links and the Google map. The catalogue itself is managed
  * in Gestion des produits; the "Site réalisé par Creative Comet" credit is fixed in the site.
  */
@@ -171,7 +171,7 @@ export const ShowcaseSettingsSection: React.FC = () => {
         <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2">
           <div>
             <h2 className="text-sm font-bold text-gray-900 dark:text-white inline-flex items-center gap-2">
-              <Globe size={15} className="text-emerald-500" /> Site vitrine — test.cafenoir.tn
+              <Globe size={15} className="text-emerald-500" /> Site vitrine — cafenoir.tn
             </h2>
             <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5 max-w-2xl">
               Coordonnées, horaires, réseaux sociaux et plan affichés sur le site public. Les modifications apparaissent sur le

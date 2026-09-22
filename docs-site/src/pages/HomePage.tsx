@@ -17,7 +17,7 @@ const FEATURES: { icon: typeof ShieldCheck; title: string; description: string }
   {
     icon: ShieldCheck,
     title: 'Réservé à l\'équipe',
-    description: "Accessible uniquement aux comptes déjà connectés sur cafe.cafenoir.tn — rien n'est public ni indexé.",
+    description: "Accessible uniquement aux comptes déjà connectés sur system.cafenoir.tn — rien n'est public ni indexé.",
   },
   {
     icon: SearchIcon,
@@ -74,7 +74,7 @@ export const HomePage: React.FC = () => (
         <div>
           <p className="text-sm font-bold text-emerald-900">Ce site est privé</p>
           <p className="text-xs text-emerald-800/80 mt-0.5">
-            Vous le consultez parce que vous êtes déjà connecté(e) sur <strong>cafe.cafenoir.tn</strong>. Il n'est
+            Vous le consultez parce que vous êtes déjà connecté(e) sur <strong>system.cafenoir.tn</strong>. Il n'est
             ni public, ni référencé par les moteurs de recherche — inutile de partager ce lien en dehors de l'équipe.
           </p>
         </div>

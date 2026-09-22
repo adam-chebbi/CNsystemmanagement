@@ -140,7 +140,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ settings, onSaveSett
         </div>
       </div>
 
-      {/* Contenu du site public (test.cafenoir.tn) : coordonnées, horaires, réseaux sociaux, plan. */}
+      {/* Contenu du site public (cafenoir.tn) : coordonnées, horaires, réseaux sociaux, plan. */}
       <ShowcaseSettingsSection />
     </div>
   );
