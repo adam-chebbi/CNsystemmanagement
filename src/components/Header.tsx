@@ -6,6 +6,7 @@ import {
   ShieldCheck,
   Settings,
   Users,
+  HelpCircle,
 } from 'lucide-react';
 import { useAuth } from '../auth/AuthContext';
 import { useInstallPrompt } from '../hooks/useInstallPrompt';
@@ -161,6 +162,16 @@ export const Header: React.FC<HeaderProps> = ({
                     Rôles &amp; permissions
                   </button>
                 )}
+                <a
+                  href="https://docs.cafenoir.tn"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={() => setShowUserMenu(false)}
+                  className="w-full text-left px-2 py-1.5 text-xs text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg cursor-pointer flex items-center gap-2"
+                >
+                  <HelpCircle size={13} className="text-gray-400" />
+                  Aide &amp; Support
+                </a>
                 <div className="border-t border-gray-100 dark:border-gray-700 my-1"></div>
                 <button
                   onClick={() => {

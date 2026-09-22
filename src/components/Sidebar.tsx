@@ -17,6 +17,7 @@ import {
   ShieldCheck,
   Settings,
   LogOut,
+  HelpCircle,
 } from 'lucide-react';
 import { useAuth } from '../auth/AuthContext';
 import { MANAGE_ROLES_PERMISSION } from '../data/rbacModel';
@@ -565,6 +566,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   Rôles &amp; permissions
                 </button>
               )}
+              <a
+                href="https://docs.cafenoir.tn"
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() => { if (onClose) onClose(); }}
+                className="w-full flex items-center gap-2 px-2 py-1.5 text-xs text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800/60 rounded-lg cursor-pointer"
+              >
+                <HelpCircle size={14} className="text-gray-400 shrink-0" />
+                Aide &amp; Support
+              </a>
               <button
                 type="button"
                 onClick={() => {

@@ -57,6 +57,23 @@ const changePasswordSchema = z.object({
 const isProd = process.env.NODE_ENV === 'production';
 const SESSION_MAX_AGE_MS = 1000 * 60 * 60 * 24 * 7; // 7 days
 
+// Set only in production, and only when the app is meant to share its session across
+// subdomains (e.g. ".cafenoir.tn", so docs.cafenoir.tn's nginx auth_request gate can read the
+// same cookie — see PLAN_SITE_DOCUMENTATION_PRIVE.md). Left unset, the cookie defaults to the
+// exact host that set it, which is correct for local dev and for any deploy that isn't doing
+// cross-subdomain SSO. The set and clear call sites below MUST use the exact same domain (and
+// path) — a browser only clears a cookie whose Domain/Path match exactly what it was set with,
+// so a mismatch here would silently leave the "old" cookie alive after logout.
+const SESSION_COOKIE_DOMAIN = isProd ? process.env.SESSION_COOKIE_DOMAIN || undefined : undefined;
+const sessionCookieOptions = (maxAge?: number) => ({
+  httpOnly: true,
+  secure: isProd,
+  sameSite: 'lax' as const,
+  path: '/',
+  ...(SESSION_COOKIE_DOMAIN ? { domain: SESSION_COOKIE_DOMAIN } : {}),
+  ...(maxAge !== undefined ? { maxAge } : {}),
+});
+
 // A simple, account-level lockout — independent of any future IP-based rate-limiting — so a
 // password can't be brute-forced by unlimited attempts against one account.
 const LOGIN_LOCKOUT_THRESHOLD = 5;
@@ -135,13 +152,7 @@ authRouter.post(
 
     // The session credential lives only in an httpOnly cookie — never in the JSON body or any
     // JS-readable storage — so it can't be read or exfiltrated by an XSS payload.
-    res.cookie(SESSION_COOKIE, token, {
-      httpOnly: true,
-      secure: isProd,
-      sameSite: 'lax',
-      path: '/',
-      maxAge: SESSION_MAX_AGE_MS,
-    });
+    res.cookie(SESSION_COOKIE, token, sessionCookieOptions(SESSION_MAX_AGE_MS));
     res.json({ user: buildAuthResponseUser(row) });
   })
 );
@@ -151,7 +162,7 @@ authRouter.post(
   requireAuthAllowPendingPasswordChange,
   asyncHandler((req, res) => {
     db.prepare('UPDATE sessions SET revoked_at = ? WHERE token = ?').run(new Date().toISOString(), req.sessionToken);
-    res.clearCookie(SESSION_COOKIE, { path: '/' });
+    res.clearCookie(SESSION_COOKIE, sessionCookieOptions());
     res.status(204).end();
   })
 );
@@ -161,6 +172,22 @@ authRouter.get(
   requireAuthAllowPendingPasswordChange,
   asyncHandler((req, res) => {
     res.json({ user: req.user });
+  })
+);
+
+// Session-only check for nginx's `auth_request` directive (docs.cafenoir.tn — see
+// PLAN_SITE_DOCUMENTATION_PRIVE.md): nginx calls this once per request to the docs site, forwarding
+// the visitor's Cookie header, and gates access purely on the HTTP status — 204 lets the request
+// through, anything else (401 here) is denied. No body, no user data: nginx discards the response
+// content either way, and this stays as cheap as possible since it runs on every docs page/asset
+// load (mitigated further by a short-lived cache at the nginx layer, not here). A user who still
+// needs to change a temporary password is deliberately treated the same as "not authenticated" —
+// consistent with requireAuth blocking every other route in that state.
+authRouter.get(
+  '/verify',
+  requireAuth,
+  asyncHandler((_req, res) => {
+    res.status(204).end();
   })
 );
 
@@ -252,7 +279,7 @@ authRouter.delete(
     db.prepare('UPDATE sessions SET revoked_at = ? WHERE token = ?').run(new Date().toISOString(), row.token);
 
     const isCurrentSession = row.token === req.sessionToken;
-    if (isCurrentSession) res.clearCookie(SESSION_COOKIE, { path: '/' });
+    if (isCurrentSession) res.clearCookie(SESSION_COOKIE, sessionCookieOptions());
     res.json({ revokedCurrentSession: isCurrentSession });
   })
 );
