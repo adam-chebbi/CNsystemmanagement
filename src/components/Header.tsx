@@ -88,8 +88,11 @@ export const Header: React.FC<HeaderProps> = ({
 
         {/* Right: Controls (Company user profile) */}
         <div className="flex items-center gap-2 sm:gap-3">
-          {/* Company User profile dropdown */}
-          <div className="relative">
+          {/* Company User profile dropdown — desktop only. On phones/small tablets these same
+              actions (Sessions, Paramètres, Rôles & permissions, Déconnexion) live at the bottom
+              of the mobile sidebar drawer instead, since this trigger has no visible label below
+              the sm breakpoint and is easy to miss/never see on a small screen. */}
+          <div className="relative hidden lg:block">
             <button
               id="header-user-menu-button"
               onClick={() => setShowUserMenu(!showUserMenu)}

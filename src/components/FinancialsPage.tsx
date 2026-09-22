@@ -27,6 +27,7 @@ import {
 } from 'lucide-react';
 import { MONTHS_LIST } from '../data/salesTransactions';
 import { useQueryParam } from '../hooks/useQueryParam';
+import { todayIso } from '../data/dateUtils';
 import {
   Employee,
   FinancialRecord,
@@ -41,6 +42,7 @@ import {
   computeFinancialStatus,
   getEmployeeFullName,
   formatDisplayDate,
+  generateHrId,
 } from '../data/hrModel';
 
 interface FinancialsPageProps {
@@ -103,6 +105,18 @@ export const FinancialsPage: React.FC<FinancialsPageProps> = ({
   const viewingRecordId = recordParam || null;
   const setViewingRecordId = (id: string | null) => setRecordParam(id ?? '');
   const [deleteTarget, setDeleteTarget] = useState<FinancialRecord | null>(null);
+
+  // --- Quick action: "+ Avance" / "+ Prime" — the direct, one-field-of-interest way to record an
+  // advance or a bonus for an employee (choisir l'employé, la date, le montant), instead of
+  // requiring the full "Nouveau suivi financier" form. Adds the amount onto whichever field
+  // (advances/bonuses) of that employee's period record, creating the record first if this is
+  // their first entry this period (base salary prefilled from their HR profile).
+  const [quickAction, setQuickAction] = useState<'advance' | 'bonus' | null>(null);
+  const [quickEmployeeId, setQuickEmployeeId] = useState('');
+  const [quickAmount, setQuickAmount] = useState('');
+  const [quickDate, setQuickDate] = useState('');
+  const [quickIsSaving, setQuickIsSaving] = useState(false);
+  const [quickError, setQuickError] = useState<string | null>(null);
 
   // Filters — the period controls double as the page's primary scope. All synced to the URL
   // (?q=&employee=&status=&month=&year=) so a filtered view is bookmarkable/shareable; every
@@ -191,6 +205,85 @@ export const FinancialsPage: React.FC<FinancialsPageProps> = ({
     if (viewingRecordId === deleteTarget.id) setViewingRecordId(null);
   };
 
+  // --- Quick action: "+ Avance" / "+ Prime" ---
+  const handleOpenQuickAction = (kind: 'advance' | 'bonus') => {
+    setQuickAction(kind);
+    setQuickEmployeeId('');
+    setQuickAmount('');
+    setQuickDate(todayIso());
+    setQuickError(null);
+  };
+  const handleCloseQuickAction = () => { setQuickAction(null); setQuickError(null); };
+
+  // The record this quick action would land on, for the current employee/period — used both to
+  // decide create-vs-update and to preview the resulting balances before confirming.
+  const quickTargetPeriod = { monthIndex: now.getMonth(), periodYear: now.getFullYear() };
+  const quickExistingRecord = useMemo(
+    () =>
+      financialRecords.find(
+        (r) => r.employeeId === quickEmployeeId && r.periodMonthIndex === quickTargetPeriod.monthIndex && r.periodYear === quickTargetPeriod.periodYear
+      ),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [financialRecords, quickEmployeeId]
+  );
+  const quickAmountNumber = Number(quickAmount);
+  const quickAmountValid = quickAmount.trim() !== '' && !Number.isNaN(quickAmountNumber) && quickAmountNumber > 0;
+  const quickPreview = useMemo(() => {
+    if (!quickAction || !quickAmountValid) return null;
+    const base = quickExistingRecord ?? {
+      baseSalary: employees.find((e) => e.id === quickEmployeeId)?.salary ?? 0,
+      advances: 0,
+      bonuses: 0,
+      deductions: 0,
+      amountPaid: 0,
+    };
+    const next = {
+      ...base,
+      advances: base.advances + (quickAction === 'advance' ? quickAmountNumber : 0),
+      bonuses: base.bonuses + (quickAction === 'bonus' ? quickAmountNumber : 0),
+    };
+    return { netDue: computeNetDue(next), remaining: Math.max(0, computeNetDue(next) - next.amountPaid) };
+  }, [quickAction, quickAmountValid, quickAmountNumber, quickExistingRecord, employees, quickEmployeeId]);
+
+  const handleConfirmQuickAction = async () => {
+    if (!quickAction || quickIsSaving) return;
+    if (!quickEmployeeId) { setQuickError("Sélectionnez l'employé concerné."); return; }
+    if (!quickAmountValid) { setQuickError('Le montant doit être un nombre supérieur à 0.'); return; }
+    if (!quickDate) { setQuickError('La date est obligatoire.'); return; }
+    setQuickIsSaving(true);
+    setQuickError(null);
+    try {
+      if (quickExistingRecord) {
+        onUpdateFinancialRecord({
+          ...quickExistingRecord,
+          advances: quickExistingRecord.advances + (quickAction === 'advance' ? quickAmountNumber : 0),
+          bonuses: quickExistingRecord.bonuses + (quickAction === 'bonus' ? quickAmountNumber : 0),
+          // A payment date is only meaningful once amountPaid > 0 — a pure avance/prime bump never
+          // sets it on its own, it just carries whatever the record already had.
+        });
+      } else {
+        const employeeSalary = employees.find((e) => e.id === quickEmployeeId)?.salary ?? 0;
+        onCreateFinancialRecord({
+          id: generateHrId('fin'),
+          employeeId: quickEmployeeId,
+          periodMonthIndex: quickTargetPeriod.monthIndex,
+          periodYear: quickTargetPeriod.periodYear,
+          baseSalary: employeeSalary,
+          advances: quickAction === 'advance' ? quickAmountNumber : 0,
+          bonuses: quickAction === 'bonus' ? quickAmountNumber : 0,
+          deductions: 0,
+          amountPaid: 0,
+          createdAt: new Date().toISOString(),
+        });
+      }
+      setQuickAction(null);
+    } catch (err) {
+      setQuickError(err instanceof Error ? err.message : "Une erreur est survenue lors de l'enregistrement. Veuillez réessayer.");
+    } finally {
+      setQuickIsSaving(false);
+    }
+  };
+
   // --- Filters / list ---
   const filteredRecords = useMemo(() => {
     return financialRecords.filter((r) => {
@@ -226,8 +319,15 @@ export const FinancialsPage: React.FC<FinancialsPageProps> = ({
   const totalBonuses = useMemo(() => filteredRecords.reduce((s, r) => s + r.bonuses, 0), [filteredRecords]);
   const totalDeductions = useMemo(() => filteredRecords.reduce((s, r) => s + r.deductions, 0), [filteredRecords]);
   const totalPaid = useMemo(() => filteredRecords.reduce((s, r) => s + r.amountPaid, 0), [filteredRecords]);
+  // Coût global = coût réel d'emploi du personnel (une avance est la même somme payée plus tôt, pas
+  // un coût en plus) — reste à payer = somme, par employé, de ce qu'il reste réellement à régler
+  // après avances (computeNetDue), jamais une simple soustraction globale qui masquerait un
+  // employé déjà trop payé par le "reste à payer" d'un autre.
   const totalCost = totalBaseSalary + totalBonuses - totalDeductions;
-  const totalUnpaid = Math.max(0, totalCost - totalPaid);
+  const totalUnpaid = useMemo(
+    () => filteredRecords.reduce((s, r) => s + Math.max(0, computeNetDue(r) - r.amountPaid), 0),
+    [filteredRecords]
+  );
 
   const periodLabel = filterMonth === 'all' ? `Année ${filterYear}` : `${monthFullName(filterMonth)} ${filterYear}`;
 
@@ -251,6 +351,14 @@ export const FinancialsPage: React.FC<FinancialsPageProps> = ({
           <button onClick={onNavigateToPlanning} className={secondaryButtonClass}>
             <CalendarDays size={14} className="text-gray-500 dark:text-gray-400" />
             <span>Planning</span>
+          </button>
+          <button onClick={() => handleOpenQuickAction('advance')} className={secondaryButtonClass}>
+            <TrendingDown size={14} className="text-amber-500" />
+            <span>+ Avance</span>
+          </button>
+          <button onClick={() => handleOpenQuickAction('bonus')} className={secondaryButtonClass}>
+            <TrendingUp size={14} className="text-emerald-500" />
+            <span>+ Prime</span>
           </button>
           <button onClick={handleOpenCreate} className={primaryButtonClass}>
             <Plus size={14} />
@@ -682,6 +790,78 @@ export const FinancialsPage: React.FC<FinancialsPageProps> = ({
               <button onClick={() => setDeleteTarget(null)} className={secondaryButtonClass}><span>Annuler</span></button>
               <button onClick={handleConfirmDelete} className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-semibold shadow-2xs transition active:scale-98 cursor-pointer">
                 <Trash2 size={14} /><span>Supprimer</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Quick action modal: + Avance / + Prime */}
+      {quickAction && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="w-full max-w-sm rounded-2xl bg-white dark:bg-[#151D2A] border border-gray-200 dark:border-gray-700 shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className="p-4 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between">
+              <h3 className="font-bold text-sm text-gray-900 dark:text-white flex items-center gap-2">
+                {quickAction === 'advance' ? <TrendingDown size={16} className="text-amber-500" /> : <TrendingUp size={16} className="text-emerald-500" />}
+                {quickAction === 'advance' ? 'Ajouter une avance' : 'Ajouter une prime'}
+              </h3>
+              <button onClick={handleCloseQuickAction} className="p-1 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 cursor-pointer"><X size={16} /></button>
+            </div>
+            <div className="p-5 space-y-3.5">
+              <p className="text-[11px] text-gray-400">
+                Pour {monthFullName(now.getMonth())} {now.getFullYear()} — s'ajoute au suivi financier existant de l'employé pour ce mois, ou en crée un nouveau.
+              </p>
+              <div>
+                <label className={labelClass}>Employé *</label>
+                <select
+                  value={quickEmployeeId}
+                  onChange={(e) => setQuickEmployeeId(e.target.value)}
+                  className={`${inputBaseClass} appearance-none cursor-pointer ${inputValidClass}`}
+                >
+                  <option value="">Sélectionner un employé</option>
+                  {employees.map((e) => (<option key={e.id} value={e.id}>{getEmployeeFullName(e)}</option>))}
+                </select>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className={labelClass}>Montant (DT) *</label>
+                  <DecimalInput min={0} step="any" value={quickAmount} onChange={(e) => setQuickAmount(e.target.value)} className={`${inputBaseClass} ${inputValidClass}`} />
+                </div>
+                <div>
+                  <label className={labelClass}>Date *</label>
+                  <input type="date" value={quickDate} onChange={(e) => setQuickDate(e.target.value)} className={`${inputBaseClass} ${inputValidClass}`} />
+                </div>
+              </div>
+
+              {quickExistingRecord && (
+                <p className="text-[11px] text-gray-400">
+                  Suivi existant pour ce mois — {quickAction === 'advance' ? 'avances' : 'primes'} actuelles : {formatAmount(quickAction === 'advance' ? quickExistingRecord.advances : quickExistingRecord.bonuses)}.
+                </p>
+              )}
+
+              {quickPreview && (
+                <div className="p-3 rounded-xl bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800/60 text-[11px] text-blue-700 dark:text-blue-300 flex items-start gap-2">
+                  <Info size={13} className="shrink-0 mt-0.5" />
+                  <span>
+                    {quickAction === 'advance'
+                      ? `Cette avance réduit d'autant ce qu'il reste à payer ce mois-ci.`
+                      : `Cette prime augmente d'autant ce qui est dû ce mois-ci.`}{' '}
+                    Nouveau reste à payer : <strong>{formatAmount(quickPreview.remaining)}</strong> (net dû : {formatAmount(quickPreview.netDue)}).
+                  </span>
+                </div>
+              )}
+
+              {quickError && (
+                <div className="p-3 rounded-xl bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800/60 text-xs text-red-600 dark:text-red-400 flex items-center gap-2">
+                  <AlertCircle size={13} /> {quickError}
+                </div>
+              )}
+            </div>
+            <div className="p-4 bg-gray-50 dark:bg-gray-800/50 border-t border-gray-100 dark:border-gray-800 flex items-center justify-end gap-2">
+              <button onClick={handleCloseQuickAction} disabled={quickIsSaving} className={secondaryButtonClass}><span>Annuler</span></button>
+              <button onClick={handleConfirmQuickAction} disabled={quickIsSaving} className={primaryButtonClass}>
+                {quickIsSaving ? <Loader2 size={14} className="animate-spin" /> : <ShieldCheck size={14} />}
+                <span>{quickIsSaving ? 'Enregistrement…' : 'Confirmer'}</span>
               </button>
             </div>
           </div>

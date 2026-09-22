@@ -5,7 +5,7 @@ import { z } from 'zod';
 import { db } from '../db/connection.js';
 import { fromJson, toJson, toBool, fromBool } from '../db/json.js';
 import { asyncHandler, ApiError, notFound } from '../middleware/errors.js';
-import { requireAuth, requirePermission } from '../middleware/auth.js';
+import { requireAuth, requirePermission, requireAnyPermission } from '../middleware/auth.js';
 import { recordActivity } from '../lib/activity.js';
 import type { ProductCategory, ProductSubCategory } from '../../src/data/productsModel.js';
 import { getCategoryUsageCount, getSubCategoryUsageCount, getSubRecipeUsageCount, detectCircularReference, type SubRecipe } from '../../src/data/productsModel.js';
@@ -75,7 +75,7 @@ const categorySchema = z.object({ name: z.string().trim().min(1) });
 
 productCatalogRouter.get(
   '/product-categories',
-  requirePermission('products:view'),
+  requireAnyPermission('products:view', 'products:manage', 'sales:create', 'sales:view', 'stock:inventory', 'stock:manage', 'purchases:create', 'purchases:edit'),
   asyncHandler((_req, res) => {
     const rows = db.prepare('SELECT * FROM product_categories ORDER BY created_at ASC').all() as CategoryRow[];
     res.json(rows.map(rowToCategory));
@@ -130,7 +130,7 @@ const subCategorySchema = z.object({ categoryId: z.string().min(1), name: z.stri
 
 productCatalogRouter.get(
   '/product-subcategories',
-  requirePermission('products:view'),
+  requireAnyPermission('products:view', 'products:manage', 'sales:create', 'sales:view', 'stock:inventory', 'stock:manage', 'purchases:create', 'purchases:edit'),
   asyncHandler((_req, res) => {
     const rows = db.prepare('SELECT * FROM product_subcategories ORDER BY created_at ASC').all() as SubCategoryRow[];
     res.json(rows.map(rowToSubCategory));
@@ -187,7 +187,7 @@ const extraSchema = z.object({ name: z.string().trim().min(1), price: z.number()
 
 productCatalogRouter.get(
   '/catalog-extras',
-  requirePermission('products:view'),
+  requireAnyPermission('products:view', 'products:manage', 'sales:create', 'sales:view', 'stock:inventory', 'stock:manage', 'purchases:create', 'purchases:edit'),
   asyncHandler((_req, res) => {
     const rows = db.prepare('SELECT * FROM catalog_extras ORDER BY rowid ASC').all() as ExtraRow[];
     res.json(rows.map(rowToExtra));
@@ -287,7 +287,7 @@ const articleToRow = (a: CatalogArticle): ArticleRow => ({
 
 productCatalogRouter.get(
   '/catalog-articles',
-  requirePermission('products:view'),
+  requireAnyPermission('products:view', 'products:manage', 'sales:create', 'sales:view', 'stock:inventory', 'stock:manage', 'purchases:create', 'purchases:edit'),
   asyncHandler((_req, res) => {
     const rows = db.prepare('SELECT * FROM catalog_articles ORDER BY created_at ASC').all() as ArticleRow[];
     res.json(rows.map(rowToArticle));
@@ -368,7 +368,7 @@ const subRecipeSchema = z.object({
 
 productCatalogRouter.get(
   '/sub-recipes',
-  requirePermission('products:view'),
+  requireAnyPermission('products:view', 'products:manage', 'sales:create', 'sales:view', 'stock:inventory', 'stock:manage', 'purchases:create', 'purchases:edit'),
   asyncHandler((_req, res) => {
     const rows = db.prepare('SELECT * FROM sub_recipes ORDER BY created_at ASC').all() as SubRecipeRow[];
     res.json(rows.map(rowToSubRecipe));

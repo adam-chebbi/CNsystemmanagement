@@ -87,6 +87,26 @@ export interface IngredientImportParseResult {
 const slugifySku = (name: string): string =>
   `ING-${normalizeKey(name).toUpperCase().replace(/[^A-Z0-9]+/g, '-').replace(/(^-|-$)/g, '').slice(0, 24) || 'NOUVEAU'}`;
 
+// One blank row for the manual "Ajouter un ingrédient" form (Inventaires page) — same row shape as
+// a parsed import line, just empty, so it can reuse recomputeIngredientRowIssues and
+// buildStockProductsFromImportRows unchanged. rowNumber only matters for file-import error
+// messages ("Ligne N"), so it's irrelevant here and left at 0.
+export const createEmptyIngredientRow = (): ImportedIngredientRowDraft => ({
+  id: generateStockId('newingr'),
+  rowNumber: 0,
+  name: '',
+  category: '',
+  unit: '',
+  sku: '',
+  minThreshold: '0',
+  targetStock: '0',
+  lotTracked: false,
+  averageCost: '',
+  reserveQty: '0',
+  depotQty: '0',
+  issues: [],
+});
+
 const parseIngredientImportRow = (
   get: (key: string) => string,
   rowNumber: number,

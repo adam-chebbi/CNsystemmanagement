@@ -128,6 +128,18 @@ export const generateStockId = (prefix: string): string => {
   return `${prefix}-${idCounter}-${Date.now().toString(36)}`;
 };
 
+// Le numéro de lot est un champ optionnel dans tous les formulaires (l'utilisateur n'a pas
+// toujours cette information sous la main) — mais la table stock_lots l'exige en base (traçabilité
+// des lots), donc quand il est laissé vide on en génère un automatiquement à partir de la date du
+// jour, plutôt que de bloquer la saisie.
+export const generateAutoLotNumber = (): string => {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, '0');
+  const d = String(now.getDate()).padStart(2, '0');
+  return `AUTO-${y}${m}${d}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
+};
+
 // --- Read helpers -----------------------------------------------------------------
 
 export const getZoneQty = (product: StockProduct, zone: StockZone): number =>

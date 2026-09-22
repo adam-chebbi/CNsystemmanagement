@@ -581,20 +581,6 @@ export const ExpensesPage: React.FC<ExpensesPageProps> = ({
                   <button onClick={handleCloseForm} className="p-1 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 cursor-pointer"><X size={16} /></button>
                 </div>
 
-                <div className="flex items-center border border-gray-200 dark:border-gray-700 rounded-lg p-0.5 bg-gray-50/50 dark:bg-gray-800/50 w-fit">
-                  {EXPENSE_NATURES.map((n) => (
-                    <button
-                      key={n}
-                      onClick={() => updateDraft({ nature: n })}
-                      className={`px-3.5 py-1.5 text-xs font-semibold rounded-md transition cursor-pointer ${
-                        draft.nature === n ? 'bg-[#00A86B] text-white shadow-xs' : 'text-gray-600 dark:text-gray-300 hover:bg-white dark:hover:bg-gray-700'
-                      }`}
-                    >
-                      {n === 'Fixe' ? 'Dépense fixe' : 'Dépense variable'}
-                    </button>
-                  ))}
-                </div>
-
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                   <div className="sm:col-span-2">
                     <label className={labelClass}>Titre / Objet *</label>

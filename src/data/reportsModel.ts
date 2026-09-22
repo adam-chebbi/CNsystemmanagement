@@ -24,7 +24,7 @@ import {
   isInvoiceDueSoon,
   isInvoiceOverdue,
 } from './purchasesModel';
-import { Employee, FinancialRecord, computeNetDue, getEmployeeFullName } from './hrModel';
+import { Employee, FinancialRecord, computeGrossCost, getEmployeeFullName } from './hrModel';
 
 // --- Period model (calendar month, matching the "monthly management indicators" framing) ------
 
@@ -326,7 +326,10 @@ export interface PersonnelCostMetrics {
 export const computePersonnelCost = (financialRecords: FinancialRecord[], period: ReportPeriod): PersonnelCostMetrics => {
   const inPeriod = financialRecords.filter((r) => r.periodMonthIndex === period.monthIndex && r.periodYear === period.year);
   return {
-    total: inPeriod.reduce((s, r) => s + computeNetDue(r), 0),
+    // Total cost of employing the staff this period — an avance is the same money paid early, not
+    // an extra or reduced charge, so this uses the gross cost (unaffected by advances), not the net
+    // amount still owed (computeNetDue), which would understate personnel cost / overstate margin.
+    total: inPeriod.reduce((s, r) => s + computeGrossCost(r), 0),
     paid: inPeriod.reduce((s, r) => s + r.amountPaid, 0),
     recordCount: inPeriod.length,
   };

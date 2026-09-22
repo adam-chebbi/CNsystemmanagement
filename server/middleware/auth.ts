@@ -124,3 +124,20 @@ export const requirePermission = (key: string) => (req: Request, _res: Response,
   }
   throw new ApiError(403, "Vous n'avez pas la permission d'effectuer cette action.");
 };
+
+// Same as requirePermission, but passes if the user holds ANY of the given keys. Used on read-only
+// reference/lookup endpoints (product catalog, stock units, employee & shift names...) that more
+// than one module's own :view permission legitimately needs — e.g. "Compte Saisie" only has
+// sales:create, but the manual sales entry form still has to read the product catalog and the
+// employee/shift lists to populate its pickers. Without this, a role scoped to exactly one
+// operational permission would see every dependent dropdown empty. Mutations stay behind the
+// single, narrow requirePermission(key) for their own module — only reads are relaxed this way.
+export const requireAnyPermission = (...keys: string[]) => (req: Request, _res: Response, next: NextFunction): void => {
+  const user = req.user;
+  if (!user) throw new ApiError(401, 'Authentification requise.');
+  if (user.isSuperAdmin || keys.some((key) => user.permissions.includes(key))) {
+    next();
+    return;
+  }
+  throw new ApiError(403, "Vous n'avez pas la permission d'effectuer cette action.");
+};

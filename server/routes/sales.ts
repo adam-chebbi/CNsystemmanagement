@@ -6,12 +6,11 @@ import { asyncHandler, ApiError, notFound } from '../middleware/errors.js';
 import { requireAuth, requirePermission } from '../middleware/auth.js';
 import { recordActivity } from '../lib/activity.js';
 import type { SaleItem, SaleTransaction } from '../../src/data/salesTransactions.js';
-import { DEFAULT_VAT_RATE, type CatalogArticle } from '../../src/data/manualSalesCatalog.js';
+import type { CatalogArticle } from '../../src/data/manualSalesCatalog.js';
 import { accumulateRecipeConsumption } from '../../src/data/productsModel.js';
 import { normalizeKey } from '../../src/data/textUtils.js';
 import { getAllArticlesRaw, getAllSubRecipesRaw } from './productCatalog.js';
 import { getAllProducts, postEntries, cancelLedgerEntryById, getLedgerEntryIdsBySource, type LedgerEntryInput } from './stock.js';
-import { recordAutoExpense } from '../lib/expenses.js';
 
 interface SaleRow {
   id: number; sale_number: string; service_type: string; table_or_area: string; items: string;
@@ -108,49 +107,12 @@ const deductStockForSale = (items: SaleItem[], performedBy: string, saleId: numb
   if (inputs.length > 0) postEntries(inputs);
 };
 
-// Every paid sale automatically logs its VAT as an expense under a "Taxes et frais" category,
-// created on first use if it doesn't already exist (e.g. after a full data wipe that emptied
-// expense_categories, or on an install that never seeded the default categories). This mirrors
-// the collected-VAT figure already shown in Rapports → Rapport fiscal, but as an actual expense
-// row so it shows up in Gestion des dépenses without any manual entry.
-const TAXES_ET_FRAIS_CATEGORY_NAME = 'Taxes et frais';
-
-const computeSaleTaxAmount = (items: SaleItem[]): number =>
-  items.reduce((sum, item) => {
-    const rate = item.vatRate ?? DEFAULT_VAT_RATE;
-    const gross = item.qty * item.price;
-    const net = item.netAmount ?? gross / (1 + rate);
-    const tax = item.taxAmount ?? gross - net;
-    return sum + tax;
-  }, 0);
-
-// Expense.paymentMethod has no "Ticket resto" option (that one only exists on the sales side) —
-// fold it into Espèces, the closest cash-equivalent settlement method.
-const mapSalePaymentMethodToExpense = (method: SaleTransaction['paymentMethod']): 'Espèces' | 'Carte bancaire' =>
-  method === 'Carte bancaire' ? 'Carte bancaire' : 'Espèces';
-
-const recordTaxExpenseForSale = (
-  t: Pick<SaleTransaction, 'saleNumber' | 'date' | 'paymentMethod' | 'items'>,
-  performedBy: string,
-  saleId: number
-): void => {
-  const taxAmount = computeSaleTaxAmount(t.items);
-  recordAutoExpense({
-    title: `TVA collectée — Vente ${t.saleNumber}`,
-    amount: taxAmount,
-    date: t.date,
-    categoryName: TAXES_ET_FRAIS_CATEGORY_NAME,
-    paymentMethod: mapSalePaymentMethodToExpense(t.paymentMethod),
-    comment: `Généré automatiquement à partir de la vente ${t.saleNumber}.`,
-    sourceType: 'sale_vat',
-    sourceId: String(saleId),
-    performedBy,
-  });
-};
-
-// Reverses everything a sale's automatic side effects did: cancels every stock ledger entry it
-// generated (re-adding the consumed ingredients back to stock) and rejects the auto-created VAT
-// expense (kept, not deleted, so the audit trail shows it was reversed rather than never existing).
+// Sales used to auto-log their VAT as a "Taxes et frais" expense on every paid sale — removed: it
+// duplicated the same figure already shown, informationally, in Calcul du quotidien (analyse
+// comptable HT/TVA) and Rapport fiscal, and cluttered Gestion des dépenses with entries the user
+// never entered themselves. reverseSaleSideEffects still rejects any such row left over from
+// before this change, on refund, so historical data stays consistent; see also the one-off cleanup
+// in server/db/migrations (removes existing sale_vat rows).
 const reverseSaleSideEffects = (saleId: number, performedBy: string, saleNumber: string): void => {
   getLedgerEntryIdsBySource('sale', String(saleId)).forEach((ledgerId) => {
     cancelLedgerEntryById(ledgerId, performedBy, `Remboursement de la vente ${saleNumber}`);
@@ -196,7 +158,9 @@ salesRouter.post('/transactions', requirePermission('sales:create'), asyncHandle
       });
       if (t.status === 'Payé') {
         deductStockForSale(t.items, req.user!.fullName, id);
-        recordTaxExpenseForSale(t, req.user!.fullName, id);
+        // No auto "TVA collectée" expense is recorded any more — it duplicated the same figure
+        // already shown, informationally, in Calcul du quotidien and Rapport fiscal, and cluttered
+        // Gestion des dépenses with entries the user never entered themselves.
       }
       created.push({ ...t, id });
     }

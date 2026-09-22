@@ -7,6 +7,7 @@ import {
   StockLot,
   StockLedgerEntry,
   generateStockId,
+  generateAutoLotNumber,
   getZoneQty,
   resolveStockProductByName,
   resolveStockUnitByName,
@@ -110,7 +111,8 @@ const validateStockImportRow = (
       issues.push({ field: 'zone', value: '', message: `${label} — Zone : obligatoire lorsqu'une quantité est renseignée.` });
     }
     if (product?.lotTracked) {
-      if (!row.lotNumber.trim()) issues.push({ field: 'lot', value: row.lotNumber, message: `${label} — Lot : obligatoire pour ce produit.` });
+      // Le numéro de lot reste optionnel même pour un produit à gestion par lot : laissé vide, un
+      // numéro est généré automatiquement à l'import (voir generateAutoLotNumber côté application).
       if (!row.expiryDate.trim()) {
         issues.push({ field: 'date_peremption', value: row.expiryDate, message: `${label} — Péremption : obligatoire pour ce produit.` });
       } else if (!parseDateFlexible(row.expiryDate)) {
@@ -285,11 +287,13 @@ export const buildStockOperationsFromRows = (
       const qty = parseDecimalCell(row.quantity);
       const before = getZoneQty(product, row.zone);
       let lotId: string | undefined;
+      let lotNumberUsed: string | undefined;
       if (product.lotTracked) {
+        const lotNumber = row.lotNumber.trim() || generateAutoLotNumber();
         const newLot: StockLot = {
           id: generateStockId('lot'),
           productId: product.id,
-          lotNumber: row.lotNumber,
+          lotNumber,
           zone: row.zone,
           quantity: qty,
           expiryDate: row.expiryDate,
@@ -297,6 +301,7 @@ export const buildStockOperationsFromRows = (
         };
         lotUpserts.push(newLot);
         lotId = newLot.id;
+        lotNumberUsed = lotNumber;
       }
       ledgerEntries.push({
         id: generateStockId('led'),
@@ -310,7 +315,7 @@ export const buildStockOperationsFromRows = (
         reason: 'Import Excel/CSV',
         comment: `Ligne ${row.rowNumber} du fichier importé`,
         lotId,
-        lotNumber: product.lotTracked ? row.lotNumber : undefined,
+        lotNumber: lotNumberUsed,
         expiryDate: product.lotTracked ? row.expiryDate : undefined,
         performedBy,
         status: 'Confirmé',

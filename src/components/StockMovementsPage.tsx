@@ -26,6 +26,7 @@ import {
   StockLedgerEntry,
   STOCK_ZONES,
   generateStockId,
+  generateAutoLotNumber,
   getZoneQty,
 } from '../data/stockModel';
 
@@ -149,7 +150,8 @@ export const StockMovementsPage: React.FC<StockMovementsPageProps> = ({
 
     if (product?.lotTracked) {
       if (form.operationKind === 'Entrée') {
-        if (!form.lotNumber.trim()) list.push({ field: 'lotNumber', message: 'Le numéro de lot est obligatoire pour ce produit.' });
+        // Le numéro de lot reste optionnel (voir generateAutoLotNumber) : s'il est laissé vide, un
+        // numéro est généré automatiquement à l'enregistrement plutôt que de bloquer la saisie.
         if (!form.expiryDate) list.push({ field: 'expiryDate', message: 'La date de péremption est obligatoire pour ce produit.' });
       } else if (!form.lotId) {
         list.push({ field: 'lotId', message: 'Veuillez sélectionner le lot concerné pour ce produit.' });
@@ -182,11 +184,13 @@ export const StockMovementsPage: React.FC<StockMovementsPageProps> = ({
       if (form.operationKind === 'Entrée') {
         const before = getZoneQty(product, form.zone);
         let lotId: string | undefined;
+        let lotNumberUsedForEntry: string | undefined;
         if (product.lotTracked) {
+          const lotNumber = form.lotNumber.trim() || generateAutoLotNumber();
           const newLot: StockLot = {
             id: generateStockId('lot'),
             productId: product.id,
-            lotNumber: form.lotNumber.trim(),
+            lotNumber,
             zone: form.zone,
             quantity: qty,
             expiryDate: form.expiryDate,
@@ -194,6 +198,7 @@ export const StockMovementsPage: React.FC<StockMovementsPageProps> = ({
           };
           lotChanges.push(newLot);
           lotId = newLot.id;
+          lotNumberUsedForEntry = lotNumber;
         }
         entries = [
           {
@@ -208,7 +213,7 @@ export const StockMovementsPage: React.FC<StockMovementsPageProps> = ({
             reason: form.reason.trim(),
             comment: form.comment.trim() || undefined,
             lotId,
-            lotNumber: product.lotTracked ? form.lotNumber.trim() : undefined,
+            lotNumber: lotNumberUsedForEntry,
             expiryDate: product.lotTracked ? form.expiryDate : undefined,
             performedBy: form.performedBy,
             status: 'Confirmé',
@@ -701,17 +706,14 @@ export const StockMovementsPage: React.FC<StockMovementsPageProps> = ({
                 {product?.lotTracked && form.operationKind === 'Entrée' && (
                   <>
                     <div>
-                      <label className={labelClass}>Numéro de lot *</label>
+                      <label className={labelClass}>Numéro de lot (optionnel)</label>
                       <input
                         type="text"
                         value={form.lotNumber}
                         onChange={(e) => updateForm({ lotNumber: e.target.value })}
-                        placeholder="Ex: ETH-2026-016"
-                        className={`${inputBaseClass} ${showErrors && issuesByField.has('lotNumber') ? inputErrorClass : inputValidClass}`}
+                        placeholder="Ex: ETH-2026-016 — laissez vide pour générer automatiquement"
+                        className={`${inputBaseClass} ${inputValidClass}`}
                       />
-                      {showErrors && issuesByField.get('lotNumber') && (
-                        <p className="text-[11px] text-red-500 mt-1 flex items-center gap-1"><AlertCircle size={11} /> {issuesByField.get('lotNumber')}</p>
-                      )}
                     </div>
                     <div>
                       <label className={labelClass}>Date de péremption *</label>

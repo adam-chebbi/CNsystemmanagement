@@ -4,7 +4,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { db } from '../db/connection.js';
 import { asyncHandler, ApiError, notFound } from '../middleware/errors.js';
-import { requireAuth, requirePermission } from '../middleware/auth.js';
+import { requireAuth, requirePermission, requireAnyPermission } from '../middleware/auth.js';
 import { recordActivity } from '../lib/activity.js';
 import {
   applyLedgerEntries,
@@ -215,7 +215,7 @@ stockRouter.use(requireAuth);
 
 const unitSchema = z.object({ name: z.string().trim().min(1) });
 
-stockRouter.get('/units', requirePermission('stock:view'), asyncHandler((_req, res) => {
+stockRouter.get('/units', requireAnyPermission('stock:view', 'stock:manage', 'stock:inventory', 'products:manage', 'sales:create'), asyncHandler((_req, res) => {
   res.json((db.prepare('SELECT * FROM stock_units ORDER BY created_at ASC').all() as UnitRow[]).map(rowToUnit));
 }));
 
@@ -267,7 +267,7 @@ const productSchema = z.object({
   depotQty: z.number(),
 });
 
-stockRouter.get('/products', requirePermission('stock:view'), asyncHandler((_req, res) => {
+stockRouter.get('/products', requireAnyPermission('stock:view', 'stock:manage', 'stock:inventory', 'products:manage', 'sales:create'), asyncHandler((_req, res) => {
   res.json(getAllProducts());
 }));
 
@@ -309,13 +309,13 @@ stockRouter.put('/products/:id', requirePermission('stock:manage'), asyncHandler
 
 // --- Lots (read-only via API; mutated only through ledger postings) ----------------------------
 
-stockRouter.get('/lots', requirePermission('stock:view'), asyncHandler((_req, res) => {
+stockRouter.get('/lots', requireAnyPermission('stock:view', 'stock:manage', 'stock:inventory'), asyncHandler((_req, res) => {
   res.json(getAllLots());
 }));
 
 // --- Ledger ----------------------------------------------------------------------------------
 
-stockRouter.get('/ledger', requirePermission('stock:view'), asyncHandler((_req, res) => {
+stockRouter.get('/ledger', requireAnyPermission('stock:view', 'stock:manage', 'stock:inventory'), asyncHandler((_req, res) => {
   const rows = db.prepare('SELECT * FROM stock_ledger ORDER BY timestamp DESC').all() as LedgerRow[];
   res.json(rows.map(rowToLedger));
 }));

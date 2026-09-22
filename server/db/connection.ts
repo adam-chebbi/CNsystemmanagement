@@ -121,3 +121,10 @@ if (passwordlessUsers.length > 0) {
   const now = new Date().toISOString();
   passwordlessUsers.forEach((u) => setTempPassword.run(hashPassword(u.cin), now, u.id));
 }
+
+// One-time cleanup: sales no longer auto-generate a "TVA collectée" expense on every paid sale
+// (see server/routes/sales.ts) — it duplicated the same figure already shown, informationally, in
+// Calcul du quotidien and Rapport fiscal, and cluttered Gestion des dépenses with entries the user
+// never entered. Removes any such row a database created before this change; idempotent (deletes
+// zero rows once none are left) so it's safe to run on every boot rather than needing a version flag.
+db.exec("DELETE FROM expenses WHERE source_type = 'sale_vat'");

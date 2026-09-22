@@ -111,7 +111,10 @@ export const createEmptyDraftExpense = (): DraftExpense => ({
   amount: '',
   date: todayIso(),
   categoryId: '',
-  nature: 'Variable',
+  // "Nouvelle dépense" no longer offers a Fixe/Variable choice (see ExpensesPage) — every manually
+  // entered expense is now recorded as Fixe. 'Variable' stays a valid value on ExpenseNature only
+  // for historical rows entered before this change, still shown/filterable in the list.
+  nature: 'Fixe',
   recurrence: 'Ponctuelle',
   paymentMethod: '',
   comment: '',

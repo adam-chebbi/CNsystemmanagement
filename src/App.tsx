@@ -246,6 +246,20 @@ export default function App() {
     const fetchIfAllowed = <T,>(permission: string, fetcher: () => Promise<T>, fallback: T): Promise<T> =>
       hasPermission(permission) ? fetcher() : Promise.resolve(fallback);
 
+    // Same idea as fetchIfAllowed, but for read-only reference/lookup data that more than one
+    // module's own :view permission legitimately needs to populate its pickers (product catalog,
+    // stock units, employee & shift names...) — mirrors the OR-of-permissions the matching GET
+    // route accepts server-side (requireAnyPermission, see server/routes/*.ts). Without this, a
+    // role scoped to a single operational permission (e.g. "Compte Saisie" with only sales:create)
+    // would see every dependent dropdown (products, shifts, employee names) empty.
+    const fetchIfAnyAllowed = <T,>(permissions: string[], fetcher: () => Promise<T>, fallback: T): Promise<T> =>
+      permissions.some((p) => hasPermission(p)) ? fetcher() : Promise.resolve(fallback);
+
+    const PRODUCTS_READ_PERMS = ['products:view', 'products:manage', 'sales:create', 'sales:view', 'stock:inventory', 'stock:manage', 'purchases:create', 'purchases:edit'];
+    const STOCK_REF_READ_PERMS = ['stock:view', 'stock:manage', 'stock:inventory', 'products:manage', 'sales:create'];
+    const STOCK_LOTS_READ_PERMS = ['stock:view', 'stock:manage', 'stock:inventory'];
+    const HR_REF_READ_PERMS = ['hr:view', 'hr:manage', 'hr:financial', 'sales:create', 'sales:view'];
+
     const [
       categories, subCategories, extras, articles, subRecipesRes,
       units, products, lots, ledger,
@@ -255,15 +269,15 @@ export default function App() {
       employees, shifts, dayRecords, recurringPlans, financialRecords,
       treated, log, monthlyTargets, cashVerificationsRes, revenueEntriesRes, settingsRes,
     ] = await Promise.all([
-      fetchIfAllowed('products:view', () => productCatalogApi.getProductCategories(), []),
-      fetchIfAllowed('products:view', () => productCatalogApi.getProductSubCategories(), []),
-      fetchIfAllowed('products:view', () => productCatalogApi.getCatalogExtras(), []),
-      fetchIfAllowed('products:view', () => productCatalogApi.getCatalogArticles(), []),
-      fetchIfAllowed('products:view', () => productCatalogApi.getSubRecipes(), []),
-      fetchIfAllowed('stock:view', () => stockApi.getStockUnits(), []),
-      fetchIfAllowed('stock:view', () => stockApi.getStockProducts(), []),
-      fetchIfAllowed('stock:view', () => stockApi.getStockLots(), []),
-      fetchIfAllowed('stock:view', () => stockApi.getStockLedger(), []),
+      fetchIfAnyAllowed(PRODUCTS_READ_PERMS, () => productCatalogApi.getProductCategories(), []),
+      fetchIfAnyAllowed(PRODUCTS_READ_PERMS, () => productCatalogApi.getProductSubCategories(), []),
+      fetchIfAnyAllowed(PRODUCTS_READ_PERMS, () => productCatalogApi.getCatalogExtras(), []),
+      fetchIfAnyAllowed(PRODUCTS_READ_PERMS, () => productCatalogApi.getCatalogArticles(), []),
+      fetchIfAnyAllowed(PRODUCTS_READ_PERMS, () => productCatalogApi.getSubRecipes(), []),
+      fetchIfAnyAllowed(STOCK_REF_READ_PERMS, () => stockApi.getStockUnits(), []),
+      fetchIfAnyAllowed(STOCK_REF_READ_PERMS, () => stockApi.getStockProducts(), []),
+      fetchIfAnyAllowed(STOCK_LOTS_READ_PERMS, () => stockApi.getStockLots(), []),
+      fetchIfAnyAllowed(STOCK_LOTS_READ_PERMS, () => stockApi.getStockLedger(), []),
       fetchIfAllowed('sales:view', () => salesApi.getSalesTransactions(), []),
       fetchIfAllowed('expenses:view', () => expensesApi.getExpenseCategories(), []),
       fetchIfAllowed('expenses:view', () => expensesApi.getExpenses(), []),
@@ -272,8 +286,8 @@ export default function App() {
       fetchIfAllowed('purchases:view', () => purchasesApi.getPurchaseReceptions(), []),
       fetchIfAllowed('purchases:view', () => purchasesApi.getSupplierInvoices(), []),
       fetchIfAllowed('purchases:view', () => purchasesApi.getProductAliases(), []),
-      fetchIfAllowed('hr:view', () => hrApi.getEmployees(), []),
-      fetchIfAllowed('hr:view', () => hrApi.getShifts(), []),
+      fetchIfAnyAllowed(HR_REF_READ_PERMS, () => hrApi.getEmployees(), []),
+      fetchIfAnyAllowed(HR_REF_READ_PERMS, () => hrApi.getShifts(), []),
       fetchIfAllowed('hr:view', () => hrApi.getDayRecords(), []),
       fetchIfAllowed('hr:view', () => hrApi.getRecurringPlans(), []),
       fetchIfAllowed('hr:financial', () => hrApi.getFinancialRecords(), []),
@@ -1079,6 +1093,7 @@ export default function App() {
                 <StockInventoryPage
                   isDarkMode={isDarkMode}
                   products={stockProducts}
+                  units={stockUnits}
                   ledger={stockLedger}
                   employees={employeeFullNames}
                   onNavigateToDashboard={() => {
@@ -1087,6 +1102,7 @@ export default function App() {
                   }}
                   onNavigateToStock={() => setActiveSubItem('stock_overview')}
                   onPostEntries={handlePostStockEntries}
+                  onImportIngredients={handleImportIngredients}
                 />
               </Suspense>
             ) : activeTab === 'stock' && activeSubItem === 'stock_losses' ? (
@@ -1202,6 +1218,7 @@ export default function App() {
                   }}
                   onCreateProduct={handleCreateProduct}
                   onUpdateProduct={handleUpdateProduct}
+                  onCreateExtra={handleCreateExtra}
                 />
               </Suspense>
             ) : activeTab === 'products_recipes_mgmt' && activeSubItem === 'prm_subrecipes' ? (

@@ -14,8 +14,12 @@ import {
   X,
   PanelLeft,
   ChefHat,
+  ShieldCheck,
+  Settings,
+  LogOut,
 } from 'lucide-react';
 import { useAuth } from '../auth/AuthContext';
+import { MANAGE_ROLES_PERMISSION } from '../data/rbacModel';
 
 interface SubMenuItem {
   id: string;
@@ -63,7 +67,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   activeSubItem: propActiveSubItem,
   setActiveSubItem: propSetActiveSubItem,
 }) => {
-  const { hasPermission } = useAuth();
+  const { hasPermission, logout, user } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
   // No section is force-open by default — a section only expands because the user toggled it, or
   // because it's the one currently active (see isMenuOpen below), never as a hardcoded default.
@@ -511,6 +515,67 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   </ul>
                 </div>
               ))}
+            </div>
+
+            {/* Account menu — on desktop this lives in the Header's profile dropdown (top right),
+                but that trigger has no visible label/icon below the sm breakpoint, so on phones
+                and small tablets it's effectively unreachable. Surfaced here instead, pinned to
+                the bottom of the mobile drawer (lg:hidden — desktop keeps only the Header menu). */}
+            <div className="lg:hidden border-t border-gray-100 dark:border-gray-800 p-2.5 space-y-0.5 shrink-0">
+              {user?.fullName && (
+                <p className="px-2 pb-1.5 text-xs font-semibold text-gray-800 dark:text-gray-200 truncate">
+                  {user.fullName}
+                </p>
+              )}
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveTab('account_sessions');
+                  setActiveSubItem('');
+                  if (onClose) onClose();
+                }}
+                className="w-full flex items-center gap-2 px-2 py-1.5 text-xs text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800/60 rounded-lg cursor-pointer"
+              >
+                <ShieldCheck size={14} className="text-gray-400 shrink-0" />
+                Sessions &amp; appareils
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveTab('settings');
+                  setActiveSubItem('');
+                  if (onClose) onClose();
+                }}
+                className="w-full flex items-center gap-2 px-2 py-1.5 text-xs text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800/60 rounded-lg cursor-pointer"
+              >
+                <Settings size={14} className="text-gray-400 shrink-0" />
+                Paramètres
+              </button>
+              {hasPermission(MANAGE_ROLES_PERMISSION) && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveTab('roles_permissions');
+                    setActiveSubItem('');
+                    if (onClose) onClose();
+                  }}
+                  className="w-full flex items-center gap-2 px-2 py-1.5 text-xs text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800/60 rounded-lg cursor-pointer"
+                >
+                  <Users size={14} className="text-gray-400 shrink-0" />
+                  Rôles &amp; permissions
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => {
+                  if (onClose) onClose();
+                  logout();
+                }}
+                className="w-full flex items-center gap-2 px-2 py-1.5 text-xs font-medium text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-lg cursor-pointer"
+              >
+                <LogOut size={14} className="shrink-0" />
+                Déconnexion
+              </button>
             </div>
           </>
         )}

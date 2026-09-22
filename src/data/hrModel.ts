@@ -381,10 +381,19 @@ export interface FinancialRecord {
   createdAt: string;
 }
 
-// The amount actually owed for the period — advances are tracked separately as a liquidity
-// figure (cash already handed out), not subtracted here, since a V1 monitoring tool should not
-// silently net figures a manager hasn't explicitly reconciled.
-export const computeNetDue = (r: Pick<FinancialRecord, 'baseSalary' | 'bonuses' | 'deductions'>): number => r.baseSalary + r.bonuses - r.deductions;
+// The amount still owed for the period. An avance is cash already handed to the employee ahead of
+// the normal payment — money the employee already received for this same period — so it reduces
+// what's left to pay just like a deduction does; it is not extra cost (see computeGrossCost below
+// for the total cost of employing them, which an avance does NOT reduce). Concretely: baseSalary
+// 1000, une avance de 200 en cours de mois → il reste 800 DT à payer, pas 1000.
+export const computeNetDue = (r: Pick<FinancialRecord, 'baseSalary' | 'bonuses' | 'deductions' | 'advances'>): number =>
+  r.baseSalary + r.bonuses - r.deductions - r.advances;
+
+// The full cost of employing them for the period, regardless of when each part was paid (advance
+// mid-month vs. the rest at month-end) — unlike computeNetDue, an avance does NOT reduce this: it's
+// the same money, paid early, not an additional charge.
+export const computeGrossCost = (r: Pick<FinancialRecord, 'baseSalary' | 'bonuses' | 'deductions'>): number =>
+  r.baseSalary + r.bonuses - r.deductions;
 
 export const computeFinancialStatus = (r: FinancialRecord): PaymentStatus => {
   const due = computeNetDue(r);

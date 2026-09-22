@@ -428,12 +428,13 @@ export const StockMovementsImportForm: React.FC<StockMovementsImportFormProps> =
                   {product?.lotTracked && row.quantity.trim() !== '' && (
                     <>
                       <div>
-                        <label className={labelClass}>Numéro de lot *</label>
+                        <label className={labelClass}>Numéro de lot (optionnel)</label>
                         <input
                           type="text"
                           value={row.lotNumber}
                           onChange={(e) => updateRow(row.id, { lotNumber: e.target.value })}
-                          className={`${inputBaseClass} ${fieldsWithError.has('lot') ? inputErrorClass : inputValidClass}`}
+                          placeholder="Laissez vide pour générer automatiquement"
+                          className={`${inputBaseClass} ${inputValidClass}`}
                         />
                       </div>
                       <div>

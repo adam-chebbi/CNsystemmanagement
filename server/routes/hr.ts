@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { db } from '../db/connection.js';
 import { fromJson, toJson } from '../db/json.js';
 import { asyncHandler, ApiError, notFound } from '../middleware/errors.js';
-import { requireAuth, requirePermission } from '../middleware/auth.js';
+import { requireAuth, requirePermission, requireAnyPermission } from '../middleware/auth.js';
 import { recordActivity } from '../lib/activity.js';
 import {
   MAX_SHIFTS,
@@ -78,7 +78,7 @@ const employeeSchema = z.object({
   cinDocument: z.object({ name: z.string(), mimeType: z.string(), dataUrl: z.string() }).optional(),
 });
 
-hrRouter.get('/employees', requirePermission('hr:view'), asyncHandler((_req, res) => res.json(getAllEmployees())));
+hrRouter.get('/employees', requireAnyPermission('hr:view', 'hr:manage', 'hr:financial', 'sales:create', 'sales:view'), asyncHandler((_req, res) => res.json(getAllEmployees())));
 
 hrRouter.post('/employees', requirePermission('hr:manage'), asyncHandler((req, res) => {
   const body = employeeSchema.parse(req.body);
@@ -129,7 +129,7 @@ hrRouter.delete('/employees/:id', requirePermission('hr:manage'), asyncHandler((
 
 const shiftSchema = z.object({ name: z.string().trim().min(1), startTime: z.string().min(1), endTime: z.string().min(1), description: z.string().optional() });
 
-hrRouter.get('/shifts', requirePermission('hr:view'), asyncHandler((_req, res) => res.json(getAllShifts())));
+hrRouter.get('/shifts', requireAnyPermission('hr:view', 'hr:manage', 'hr:financial', 'sales:create', 'sales:view'), asyncHandler((_req, res) => res.json(getAllShifts())));
 
 hrRouter.post('/shifts', requirePermission('hr:manage'), asyncHandler((req, res) => {
   const body = shiftSchema.parse(req.body);

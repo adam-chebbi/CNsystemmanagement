@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import {
   StockProduct,
+  StockUnit,
   StockZone,
   StockCategory,
   StockLedgerEntry,
@@ -26,19 +27,22 @@ import {
   getTotalQty,
 } from '../data/stockModel';
 import { InventoryImportForm } from './InventoryImportForm';
+import { IngredientManualAddForm } from './IngredientManualAddForm';
 
 interface StockInventoryPageProps {
   products: StockProduct[];
+  units: StockUnit[];
   ledger: StockLedgerEntry[];
   employees: string[];
   onNavigateToDashboard: () => void;
   onNavigateToStock: () => void;
   onPostEntries: (entries: StockLedgerEntry[]) => void;
+  onImportIngredients: (products: Omit<StockProduct, 'id'>[]) => void;
   isDarkMode?: boolean;
 }
 
 type Step = 'setup' | 'counting' | 'preview' | 'success';
-type Mode = 'manual' | 'import';
+type Mode = 'manual' | 'import' | 'add-ingredient';
 
 interface InventoryFormState {
   scopeType: InventoryScopeType;
@@ -68,11 +72,13 @@ const secondaryButtonClass =
 
 export const StockInventoryPage: React.FC<StockInventoryPageProps> = ({
   products,
+  units,
   ledger,
   employees,
   onNavigateToDashboard,
   onNavigateToStock,
   onPostEntries,
+  onImportIngredients,
 }) => {
   const [mode, setMode] = useState<Mode>('manual');
   const [step, setStep] = useState<Step>('setup');
@@ -219,10 +225,12 @@ export const StockInventoryPage: React.FC<StockInventoryPageProps> = ({
               <span>Import Excel/CSV</span>
             </button>
           )}
-          <button onClick={onNavigateToStock} className={secondaryButtonClass}>
-            <History size={14} className="text-gray-500 dark:text-gray-400" />
-            <span>Voir le stock</span>
-          </button>
+          {mode !== 'add-ingredient' && (
+            <button onClick={() => setMode('add-ingredient')} className={secondaryButtonClass}>
+              <Plus size={14} className="text-gray-500 dark:text-gray-400" />
+              <span>Ajout inventaire ou ingrédient</span>
+            </button>
+          )}
           <button
             onClick={onNavigateToDashboard}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-emerald-300 dark:border-emerald-700/80 bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 text-xs font-semibold text-emerald-700 dark:text-emerald-300 transition active:scale-98 cursor-pointer"
@@ -232,7 +240,14 @@ export const StockInventoryPage: React.FC<StockInventoryPageProps> = ({
         </div>
       </div>
 
-      {mode === 'import' ? (
+      {mode === 'add-ingredient' ? (
+        <IngredientManualAddForm
+          products={products}
+          units={units}
+          onImportIngredients={onImportIngredients}
+          onClose={() => setMode('manual')}
+        />
+      ) : mode === 'import' ? (
         <InventoryImportForm
           products={products}
           employees={employees}

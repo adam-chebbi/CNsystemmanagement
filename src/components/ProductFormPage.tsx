@@ -1,5 +1,5 @@
 import { DecimalInput } from './ui/DecimalInput';
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useUnsavedWorkGuard } from '../hooks/useUnsavedWorkGuard';
 import {
   Package,
@@ -52,6 +52,10 @@ interface ProductFormPageProps {
   onNavigateToProducts: () => void;
   onCreateProduct: (article: CatalogArticle) => void;
   onUpdateProduct: (article: CatalogArticle) => void;
+  // Optional: lets this page create a brand-new catalog extra inline (name + prix), instead of
+  // only picking among extras already created from Gestion des produits → Catalogue. The extras
+  // list itself always loads dynamically from the shared catalog (the `extras` prop above).
+  onCreateExtra?: (extra: Omit<CatalogExtra, 'id'>) => void | Promise<void>;
   isDarkMode?: boolean;
 }
 
@@ -81,6 +85,7 @@ export const ProductFormPage: React.FC<ProductFormPageProps> = ({
   onNavigateToProducts,
   onCreateProduct,
   onUpdateProduct,
+  onCreateExtra,
 }) => {
   const editingArticle = useMemo(() => articles.find((a) => a.id === editingArticleId) ?? null, [articles, editingArticleId]);
   const isEditMode = Boolean(editingArticle);
@@ -181,6 +186,50 @@ export const ProductFormPage: React.FC<ProductFormPageProps> = ({
   // --- Extras ---
   const toggleExtra = (extraId: string) =>
     updateDraft({ extraIds: draft.extraIds.includes(extraId) ? draft.extraIds.filter((id) => id !== extraId) : [...draft.extraIds, extraId] });
+
+  // Inline "nouvel extra" mini-form — creates a brand-new catalog extra (shared with every other
+  // product, same as one created from Gestion des produits → Catalogue) without leaving this page.
+  const [newExtraName, setNewExtraName] = useState('');
+  const [newExtraPrice, setNewExtraPrice] = useState('0');
+  const [isCreatingExtra, setIsCreatingExtra] = useState(false);
+  // Names awaiting their real id: the `extras` prop only grows once the parent refetches after
+  // onCreateExtra resolves, so this bridges that round-trip and auto-selects the extra for this
+  // product as soon as it actually appears in the (dynamically loaded) catalog.
+  const [pendingExtraNames, setPendingExtraNames] = useState<Set<string>>(new Set());
+  const prevExtraIdsRef = useRef<Set<string>>(new Set(extras.map((e) => e.id)));
+
+  useEffect(() => {
+    if (pendingExtraNames.size === 0) {
+      prevExtraIdsRef.current = new Set(extras.map((e) => e.id));
+      return;
+    }
+    const newlyAdded = extras.filter((e) => !prevExtraIdsRef.current.has(e.id) && pendingExtraNames.has(e.name.trim().toLowerCase()));
+    if (newlyAdded.length > 0) {
+      updateDraft({ extraIds: [...draft.extraIds, ...newlyAdded.map((e) => e.id)] });
+      setPendingExtraNames((prev) => {
+        const next = new Set(prev);
+        newlyAdded.forEach((e) => next.delete(e.name.trim().toLowerCase()));
+        return next;
+      });
+    }
+    prevExtraIdsRef.current = new Set(extras.map((e) => e.id));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [extras]);
+
+  const handleCreateExtraInline = async () => {
+    const name = newExtraName.trim();
+    if (!name || !onCreateExtra) return;
+    const price = Number(newExtraPrice) || 0;
+    setIsCreatingExtra(true);
+    try {
+      await onCreateExtra({ name, price });
+      setPendingExtraNames((prev) => new Set(prev).add(name.toLowerCase()));
+      setNewExtraName('');
+      setNewExtraPrice('0');
+    } finally {
+      setIsCreatingExtra(false);
+    }
+  };
 
   const handleVerify = () => {
     setHasAttemptedVerify(true);
@@ -656,15 +705,22 @@ export const ProductFormPage: React.FC<ProductFormPageProps> = ({
             <h2 className="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-2">
               <Layers size={16} className="text-emerald-500" /> Variantes
             </h2>
-            <p className="text-[11px] text-gray-400 -mt-2">Une variante représente une variation du produit (ex: taille). Optionnel.</p>
-            <div className="space-y-2">
+            <p className="text-[11px] text-gray-400 -mt-2">Une variante représente une variation du produit (ex: taille, format). Optionnel — le produit reste vendable sans aucune variante.</p>
+            <div className="space-y-3">
               {draft.variants.map((v) => (
-                <div key={v.id} className="flex items-center gap-2">
-                  <input type="text" value={v.label} onChange={(e) => updateVariant(v.id, { label: e.target.value })} placeholder="Nom de la variante (ex: Grande)" className={`${inputBaseClass} ${inputValidClass} flex-1`} />
-                  <DecimalInput step="any" value={v.priceDelta ?? 0} onChange={(e) => updateVariant(v.id, { priceDelta: Number(e.target.value) || 0 })} placeholder="+ Prix" className={`${inputBaseClass} ${inputValidClass} w-28`} />
-                  <button onClick={() => removeVariant(v.id)} className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40 cursor-pointer"><Trash2 size={14} /></button>
+                <div key={v.id} className="flex items-end gap-2">
+                  <div className="flex-1">
+                    <label className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 mb-1 block">Nom de la variante</label>
+                    <input type="text" value={v.label} onChange={(e) => updateVariant(v.id, { label: e.target.value })} placeholder="Ex: Grande, 33cl, Sans sucre…" className={`${inputBaseClass} ${inputValidClass}`} />
+                  </div>
+                  <div className="w-32 shrink-0">
+                    <label className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 mb-1 block">Supplément de prix (DT)</label>
+                    <DecimalInput step="any" value={v.priceDelta ?? 0} onChange={(e) => updateVariant(v.id, { priceDelta: Number(e.target.value) || 0 })} placeholder="0,00" className={`${inputBaseClass} ${inputValidClass}`} />
+                  </div>
+                  <button onClick={() => removeVariant(v.id)} title="Supprimer cette variante" className="p-2 mb-0.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40 cursor-pointer"><Trash2 size={14} /></button>
                 </div>
               ))}
+              {draft.variants.length === 0 && <p className="text-xs text-gray-400">Aucune variante ajoutée pour l'instant.</p>}
             </div>
             <button onClick={addVariant} className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 inline-flex items-center gap-1 cursor-pointer">
               <Plus size={13} /> Ajouter une variante
@@ -676,23 +732,70 @@ export const ProductFormPage: React.FC<ProductFormPageProps> = ({
             <h2 className="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-2">
               <Sparkles size={16} className="text-emerald-500" /> Extras / suppléments
             </h2>
-            <p className="text-[11px] text-gray-400 -mt-2">Un extra représente un ajout optionnel au produit. Optionnel.</p>
-            <div className="flex flex-wrap gap-1.5">
-              {extras.map((extra) => {
-                const selected = draft.extraIds.includes(extra.id);
-                return (
+            <p className="text-[11px] text-gray-400 -mt-2">
+              Un extra représente un ajout optionnel au produit (ex: chantilly, shot supplémentaire). Optionnel — cliquez pour
+              (dé)sélectionner ceux déjà créés dans le catalogue, ou créez-en un nouveau ci-dessous.
+            </p>
+            {extras.length > 0 ? (
+              <div>
+                <label className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 mb-1.5 block">Extras existants (catalogue)</label>
+                <div className="flex flex-wrap gap-1.5">
+                  {extras.map((extra) => {
+                    const selected = draft.extraIds.includes(extra.id);
+                    return (
+                      <button
+                        key={extra.id}
+                        onClick={() => toggleExtra(extra.id)}
+                        title={`${extra.name} — ${extra.price.toFixed(2)} DT`}
+                        className={`px-2.5 py-1 rounded-md text-[11px] font-medium border transition cursor-pointer ${
+                          selected ? 'bg-emerald-500 border-emerald-500 text-white' : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:border-emerald-300'
+                        }`}
+                      >
+                        {extra.name} <span className={selected ? 'text-white/80' : 'text-gray-400'}>· {extra.price.toFixed(2)} DT</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : (
+              <p className="text-xs text-gray-400">Aucun extra dans le catalogue pour l'instant — créez-en un ci-dessous.</p>
+            )}
+
+            {onCreateExtra && (
+              <div className="pt-3 border-t border-gray-100 dark:border-gray-800">
+                <label className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 mb-1.5 block">Créer un nouvel extra</label>
+                <div className="flex items-end gap-2">
+                  <div className="flex-1">
+                    <input
+                      type="text"
+                      value={newExtraName}
+                      onChange={(e) => setNewExtraName(e.target.value)}
+                      placeholder="Nom de l'extra (ex: Chantilly)"
+                      className={`${inputBaseClass} ${inputValidClass}`}
+                    />
+                  </div>
+                  <div className="w-28 shrink-0">
+                    <DecimalInput
+                      min={0}
+                      step="any"
+                      value={newExtraPrice}
+                      onChange={(e) => setNewExtraPrice(e.target.value)}
+                      placeholder="Prix (DT)"
+                      className={`${inputBaseClass} ${inputValidClass}`}
+                    />
+                  </div>
                   <button
-                    key={extra.id}
-                    onClick={() => toggleExtra(extra.id)}
-                    className={`px-2.5 py-1 rounded-md text-[11px] font-medium border transition cursor-pointer ${
-                      selected ? 'bg-emerald-500 border-emerald-500 text-white' : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:border-emerald-300'
-                    }`}
+                    onClick={handleCreateExtraInline}
+                    disabled={!newExtraName.trim() || isCreatingExtra}
+                    className={`${secondaryButtonClass} shrink-0`}
                   >
-                    {extra.name}
+                    {isCreatingExtra ? <Loader2 size={13} className="animate-spin" /> : <Plus size={13} />}
+                    <span>Ajouter</span>
                   </button>
-                );
-              })}
-            </div>
+                </div>
+                <p className="text-[10px] text-gray-400 mt-1">Le nouvel extra est ajouté au catalogue partagé et sélectionné automatiquement pour ce produit.</p>
+              </div>
+            )}
           </div>
 
           {/* Live margin preview */}
