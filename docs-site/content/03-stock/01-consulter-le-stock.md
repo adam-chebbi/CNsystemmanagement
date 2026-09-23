@@ -15,13 +15,16 @@ Menu **Stock → Stock**.
 
 La liste de tous les ingrédients suivis, avec pour chacun :
 
-- La **catégorie** (boissons, alimentaire, emballage...).
-- La **quantité disponible**, répartie par zone (par exemple Réserve principale / Dépôt).
-- Le **seuil minimum** et le **stock cible** définis pour ce produit.
-- Un indicateur visuel quand la quantité est en dessous du seuil minimum (produit à recommander).
+- La **catégorie** — Café & Boissons, Produits laitiers, Pâtisserie & Boulangerie, Emballages &
+  Consommables, Sirops & Additifs, ou Épicerie.
+- La **quantité disponible**, répartie entre les deux zones de stockage : **Réserve principale**
+  et **Dépôt**. Ce sont les deux seules zones existantes dans l'application — il n'y a pas de zone
+  supplémentaire à créer.
+- Le **seuil minimum** (en dessous duquel le produit est signalé "à recommander") et le **stock
+  cible** (le niveau à viser lors d'un réassort).
+- Un indicateur visuel quand la quantité est en dessous du seuil minimum.
 
-> 📸 **Capture d'écran à ajouter :** liste du stock avec un produit en alerte (sous le seuil)
-> surligné.
+![Liste du stock, avec les quantités par zone et les seuils](/screenshots/stock-liste-produits.png)
 
 ## Rechercher et filtrer
 
@@ -35,3 +38,4 @@ Cette page est uniquement une **vue de consultation**. Pour agir sur le stock :
 - [Ajouter un ingrédient ou faire un inventaire](/ajouter-un-ingredient-ou-faire-un-inventaire)
 - [Enregistrer un mouvement de stock](/enregistrer-un-mouvement-de-stock)
 - [Déclarer une perte ou un ajustement](/declarer-une-perte-ou-un-ajustement)
+- [Gérer les lots et dates de péremption](/gerer-les-lots-et-peremption)
