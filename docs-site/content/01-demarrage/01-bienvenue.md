@@ -1,52 +1,118 @@
 ---
-title: "Bienvenue dans le système Café Noir"
-description: "Vue d'ensemble de l'application : à quoi elle sert, comment elle est organisée, et où trouver de l'aide."
+title: "Vue d'ensemble du système Café Noir"
+description: "Ce qu'est le système, ce qu'il gère, comment ses différentes parties sont reliées entre elles, et ce qu'il apporte au café."
 category: "Démarrage"
 categoryIcon: "rocket"
 categoryOrder: 1
 order: 1
+featured: true
+featuredOrder: 1
 ---
 
-Le système Café Noir est l'outil que toute l'équipe utilise au quotidien pour gérer les ventes, le
-stock, les achats, les dépenses, le personnel et les rapports du café. Ce centre d'aide explique,
-étape par étape, comment faire chaque tâche courante.
+## Qu'est-ce que le système de gestion Café Noir ?
 
-## À qui s'adresse ce guide
+Le système de gestion Café Noir est la solution complète que toute l'équipe utilise au quotidien
+pour faire fonctionner le café : enregistrer les ventes, suivre le stock, gérer les achats auprès
+des fournisseurs, suivre les dépenses, gérer l'équipe, et obtenir une vue claire de la santé
+financière de l'établissement. Il remplace le besoin de tenir ces informations séparément (carnets,
+tableurs, mémoire) en les réunissant dans un seul outil, accessible depuis un ordinateur ou un
+téléphone.
 
-À toute personne qui utilise l'application : caissier(ère), gérant(e), comptable. Chaque article
-part du principe que vous êtes déjà connecté(e) et explique une seule tâche à la fois, avec les
-noms exacts des boutons et menus que vous voyez à l'écran.
+Son objectif est simple : que chaque personne de l'équipe — caissier(ère), gérant(e), comptable —
+sache toujours où en est le café, sans avoir à recouper des informations venues de partout.
 
-## Comment est organisée l'application
+## Que gère le système ?
 
-L'application est découpée en **modules**, accessibles depuis la barre latérale à gauche de
-l'écran (ou, sur téléphone, depuis le menu ☰ en haut à gauche) :
+Le système couvre l'ensemble des activités d'un café, du comptoir jusqu'à la comptabilité de
+gestion :
 
-- **Tableau de bord** — la page d'accueil : chiffres du jour, alertes, résumé rapide.
-- **Gestion des ventes** — saisir des ventes, faire le calcul du quotidien (caisse).
-- **Stock** — consulter le stock, faire des mouvements, des inventaires.
-- **Gestion des produits** — ajouter et modifier les produits vendus.
-- **Gestion des achats** — commandes, fournisseurs, factures.
-- **Gestion des dépenses** — les dépenses du café (loyer, électricité, fournitures...).
-- **Gestion du personnel** — les employés, le planning, les salaires.
-- **Rapports de gestion** — les statistiques et rapports.
-- **Paramètres** — les réglages généraux de l'application (réservé aux gérants).
+- **Les ventes** — chaque vente réalisée, qu'elle soit consommée sur place (avec un numéro de
+  table) ou à emporter, avec son mode de règlement.
+- **Les produits et leurs recettes** — la carte du café, avec pour chaque produit ce qu'il faut
+  pour le préparer et ce que ça coûte réellement.
+- **Le stock** — les quantités d'ingrédients disponibles, leur suivi par lot et date de
+  péremption, et les mouvements qui les font varier.
+- **Les achats et les fournisseurs** — les commandes passées, leur réception, et l'historique des
+  prix payés à chaque fournisseur.
+- **Les factures** — le suivi des factures reçues et de leur règlement.
+- **Les dépenses** — les charges du café (loyer, électricité, fournitures, etc.) et leur suivi.
+- **L'équipe** — les fiches employé, le planning, la présence, et le suivi financier (salaires,
+  avances, primes).
+- **Les rapports et la rentabilité** — une vue consolidée des ventes, achats, dépenses et marges,
+  pour suivre la santé financière du café dans le temps.
+- **La vitrine web et le menu numérique** — un site public qui présente le café et son menu aux
+  clients en ligne, alimenté directement par les produits gérés dans le système.
 
-![Tableau de bord, la page d'accueil de l'application](/screenshots/dashboard-tableau-de-bord.png)
+## Les modules principaux du système
 
-## Les 5 actions les plus fréquentes
+L'application est organisée en modules, chacun dédié à un domaine précis :
 
-Si vous découvrez l'application, commencez par ces cinq guides — ce sont les tâches que vous ferez
-le plus souvent :
+| Module | À quoi il sert |
+|---|---|
+| **Tableau de bord** | La page d'accueil : un résumé visuel de l'activité (chiffres du jour, comparatifs, alertes). |
+| **Gestion des ventes** | Enregistrer les ventes et vérifier, en fin de journée, que la caisse correspond bien à ce qui a été vendu. |
+| **Stock** | Suivre les quantités d'ingrédients disponibles, leurs mouvements, et les inventaires. |
+| **Gestion des produits** | Construire la carte du café : produits, recettes, variantes, suppléments. |
+| **Gestion des achats** | Commander auprès des fournisseurs et suivre la réception de la marchandise. |
+| **Gestion des dépenses** | Enregistrer et suivre les charges du café. |
+| **Gestion du personnel** | Gérer l'équipe : fiches employé, planning, présence, suivi financier. |
+| **Rapports de gestion** | Consulter des rapports consolidés sur les ventes, achats, dépenses, stock et rentabilité. |
+| **Paramètres** | Ajuster les réglages qui pilotent les calculs de l'application, et gérer le contenu du site vitrine public. |
+| **Rôles & permissions** | Définir qui, dans l'équipe, peut accéder à quoi. |
 
-1. [Saisir une vente manuellement](/saisir-une-vente)
-2. [Ajouter un ingrédient ou faire un inventaire](/ajouter-un-ingredient-ou-faire-un-inventaire)
-3. [Faire le calcul du quotidien (caisse)](/calcul-du-quotidien)
-4. [Ajouter une dépense](/ajouter-une-depense)
-5. [Consulter le tableau de bord](/tableau-de-bord)
+## Comment les modules fonctionnent ensemble
 
-## Besoin d'aide au-delà de ce site
+Les modules ne sont pas des outils séparés : ils s'alimentent les uns les autres, pour que
+l'information saisie une seule fois serve partout où elle est utile.
 
-Ce centre d'aide couvre l'utilisation normale de l'application. Pour un problème technique (page
-qui ne s'affiche pas, message d'erreur inattendu) ou une question qui n'a pas de réponse ici,
-contactez la personne responsable de l'application dans votre équipe.
+Concrètement : une **vente** enregistrée consomme automatiquement les ingrédients prévus dans la
+**recette** du produit vendu, ce qui fait évoluer le **stock** en temps réel. Quand le stock
+descend trop bas, une **commande d'achat** permet de le réapprovisionner auprès d'un
+**fournisseur** ; sa réception remet à jour le stock à son tour. Les **dépenses** et les achats
+viennent nourrir le calcul du coût réel de fonctionnement du café, tout comme le **suivi financier
+du personnel**. Toutes ces informations — ventes, coût matière, achats, dépenses, coût du
+personnel — remontent ensuite automatiquement dans le **tableau de bord** et les **rapports de
+gestion**, sans ressaisie, pour donner une vue d'ensemble toujours à jour de la rentabilité du
+café.
+
+## Les grandes capacités du système
+
+- **Gestion centralisée** — toutes les activités du café réunies dans un seul système, accessible
+  à toute l'équipe selon son rôle.
+- **Suivi opérationnel au quotidien** — ventes, stock, achats et dépenses enregistrés au fil de
+  l'eau, pas seulement en fin de mois.
+- **Surveillance du stock** — quantités, seuils d'alerte, lots et dates de péremption suivis en
+  continu.
+- **Alertes** — le système signale automatiquement ce qui demande une attention (stock bas, lot
+  proche de la péremption, écart de caisse, facture impayée...).
+- **Suivi financier** — dépenses, achats et coûts de personnel centralisés pour une vision claire
+  de ce que le café dépense réellement.
+- **Traçabilité** — chaque vente, mouvement de stock ou dépense reste consultable dans son
+  historique, pour comprendre ce qui s'est passé et pourquoi.
+- **Rapports et analyse** — des rapports consolidés qui transforment l'activité quotidienne en
+  informations de gestion exploitables.
+
+## Les indicateurs de gestion
+
+Le tableau de bord et les rapports de gestion donnent accès, à différents niveaux de détail, aux
+grands indicateurs qui permettent de piloter le café :
+
+- Le **chiffre d'affaires**, ses tendances, et sa répartition (par produit, par catégorie, par mode
+  de règlement).
+- Le montant des **achats** et des **dépenses**, avec leur répartition par catégorie ou par
+  fournisseur.
+- La **valeur du stock** à un instant donné, ainsi que les pertes constatées.
+- Le **coût du personnel**.
+- La **marge** dégagée sur les produits vendus, et une **estimation du résultat** du café sur une
+  période donnée.
+
+Chacun de ces indicateurs est détaillé plus précisément dans les sections
+[Rapports de gestion](/rapports-de-gestion) et [Tableau de bord](/tableau-de-bord) de cette
+documentation.
+
+## Comment utiliser cette documentation
+
+Les sections suivantes de cette documentation détaillent, module par module, comment réaliser
+chaque action concrète — ajouter une vente, gérer le stock, créer un produit, suivre une commande,
+et ainsi de suite. Utilisez le menu latéral ou la recherche pour retrouver directement la procédure
+qui vous intéresse.
