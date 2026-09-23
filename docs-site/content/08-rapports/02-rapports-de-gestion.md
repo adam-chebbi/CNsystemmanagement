@@ -9,24 +9,56 @@ order: 2
 
 Menu **Rapports de gestion** — plusieurs rapports y sont regroupés.
 
-## Les rapports disponibles
+## Rapport mensuel de gestion — la vue d'ensemble du mois
 
-- **Rapport mensuel de gestion** — vue d'ensemble du mois : ventes, achats, dépenses, marge.
-- **Rapport sur les ventes** — détail des ventes sur une période, par produit ou par catégorie.
-- **Rapport achats & fournisseurs** — suivi des commandes et de la dépense par fournisseur.
-- **Rapport sur les dépenses** — détail des dépenses par catégorie et par période.
-- **Rapport sur les stocks** — valeur du stock, pertes, mouvements sur la période.
-- **Rapport financier** *(accès restreint)* — résultat estimé, marge globale.
-- **Rapport fiscal** *(accès restreint)* — ventilation de la TVA collectée par taux.
+C'est le rapport le plus complet : il consolide, pour le mois choisi, tous les autres domaines en
+une seule fois — ventes (CA, panier moyen, top produits, produits à faible marge), achats &
+fournisseurs (total, performance des principaux fournisseurs), dépenses (total, par catégorie),
+stock (valeur, pertes, écarts d'inventaire, produits sous seuil), personnel (coût), et surtout une
+**synthèse du résultat estimé** :
+
+```text
+CA TTC
+ − TVA collectée
+ = CA HT
+ − Coût matière (COGS)
+ = Marge brute estimée
+ − Dépenses d'exploitation
+ − Coût du personnel
+ = Résultat estimé
+```
+
+Les achats y sont montrés à titre d'information seulement — ils ne sont **pas** soustraits une
+deuxième fois, puisqu'ils sont déjà reflétés dans le coût matière. Une section **Fiscalité** est
+elle aussi purement informative : l'application n'effectue **aucune déclaration fiscale
+officielle**, elle donne juste une estimation de la TVA collectée/déductible.
+
+![Rapport mensuel de gestion](/screenshots/rapports-mensuel-de-gestion.png)
+
+## Rapport financier
+
+Une vue plus resserrée, uniquement sur le résultat et la marge, avec une comparaison au mois
+précédent et une tendance sur 6 mois. Comme le rapport mensuel, il rappelle qu'il s'agit d'**une
+estimation de gestion interne, pas un bilan comptable officiel**.
+
+## Autres rapports disponibles
+
+- **Rapport sur les ventes** — chiffre d'affaires, panier moyen, montant remboursé, top 10 des
+  produits vendus, répartition par mode de règlement.
+- **Rapport achats & fournisseurs** — total des achats, commandes en cours, montant impayé,
+  performance par fournisseur (nombre de commandes, montant, délai moyen de réception).
+- **Rapport sur les dépenses** — total, répartition par catégorie, dépenses fixes vs variables.
+- **Rapport sur les stocks** — valeur du stock, pertes de la période, écarts d'inventaire, produits
+  sous le seuil.
+- **Rapport fiscal** *(accès restreint)* — ventilation de la TVA collectée et déductible, par taux
+  — également informatif, pas une déclaration officielle.
 - **Export** — pour extraire les données vers un fichier (Excel/CSV).
-
-> 📸 **Capture d'écran à ajouter :** un rapport de gestion type, avec sélecteur de période en haut
-> et graphique + tableau en dessous.
 
 ## Choisir une période
 
-Chaque rapport propose un sélecteur de période (mois, trimestre, période personnalisée) en haut de
-la page — les chiffres affichés se recalculent automatiquement pour la période choisie.
+Chaque rapport propose un sélecteur de période en haut de la page — les chiffres affichés se
+recalculent automatiquement pour la période choisie, généralement avec une comparaison au mois
+précédent.
 
 ## Exporter des données
 
