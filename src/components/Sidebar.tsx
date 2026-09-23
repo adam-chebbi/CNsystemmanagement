@@ -11,6 +11,7 @@ import {
   History,
   ChevronDown,
   ChevronRight,
+  ChevronLeft,
   X,
   PanelLeft,
   ChefHat,
@@ -70,6 +71,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
 }) => {
   const { hasPermission, logout, user } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
+  // Mobile only: the account row (name + arrow, at the bottom of the drawer) opens this as a
+  // full-screen panel rather than expanding inline — there's no room in a phone-width drawer for
+  // Sessions/Paramètres/Rôles/Aide/Déconnexion to sit as a flat list without crowding the nav
+  // above it. Reset alongside the drawer itself so it never flashes open on the next reopen.
+  const [showMobileAccountPanel, setShowMobileAccountPanel] = useState(false);
+  useEffect(() => {
+    if (!isOpen) setShowMobileAccountPanel(false);
+  }, [isOpen]);
   // No section is force-open by default — a section only expands because the user toggled it, or
   // because it's the one currently active (see isMenuOpen below), never as a hardcoded default.
   const [openMenus, setOpenMenus] = useState<Record<string, boolean>>({});
@@ -518,79 +527,133 @@ export const Sidebar: React.FC<SidebarProps> = ({
               ))}
             </div>
 
-            {/* Account menu — on desktop this lives in the Header's profile dropdown (top right),
+            {/* Account row — on desktop this lives in the Header's profile dropdown (top right),
                 but that trigger has no visible label/icon below the sm breakpoint, so on phones
                 and small tablets it's effectively unreachable. Surfaced here instead, pinned to
-                the bottom of the mobile drawer (lg:hidden — desktop keeps only the Header menu). */}
-            <div className="lg:hidden border-t border-gray-100 dark:border-gray-800 p-2.5 space-y-0.5 shrink-0">
-              {user?.fullName && (
-                <p className="px-2 pb-1.5 text-xs font-semibold text-gray-800 dark:text-gray-200 truncate">
-                  {user.fullName}
-                </p>
-              )}
+                the bottom of the mobile drawer (lg:hidden — desktop keeps only the Header menu):
+                just the connected user's name and an arrow — tapping it opens the actual account
+                actions (Sessions, Paramètres, Rôles & permissions, Aide & Support, Déconnexion)
+                as a full-screen panel, see below, rather than crowding the drawer with 5 rows. */}
+            <div className="lg:hidden border-t border-gray-100 dark:border-gray-800 p-2 shrink-0">
               <button
                 type="button"
-                onClick={() => {
-                  setActiveTab('account_sessions');
-                  setActiveSubItem('');
-                  if (onClose) onClose();
-                }}
-                className="w-full flex items-center gap-2 px-2 py-1.5 text-xs text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800/60 rounded-lg cursor-pointer"
+                onClick={() => setShowMobileAccountPanel(true)}
+                className="w-full flex items-center gap-2.5 px-2 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800/60 cursor-pointer"
               >
-                <ShieldCheck size={14} className="text-gray-400 shrink-0" />
-                Sessions &amp; appareils
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setActiveTab('settings');
-                  setActiveSubItem('');
-                  if (onClose) onClose();
-                }}
-                className="w-full flex items-center gap-2 px-2 py-1.5 text-xs text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800/60 rounded-lg cursor-pointer"
-              >
-                <Settings size={14} className="text-gray-400 shrink-0" />
-                Paramètres
-              </button>
-              {hasPermission(MANAGE_ROLES_PERMISSION) && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setActiveTab('roles_permissions');
-                    setActiveSubItem('');
-                    if (onClose) onClose();
-                  }}
-                  className="w-full flex items-center gap-2 px-2 py-1.5 text-xs text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800/60 rounded-lg cursor-pointer"
-                >
-                  <Users size={14} className="text-gray-400 shrink-0" />
-                  Rôles &amp; permissions
-                </button>
-              )}
-              <a
-                href="https://docs.cafenoir.tn"
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={() => { if (onClose) onClose(); }}
-                className="w-full flex items-center gap-2 px-2 py-1.5 text-xs text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800/60 rounded-lg cursor-pointer"
-              >
-                <HelpCircle size={14} className="text-gray-400 shrink-0" />
-                Aide &amp; Support
-              </a>
-              <button
-                type="button"
-                onClick={() => {
-                  if (onClose) onClose();
-                  logout();
-                }}
-                className="w-full flex items-center gap-2 px-2 py-1.5 text-xs font-medium text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-lg cursor-pointer"
-              >
-                <LogOut size={14} className="shrink-0" />
-                Déconnexion
+                <span className="w-8 h-8 rounded-full bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 flex items-center justify-center text-xs font-bold shrink-0">
+                  {(user?.fullName ?? '?').trim().slice(0, 1).toUpperCase()}
+                </span>
+                <span className="flex-1 min-w-0 text-left text-xs font-semibold text-gray-800 dark:text-gray-200 truncate">
+                  {user?.fullName ?? 'Mon compte'}
+                </span>
+                <ChevronRight size={16} className="text-gray-400 shrink-0" />
               </button>
             </div>
           </>
         )}
       </aside>
+
+      {/* Full-screen mobile account panel — opened from the row above. Its own top-level overlay
+          (not confined to the drawer's width) so it reads as a real page, the way an account
+          screen does in a native mobile app, rather than a cramped in-drawer submenu. */}
+      {showMobileAccountPanel && (
+        <div className="fixed inset-0 z-[60] lg:hidden bg-white dark:bg-[#151D2A] flex flex-col animate-in fade-in duration-150">
+          <div className="flex items-center gap-2 p-4 border-b border-gray-100 dark:border-gray-800 shrink-0">
+            <button
+              type="button"
+              onClick={() => setShowMobileAccountPanel(false)}
+              className="p-1.5 -ml-1.5 rounded-lg text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 cursor-pointer"
+              aria-label="Retour"
+            >
+              <ChevronLeft size={20} />
+            </button>
+            <h2 className="text-sm font-bold text-gray-900 dark:text-white">Mon compte</h2>
+          </div>
+
+          <div className="flex items-center gap-3 p-4 border-b border-gray-100 dark:border-gray-800 shrink-0">
+            <span className="w-11 h-11 rounded-full bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 flex items-center justify-center text-base font-bold shrink-0">
+              {(user?.fullName ?? '?').trim().slice(0, 1).toUpperCase()}
+            </span>
+            <span className="text-sm font-bold text-gray-900 dark:text-white truncate">{user?.fullName ?? 'Utilisateur'}</span>
+          </div>
+
+          <div className="flex-1 overflow-y-auto p-2">
+            <button
+              type="button"
+              onClick={() => {
+                setActiveTab('account_sessions');
+                setActiveSubItem('');
+                setShowMobileAccountPanel(false);
+                if (onClose) onClose();
+              }}
+              className="w-full flex items-center gap-3 px-3 py-3.5 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800/60 cursor-pointer text-left"
+            >
+              <ShieldCheck size={18} className="text-gray-400 shrink-0" />
+              <span className="flex-1 text-sm font-medium text-gray-800 dark:text-gray-200">Sessions &amp; appareils</span>
+              <ChevronRight size={16} className="text-gray-300 shrink-0" />
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setActiveTab('settings');
+                setActiveSubItem('');
+                setShowMobileAccountPanel(false);
+                if (onClose) onClose();
+              }}
+              className="w-full flex items-center gap-3 px-3 py-3.5 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800/60 cursor-pointer text-left"
+            >
+              <Settings size={18} className="text-gray-400 shrink-0" />
+              <span className="flex-1 text-sm font-medium text-gray-800 dark:text-gray-200">Paramètres</span>
+              <ChevronRight size={16} className="text-gray-300 shrink-0" />
+            </button>
+            {hasPermission(MANAGE_ROLES_PERMISSION) && (
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveTab('roles_permissions');
+                  setActiveSubItem('');
+                  setShowMobileAccountPanel(false);
+                  if (onClose) onClose();
+                }}
+                className="w-full flex items-center gap-3 px-3 py-3.5 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800/60 cursor-pointer text-left"
+              >
+                <Users size={18} className="text-gray-400 shrink-0" />
+                <span className="flex-1 text-sm font-medium text-gray-800 dark:text-gray-200">Rôles &amp; permissions</span>
+                <ChevronRight size={16} className="text-gray-300 shrink-0" />
+              </button>
+            )}
+            <a
+              href="https://docs.cafenoir.tn"
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={() => {
+                setShowMobileAccountPanel(false);
+                if (onClose) onClose();
+              }}
+              className="w-full flex items-center gap-3 px-3 py-3.5 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800/60 cursor-pointer text-left"
+            >
+              <HelpCircle size={18} className="text-gray-400 shrink-0" />
+              <span className="flex-1 text-sm font-medium text-gray-800 dark:text-gray-200">Aide &amp; Support</span>
+              <ChevronRight size={16} className="text-gray-300 shrink-0" />
+            </a>
+
+            <div className="my-2 border-t border-gray-100 dark:border-gray-800" />
+
+            <button
+              type="button"
+              onClick={() => {
+                setShowMobileAccountPanel(false);
+                if (onClose) onClose();
+                logout();
+              }}
+              className="w-full flex items-center gap-3 px-3 py-3.5 rounded-xl hover:bg-rose-50 dark:hover:bg-rose-950/40 cursor-pointer text-left"
+            >
+              <LogOut size={18} className="text-rose-500 shrink-0" />
+              <span className="flex-1 text-sm font-semibold text-rose-600">Déconnexion</span>
+            </button>
+          </div>
+        </div>
+      )}
     </>
   );
 };
