@@ -32,9 +32,7 @@ l'écran (ou, sur téléphone, depuis le menu ☰ en haut à gauche) :
 - **Rapports de gestion** — les statistiques et rapports.
 - **Paramètres** — les réglages généraux de l'application (réservé aux gérants).
 
-> 📸 **Capture d'écran à ajouter :** vue d'ensemble de l'écran principal avec la barre latérale à
-> gauche, l'en-tête en haut (recherche, notifications, profil) et le tableau de bord au centre —
-> avec des flèches annotées sur chaque zone.
+![Tableau de bord, la page d'accueil de l'application](/screenshots/dashboard-tableau-de-bord.png)
 
 ## Les 5 actions les plus fréquentes
 
