@@ -5,6 +5,16 @@ category: "Démarrage"
 order: 3
 ---
 
+## À quoi sert cette page
+
+Chaque fois que vous vous connectez, depuis n'importe quel appareil (ordinateur, téléphone,
+tablette, un autre navigateur...), une **session** est créée et reste active jusqu'à ce que vous
+vous déconnectiez — ou que quelqu'un la déconnecte à votre place depuis cette page. **Sessions &
+appareils** vous permet de voir, à tout moment, tous les appareils actuellement connectés à
+**votre propre compte**. C'est utile dans deux situations courantes : repérer une connexion
+oubliée sur un poste partagé (un ordinateur de caisse commun, par exemple), ou vérifier que
+personne d'autre n'utilise votre compte à votre insu.
+
 ## Où trouver cet écran
 
 Menu du compte (en haut à droite sur ordinateur, ou en bas de la barre latérale sur téléphone) →
@@ -12,40 +22,44 @@ Menu du compte (en haut à droite sur ordinateur, ou en bas de la barre latéral
 
 ![Menu du compte, avec l'accès aux Sessions & appareils](/screenshots/menu-compte-dropdown.png)
 
-## À quoi ça sert
-
-Chaque fois que vous vous connectez, depuis n'importe quel appareil, une **session** est créée.
-Cette page vous permet de voir tous les appareils actuellement connectés à **votre propre compte**
-— utile pour repérer une connexion oubliée sur un poste partagé, ou pour vérifier que personne
-d'autre n'utilise votre compte.
-
-## Sessions actives
-
-Pour chaque session : l'activité (votre session actuelle est marquée d'un badge dédié), la date de
-connexion, une localisation approximative, et l'appareil utilisé (navigateur + système, ex.
-"Chrome sur Windows"). Cliquez sur l'icône œil pour voir le détail complet d'une session : adresse
-IP, appareil, localisation approximative, date de connexion, dernière activité.
+## La liste des sessions actives
 
 ![Liste des sessions actives, avec la possibilité de déconnecter un appareil à distance](/screenshots/sessions-appareils.png)
 
+| Colonne | Ce qu'elle indique |
+|---|---|
+| Activité | Un badge **Session actuelle** identifie la session que vous utilisez en ce moment même, pour la distinguer de vos autres connexions ; les autres lignes sont marquées **Active**. |
+| Date | La date et l'heure de connexion de cette session. |
+| Localisation | Une localisation **approximative** (voir l'encadré ci-dessous). |
+| Appareil | Le navigateur et le système utilisés pour cette connexion (ex. "Chrome sur Windows"). |
+
+### Voir le détail complet d'une session
+
+Cliquez sur l'icône œil sur une ligne pour dérouler son détail complet : **adresse IP**,
+**appareil**, **localisation approximative**, **date de connexion**, et **dernière activité**
+(le dernier moment où cette session a été utilisée dans l'application).
+
 > **À propos de la localisation.** L'application n'envoie jamais votre adresse IP à un service
 > externe de géolocalisation — la "localisation" affichée est volontairement approximative
-> (réseau local, ou adresse IP publique), pas une position précise.
+> (réseau local, ou adresse IP publique), jamais une position précise.
 
 ## Déconnecter un appareil à distance
 
-Cliquez sur l'icône de déconnexion sur la ligne de la session concernée, puis confirmez. Si vous
-déconnectez votre **session actuelle**, vous êtes immédiatement déconnecté(e) de l'application ;
-si vous déconnectez un **autre appareil**, celui-ci sera déconnecté à sa prochaine action, sans
-rien changer à votre session en cours.
+Cliquez sur l'icône de déconnexion sur la ligne de la session concernée, puis confirmez.
+
+- Si vous déconnectez votre **session actuelle**, vous êtes immédiatement déconnecté(e) de
+  l'application et ramené(e) à l'écran de connexion.
+- Si vous déconnectez un **autre appareil**, celui-ci sera coupé dès sa prochaine action, sans rien
+  changer à votre session en cours.
 
 ## Historique des connexions
 
-En dessous, un tableau en lecture seule liste chaque connexion et déconnexion passée (date,
-appareil, localisation approximative) — pratique pour vérifier, après coup, quand un appareil a
-été utilisé pour la dernière fois.
+En dessous des sessions actives, un tableau en lecture seule (aucune action possible ici) liste
+chaque connexion et déconnexion passée, avec la date, l'appareil et la localisation approximative
+— pratique pour vérifier, après coup, quand un appareil a été utilisé pour la dernière fois, ou
+pour confirmer qu'une déconnexion demandée a bien eu lieu.
 
 ## Voir la suite
 
-- [Se connecter et changer son mot de passe](/se-connecter)
-- [Gérer les rôles et permissions](/roles-et-permissions)
+- [Première connexion](/se-connecter)
+- [Rôles et permissions](/roles-et-permissions)

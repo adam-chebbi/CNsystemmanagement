@@ -42,4 +42,4 @@ soit aucune n'est appliquée — il n'y a jamais de remboursement à moitié fai
 
 Le remboursement est une action sensible (elle touche au stock et à la caisse) — seuls les comptes
 ayant la permission **Ventes → Rembourser** peuvent le faire. Si le bouton n'apparaît pas pour
-vous, demandez à un gérant ; voir [Gérer les rôles et permissions](/roles-et-permissions).
+vous, demandez à un gérant ; voir [Rôles et permissions](/roles-et-permissions).
