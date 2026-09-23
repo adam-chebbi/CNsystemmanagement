@@ -11,31 +11,43 @@ featuredOrder: 4
 
 ## Où trouver cet écran
 
-Menu **Gestion des dépenses → Dépenses**, puis **Ajouter une dépense**.
+Menu **Gestion des dépenses → Dépenses**, puis **Enregistrer une dépense**.
 
-## Étapes
+## Les champs du formulaire
 
-1. Renseignez le **titre / objet** de la dépense (ex : "Facture STEG - Septembre 2026").
-2. Indiquez le **montant** et la **date**.
-3. Choisissez la **catégorie** (voir [Catégories de dépenses](#categories-de-depenses) plus bas si
-   la bonne catégorie n'existe pas encore).
-4. Choisissez la **récurrence** (ponctuelle, mensuelle...) et le **mode de paiement**.
-5. Ajoutez un **justificatif** (photo ou PDF) si vous en avez un — recommandé pour garder une trace.
-6. Vérifiez, puis confirmez.
+- **Titre / Objet** (obligatoire) — ex : "Facture STEG - Septembre 2026".
+- **Montant (DT)** (obligatoire, supérieur à 0).
+- **Date** (obligatoire, aujourd'hui par défaut).
+- **Catégorie** (obligatoire) — doit exister au préalable, voir plus bas.
+- **Récurrence** — Ponctuelle (par défaut), Hebdomadaire, Mensuelle, Trimestrielle ou Annuelle.
+- **Mode de paiement** (obligatoire) — Espèces, Carte bancaire, Chèque, ou Virement bancaire.
+- **Commentaire** — optionnel.
+- **Justificatif (photo ou PDF)** — optionnel, jusqu'à 5 Mo, recommandé pour garder une trace.
 
-> 📸 **Capture d'écran à ajouter :** formulaire "Nouvelle dépense" avec le champ montant, la
-> catégorie et le justificatif joint.
+![Formulaire "Nouvelle dépense"](/screenshots/depenses-nouvelle-depense-formulaire.png)
+
+Vérifiez, puis confirmez — rien n'est encore enregistré tant que vous n'avez pas validé le
+récapitulatif.
 
 ## Faire évoluer le statut d'une dépense
 
-Une dépense saisie est d'abord **En attente**. Une personne ayant la permission d'approbation peut
-ensuite la faire passer à **Approuvé** ou **Rejeté** depuis sa fiche détaillée.
+Une dépense saisie est d'abord **En attente**. Une personne ayant la permission **Dépenses →
+Approuver** peut ensuite la faire passer à **Approuvé** ou **Rejeté**, directement depuis la liste
+ou depuis sa fiche détaillée — ce statut représente une validation interne de la dépense (par
+exemple par le gérant), indépendante du fait qu'elle soit déjà payée ou non. Seules les dépenses
+**Approuvées** sont comptées dans les indicateurs de coût du tableau de bord et des rapports ; une
+dépense **Rejetée** est exclue de ces totaux mais reste visible dans l'historique.
+
+![Liste des dépenses, avec leur statut](/screenshots/depenses-liste-statuts.png)
 
 ## Catégories de dépenses
 
-Menu **Gestion des dépenses → Catégories de dépenses** : vous pouvez y ajouter une nouvelle
-catégorie si celle dont vous avez besoin n'existe pas encore dans la liste proposée lors de la
-saisie.
+Menu **Gestion des dépenses → Catégories de dépenses**. L'application est livrée avec 12
+catégories courantes pour un café en Tunisie : Loyer, STEG, SONEDE, Téléphone / Internet,
+Personnel, Entretien, Réparation, Marketing, Fournitures, Transport, Taxes et frais, Divers. Vous
+pouvez en ajouter d'autres si besoin. Une catégorie encore utilisée par au moins une dépense ne
+peut pas être supprimée. Si l'une des catégories par défaut a été supprimée par erreur, un bouton
+**Recréer les catégories par défaut** permet de la restaurer sans avoir à la retaper.
 
 ## À propos de la TVA sur les ventes
 
