@@ -393,23 +393,34 @@ export const Sidebar: React.FC<SidebarProps> = ({
         ) : (
           /* Full Expanded Sidebar */
           <>
-            {/* Header / Brand */}
-            <div className="p-4 pb-2 flex items-center justify-between">
-              <div className="flex items-center gap-1.5 pl-1">
-                <img src="/logo.png" alt="Café Noir" className="h-8 w-auto object-contain" />
-              </div>
+            {/* Header / Brand — on mobile, also where the account entry point lives now: logo,
+                then the connected user's name + arrow (opens the full-screen account panel, see
+                below), then the drawer's own close button, all on one line. Both the name/arrow
+                button and the close button are lg:hidden — desktop keeps only the logo here and
+                uses the Header's own profile dropdown for account actions instead. */}
+            <div className="p-4 pb-2 flex items-center gap-2">
+              <img src="/logo.png" alt="Café Noir" className="h-8 w-auto object-contain shrink-0" />
 
-              <div className="flex items-center gap-1">
-                {onClose && (
-                  <button
-                    id="close-sidebar-button"
-                    onClick={onClose}
-                    className="lg:hidden p-1.5 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100"
-                  >
-                    <X size={18} />
-                  </button>
-                )}
-              </div>
+              <button
+                type="button"
+                onClick={() => setShowMobileAccountPanel(true)}
+                className="lg:hidden flex-1 min-w-0 flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800/60 cursor-pointer"
+              >
+                <span className="text-xs font-semibold text-gray-800 dark:text-gray-200 truncate">
+                  {user?.fullName ?? 'Mon compte'}
+                </span>
+                <ChevronRight size={14} className="text-gray-400 shrink-0" />
+              </button>
+
+              {onClose && (
+                <button
+                  id="close-sidebar-button"
+                  onClick={onClose}
+                  className="lg:hidden p-1.5 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100 shrink-0"
+                >
+                  <X size={18} />
+                </button>
+              )}
             </div>
 
             {/* Search input */}
@@ -527,37 +538,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
               ))}
             </div>
 
-            {/* Account row — on desktop this lives in the Header's profile dropdown (top right),
-                but that trigger has no visible label/icon below the sm breakpoint, so on phones
-                and small tablets it's effectively unreachable. Surfaced here instead, pinned to
-                the bottom of the mobile drawer (lg:hidden — desktop keeps only the Header menu):
-                just the connected user's name and an arrow — tapping it opens the actual account
-                actions (Sessions, Paramètres, Rôles & permissions, Aide & Support, Déconnexion)
-                as a full-screen panel, see below, rather than crowding the drawer with 5 rows.
-                The drawer's flex-col layout (nav above is flex-1) already pushes this row to the
-                aside's own bottom edge, and the aside itself is pinned to the device's — the
-                padding-bottom below is what actually makes that the TRUE edge on a phone with a
-                home-indicator/gesture bar: without env(safe-area-inset-bottom), the row would sit
-                flush against the OS's own gesture area instead of clear of it (mirrors how
-                Header.tsx pads its own top for the same reason on notched phones). */}
-            <div
-              className="lg:hidden border-t border-gray-100 dark:border-gray-800 p-2 shrink-0"
-              style={{ paddingBottom: 'max(0.5rem, env(safe-area-inset-bottom))' }}
-            >
-              <button
-                type="button"
-                onClick={() => setShowMobileAccountPanel(true)}
-                className="w-full flex items-center gap-2.5 px-2 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800/60 cursor-pointer"
-              >
-                <span className="w-8 h-8 rounded-full bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 flex items-center justify-center text-xs font-bold shrink-0">
-                  {(user?.fullName ?? '?').trim().slice(0, 1).toUpperCase()}
-                </span>
-                <span className="flex-1 min-w-0 text-left text-xs font-semibold text-gray-800 dark:text-gray-200 truncate">
-                  {user?.fullName ?? 'Mon compte'}
-                </span>
-                <ChevronRight size={16} className="text-gray-400 shrink-0" />
-              </button>
-            </div>
           </>
         )}
       </aside>
