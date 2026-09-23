@@ -19,8 +19,7 @@ Menu **Gestion du personnel → Suivi financier**. En haut de la page, deux bout
    que vous voyiez l'effet avant même de confirmer.
 5. Cliquez sur **Confirmer**.
 
-> 📸 **Capture d'écran à ajouter :** fenêtre "Ajouter une avance", avec le choix de l'employé, le
-> montant, et l'aperçu du nouveau reste à payer.
+![Fenêtre "Ajouter une avance"](/screenshots/personnel-ajouter-une-avance-formulaire.png)
 
 Si l'employé n'a pas encore de suivi financier pour le mois en cours, il est créé automatiquement
 (avec son salaire de base repris depuis sa fiche employé) — vous n'avez rien à préparer à l'avance.
@@ -41,11 +40,30 @@ avance de 200 DT. Le système calcule alors :
 Une **prime**, à l'inverse, s'ajoute à ce qui est dû — elle augmente le reste à payer, exactement
 comme une augmentation ponctuelle du salaire de ce mois-là.
 
+## Pourquoi cette distinction compte pour les rapports
+
+Le **"Coût du personnel"** affiché sur le tableau de bord et dans les rapports de gestion utilise
+toujours le **coût réel** (avances comprises), jamais le "reste à payer". Si une avance venait
+diminuer ce chiffre, verser une avance en cours de mois donnerait l'impression trompeuse que la
+masse salariale du café a baissé — alors que la totalité doit bel et bien être payée d'ici la fin
+du mois. C'est pour cette raison que "reste à payer" (utile pour savoir combien régler maintenant)
+et "coût du personnel" (utile pour savoir combien le café dépense réellement) sont deux chiffres
+volontairement différents dans l'application.
+
+## Saisie complète (plutôt que les boutons rapides)
+
+Les boutons **+ Avance** / **+ Prime** ciblent toujours le **mois en cours**. Pour créer ou
+corriger le suivi financier d'un mois passé, ou pour renseigner en une fois salaire de base,
+avances, primes **et** retenues, utilisez plutôt **Nouveau suivi financier** — le formulaire
+complet, avec le choix du mois/année concerné.
+
 ## Voir le détail complet d'un employé
 
 Depuis la liste du suivi financier, cliquez sur **Consulter** pour voir, pour un employé et une
 période donnés, le détail complet : salaire de base, avances, primes, retenues, montant déjà payé,
 et le reste à payer qui en découle.
+
+![Liste du suivi financier du personnel](/screenshots/personnel-suivi-financier-liste.png)
 
 ## Marquer un paiement comme effectué
 
