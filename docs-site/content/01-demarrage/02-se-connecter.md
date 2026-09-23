@@ -48,7 +48,7 @@ Cette étape est volontairement impossible à contourner : c'est une mesure de s
 qu'aucun compte ne reste durablement protégé par un mot de passe que quelqu'un d'autre (la
 personne qui a créé le compte) connaît aussi.
 
-> 📸 *Capture d'écran à ajouter : l'écran "Changement de mot de passe requis".*
+![Écran "Changement de mot de passe requis"](/screenshots/changement-mot-de-passe-oblige.png)
 
 ### Les champs de ce formulaire
 
