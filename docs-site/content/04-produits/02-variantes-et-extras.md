@@ -19,8 +19,9 @@ Une variante représente une variation du produit lui-même : par exemple "Grand
 4. Répétez pour chaque variante proposée.
 
 Les variantes sont optionnelles — un produit reste parfaitement vendable sans aucune variante.
-
-> 📸 **Capture d'écran à ajouter :** section Variantes avec deux variantes saisies (nom + prix).
+Une variante n'a pas besoin d'être définie sur tous les produits : elle est propre à celui pour
+lequel vous la créez (par exemple les tailles "Petit/Moyen/Grand" saisies sur un café n'apparaissent
+pas sur un croissant).
 
 ## Extras — les suppléments optionnels (chantilly, shot en plus...)
 
@@ -36,5 +37,20 @@ prix dans le mini-formulaire **Créer un nouvel extra**, puis cliquez sur **Ajou
 dans le catalogue partagé et sélectionné automatiquement pour ce produit, sans avoir à quitter la
 page.
 
-> 📸 **Capture d'écran à ajouter :** section Extras, avec des extras déjà sélectionnés (en vert) et
-> le mini-formulaire de création d'un nouvel extra.
+![Sections Variantes et Extras du formulaire produit](/screenshots/produits-ajout-variantes-extras.png)
+
+## Variante ou extra : comment choisir
+
+- Une **variante** est une **variation du produit lui-même** : on n'en choisit en général qu'une
+  seule par vente (par exemple une seule taille), et elle est propre à ce produit (stockée avec
+  lui, pas partagée).
+- Un **extra** est un **ajout optionnel et cumulable** : on peut en choisir plusieurs à la fois
+  (chantilly *et* shot supplémentaire), et il vit dans un catalogue partagé par tous les produits
+  — le créer ou le modifier une fois suffit pour qu'il soit disponible partout.
+
+## Gérer le catalogue des extras indépendamment d'un produit
+
+Pour renommer, modifier le prix ou supprimer un extra (plutôt que d'en créer un nouveau depuis le
+formulaire produit), allez dans **Gestion des produits → Catalogue → Suppléments**. Un extra ne
+peut pas être supprimé tant qu'il est utilisé par au moins un produit — on doit d'abord le retirer
+de chaque produit qui l'utilise.
