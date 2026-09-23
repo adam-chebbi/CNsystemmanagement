@@ -74,6 +74,22 @@ const buildMarked = (tocSink) => {
         if (depth === 2 || depth === 3) tocSink.push({ id, text: plain, depth });
         return `<h${depth} id="${id}">${text}</h${depth}>\n`;
       },
+      // Numbered step-by-step instructions get the connected-badge "steps" layout (styled in
+      // index.css, .docs-article ol.steps) instead of a plain decimal list — every ordered list
+      // in this app's content IS a sequence of steps to follow (never, say, a ranked top-10), so
+      // there's no separate markdown syntax to opt in: any "1. 2. 3." list gets it automatically.
+      // Unordered lists fall through to marked's own default rendering (returning `false` is
+      // marked's documented way to say "use the built-in renderer for this token").
+      list(token) {
+        if (!token.ordered) return false;
+        const items = token.items
+          .map((item, i) => {
+            const body = this.parser.parse(item.tokens);
+            return `<li class="step"><span class="step-num">${i + 1}</span><div class="step-body">${body}</div></li>`;
+          })
+          .join('');
+        return `<ol class="steps">${items}</ol>\n`;
+      },
     },
   });
   return marked;

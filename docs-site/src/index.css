@@ -121,6 +121,67 @@
 .docs-article th { background: #F9FAFB; font-weight: 700; color: #111827; }
 .docs-article hr { border: none; border-top: 1px solid #E5E7EB; margin: 2rem 0; }
 
+/* Hides the scrollbar on the header's horizontally-scrollable category-tab row (Header.tsx) —
+   the row still scrolls by touch/drag/wheel exactly as normal, this only removes the visible
+   track, since a persistent scrollbar under a single row of tabs reads as clutter, not signal. */
+.no-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
+.no-scrollbar::-webkit-scrollbar { display: none; }
+
+/* Numbered step-by-step instructions (scripts/build-content.mjs renders every TOP-LEVEL ordered
+   list this way — a nested one, e.g. inside a step's own body, still falls back to the plain
+   decimal <ol> styling above) — a connected vertical timeline of numbered badges, the same
+   pattern Stripe's own docs use for setup/integration guides, restyled in this app's own palette
+   (emerald, Plus Jakarta Sans, rounded-2xl) rather than copied wholesale. */
+.docs-article ol.steps {
+  list-style: none;
+  padding-left: 0;
+  margin: 1.5rem 0;
+  counter-reset: none;
+}
+.docs-article ol.steps > li.step {
+  position: relative;
+  display: flex;
+  gap: 1rem;
+  padding-bottom: 1.75rem;
+  margin-bottom: 0;
+}
+.docs-article ol.steps > li.step:last-child { padding-bottom: 0; }
+/* The connecting line — one continuous border down the badge column, drawn on the li itself so
+   it spans exactly from the center of one badge to the next, not the whole ol's height. */
+.docs-article ol.steps > li.step::before {
+  content: '';
+  position: absolute;
+  left: 15px;
+  top: 32px;
+  bottom: -4px;
+  width: 2px;
+  background: linear-gradient(to bottom, #A7F3D0, #E5E7EB);
+}
+.docs-article ol.steps > li.step:last-child::before { display: none; }
+.docs-article ol.steps .step-num {
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  border-radius: 9999px;
+  background: #00A86B;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.8rem;
+  font-weight: 800;
+  position: relative;
+  z-index: 1;
+  box-shadow: 0 0 0 4px #ffffff;
+}
+.docs-article ol.steps .step-body {
+  flex: 1;
+  min-width: 0;
+  padding-top: 0.25rem;
+}
+.docs-article ol.steps .step-body > p:first-child { margin-top: 0; }
+.docs-article ol.steps .step-body > p:last-child { margin-bottom: 0; }
+
 /* highlight.js theme tuned to the same slate-900 code background above (github-dark, hand-picked
    colors, not the stock stylesheet, to avoid pulling in an extra CSS file for a handful of rules). */
 .hljs-keyword, .hljs-selector-tag, .hljs-literal, .hljs-title.function_ { color: #f472b6; }
