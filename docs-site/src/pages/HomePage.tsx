@@ -116,14 +116,24 @@ export const HomePage: React.FC = () => (
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {manifest.categories.map((cat) => {
           const Icon = resolveIcon(cat.icon);
+          const firstSlug = cat.pages[0]?.slug;
           return (
             <div key={cat.name} className="p-5 rounded-2xl bg-white border border-gray-100 shadow-2xs">
-              <div className="flex items-center gap-2.5 mb-3">
-                <span className="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
-                  <Icon size={17} />
-                </span>
-                <h3 className="text-sm font-bold text-gray-900">{cat.name}</h3>
-              </div>
+              {firstSlug ? (
+                <Link to={`/${firstSlug}`} className="flex items-center gap-2.5 mb-3 group w-fit">
+                  <span className="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0 group-hover:bg-emerald-100 transition">
+                    <Icon size={17} />
+                  </span>
+                  <h3 className="text-sm font-bold text-gray-900 group-hover:text-emerald-600 transition">{cat.name}</h3>
+                </Link>
+              ) : (
+                <div className="flex items-center gap-2.5 mb-3">
+                  <span className="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
+                    <Icon size={17} />
+                  </span>
+                  <h3 className="text-sm font-bold text-gray-900">{cat.name}</h3>
+                </div>
+              )}
               <ul className="space-y-1.5">
                 {cat.pages.map((p) => (
                   <li key={p.slug}>
