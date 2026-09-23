@@ -42,6 +42,18 @@
 }
 
 @layer base {
+  /* Locks the document itself so it can never scroll or rubber-band as a whole — on mobile
+     Safari in particular, an inner element claiming h-screen/overflow-hidden (App.tsx's root
+     div) isn't always enough on its own to stop the actual <body> from still bounce-scrolling,
+     especially with the dynamic address-bar viewport quirks. With html/body pinned, the ONLY
+     thing that can ever scroll is a container that explicitly opts in with its own overflow-y —
+     #app-main-scroll-area (the page content) and the sidebar's nav list, never the page as a
+     whole, the header, or the sidebar's own frame. */
+  html, body {
+    height: 100%;
+    overflow: hidden;
+    overscroll-behavior: none;
+  }
   body {
     font-family: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     -webkit-font-smoothing: antialiased;

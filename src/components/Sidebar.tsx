@@ -347,7 +347,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </button>
 
             {/* List of icons without texts */}
-            <div className="flex-1 w-full flex flex-col items-center gap-1.5 px-2 overflow-y-auto custom-scrollbar">
+            <div className="flex-1 w-full flex flex-col items-center gap-1.5 px-2 overflow-y-auto overscroll-contain custom-scrollbar">
               {collapsedItems.map((item) => {
                 const Icon = item.icon;
                 const isActive =
@@ -435,7 +435,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </div>
 
             {/* Navigation sections */}
-            <div className="flex-1 overflow-y-auto px-2 py-1 space-y-2 custom-scrollbar">
+            <div className="flex-1 overflow-y-auto overscroll-contain px-2 py-1 space-y-2 custom-scrollbar">
               {filteredSections.map((section) => (
                 <div
                   key={section.heading}
@@ -533,8 +533,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 the bottom of the mobile drawer (lg:hidden — desktop keeps only the Header menu):
                 just the connected user's name and an arrow — tapping it opens the actual account
                 actions (Sessions, Paramètres, Rôles & permissions, Aide & Support, Déconnexion)
-                as a full-screen panel, see below, rather than crowding the drawer with 5 rows. */}
-            <div className="lg:hidden border-t border-gray-100 dark:border-gray-800 p-2 shrink-0">
+                as a full-screen panel, see below, rather than crowding the drawer with 5 rows.
+                The drawer's flex-col layout (nav above is flex-1) already pushes this row to the
+                aside's own bottom edge, and the aside itself is pinned to the device's — the
+                padding-bottom below is what actually makes that the TRUE edge on a phone with a
+                home-indicator/gesture bar: without env(safe-area-inset-bottom), the row would sit
+                flush against the OS's own gesture area instead of clear of it (mirrors how
+                Header.tsx pads its own top for the same reason on notched phones). */}
+            <div
+              className="lg:hidden border-t border-gray-100 dark:border-gray-800 p-2 shrink-0"
+              style={{ paddingBottom: 'max(0.5rem, env(safe-area-inset-bottom))' }}
+            >
               <button
                 type="button"
                 onClick={() => setShowMobileAccountPanel(true)}
@@ -577,7 +586,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <span className="text-sm font-bold text-gray-900 dark:text-white truncate">{user?.fullName ?? 'Utilisateur'}</span>
           </div>
 
-          <div className="flex-1 overflow-y-auto p-2">
+          <div className="flex-1 overflow-y-auto overscroll-contain p-2">
             <button
               type="button"
               onClick={() => {

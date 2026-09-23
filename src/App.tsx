@@ -958,8 +958,15 @@ export default function App() {
               }}
             />
 
-            {/* Page Content Body — the only scrolling region, so the frame stays pinned */}
-            <main id="app-main-scroll-area" className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-6 lg:p-7 space-y-5 max-w-[1550px] w-full mx-auto">
+            {/* Page Content Body — the only scrolling region, so the frame stays pinned.
+                overscroll-contain stops a scroll that hits the top/bottom edge here from
+                "chaining" to whatever's behind it (the locked document, see index.css) instead
+                of just stopping — the classic mobile bug where flinging past the end of a list
+                drags the whole page with it. custom-scrollbar gives it the same thin, themed
+                scrollbar the sidebar's nav already has (visible where the platform honors
+                ::-webkit-scrollbar styling, e.g. Android Chrome; iOS Safari always uses its own
+                system overlay indicator regardless of CSS — no way to override that). */}
+            <main id="app-main-scroll-area" className="flex-1 min-h-0 overflow-y-auto overscroll-contain custom-scrollbar p-4 sm:p-6 lg:p-7 space-y-5 max-w-[1550px] w-full mx-auto">
             {activeTab === 'notifications' ? (
               <Suspense fallback={<StockPageLoadingFallback />}>
                 <NotificationsPage
