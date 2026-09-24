@@ -32,7 +32,7 @@ toute l'application.
 | Seuil d'écart d'inventaire | 0 à 1000 DT | 30 DT | Montant, en dinars, au-delà duquel un écart constaté lors d'un inventaire déclenche une alerte. |
 | Fenêtre de recherche des écarts d'inventaire | 1 à 365 jours | 60 jours | Période sur laquelle l'application recherche un écart d'inventaire récent à signaler. |
 | Commission Ticket resto | 0 à 30 % | 10 % | Pourcentage retenu par l'émetteur des tickets restaurant, déduit automatiquement dans [Calcul du quotidien](/calcul-du-quotidien). |
-| Marge cible par défaut | 0 à 100 % | 65 % | Marge visée pour tout produit qui ne définit pas sa propre marge cible (voir [Ajouter un nouveau produit](/ajouter-un-produit)). |
+| Marge cible par défaut | 0 à 100 % | 65 % | Marge visée pour tout produit qui ne définit pas sa propre marge cible (voir [Ajout produits](/ajout-produits)). |
 | Nombre maximum de shifts | 1 à 6 | 2 | Nombre de shifts différents que vous pouvez créer dans [Suivre le planning](/suivre-le-planning). Réduire ce nombre n'affecte jamais les shifts déjà créés. |
 
 Deux boutons en bas de cette section : **Valeurs par défaut** (revient aux valeurs d'origine, sans

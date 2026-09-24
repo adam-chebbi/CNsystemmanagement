@@ -16,7 +16,7 @@ Menu **Stock → Unités**.
 Chaque ingrédient en stock est mesuré dans une **unité** (kg, litres, unité...), choisie parmi
 celles définies ici. C'est cette liste qui alimente le menu déroulant "Unité de stock" quand vous
 [ajoutez un ingrédient](/inventaires), et qui détermine les unités
-proposées pour les lignes de recette dans [Ajouter un nouveau produit](/ajouter-un-produit).
+proposées pour les lignes de recette dans [Ajout produits](/ajout-produits).
 
 ## Le tableau des unités
 
@@ -66,7 +66,7 @@ créez vous-même comme "cl" ou "sachet") n'est reconnue par aucune conversion a
 peut être utilisée que là où elle correspond **exactement**, nom pour nom.
 
 > **Ce que ça change concrètement.** Dans la fiche technique d'un produit (voir
-> [Ajouter un nouveau produit](/ajouter-un-produit)), quand vous ajoutez un ingrédient stocké en
+> [Ajout produits](/ajout-produits)), quand vous ajoutez un ingrédient stocké en
 > "kg", le menu déroulant de l'unité de la ligne de recette ne propose que "kg" et "g" (les deux
 > seules unités compatibles) — jamais "litres" ou une unité personnalisée sans rapport. De même,
 > lors d'un [import de mouvements de stock](/import-excel-csv), une colonne "unité" fournie à titre de
@@ -77,4 +77,4 @@ peut être utilisée que là où elle correspond **exactement**, nom pour nom.
 
 - [Stock](/stock)
 - [Inventaires](/inventaires)
-- [Ajouter un nouveau produit](/ajouter-un-produit)
+- [Ajout produits](/ajout-produits)

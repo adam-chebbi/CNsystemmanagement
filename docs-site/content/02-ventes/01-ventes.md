@@ -42,7 +42,7 @@ montant total.
 - **Service** — Tous / Sur place / À emporter.
 - **Mode de règlement** — Tous / Espèces / Carte bancaire / Ticket resto.
 - **Catégorie** — la liste des catégories de produits réellement vendues (alimentée par
-  [Gestion des produits](/ajouter-un-produit), pas une liste figée).
+  [Gestion des produits](/produits), pas une liste figée).
 - **Employé** — tous les employés ayant déjà enregistré au moins une vente.
 - **Réinitialiser** efface tous ces filtres et revient au mois en cours.
 
