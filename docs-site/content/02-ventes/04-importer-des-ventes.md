@@ -2,19 +2,21 @@
 title: "Importer des ventes depuis un fichier Excel/CSV"
 description: "Charger plusieurs ventes en une fois depuis un fichier, avec vérification avant enregistrement."
 category: "Ventes"
-order: 2
+order: 4
 ---
 
 ## Où trouver cet écran
 
 Menu **Gestion des ventes → Import Excel/CSV**.
 
+![Écran d'import : zone de dépôt du fichier et documentation des colonnes attendues](/screenshots/ventes-import-upload.png)
+
 ## Préparer le fichier
 
 Un fichier Excel (`.xlsx`, `.xls`) ou CSV, **une ligne par ticket** (donc par vente complète, pas
-par article). Le bouton **Télécharger le template CSV**, sur cette page, génère un modèle déjà au
-bon format avec 3 exemples de lignes construits à partir de vos vrais produits/shifts/employés —
-partir de ce modèle est le plus simple.
+par article), jusqu'à 5 Mo. Le bouton **Télécharger le template CSV**, sur cette page, génère un
+modèle déjà au bon format avec 3 exemples de lignes construits à partir de vos vrais
+produits/shifts/employés — partir de ce modèle est le plus simple.
 
 ### Les colonnes attendues
 
@@ -43,16 +45,19 @@ enregistré dans le système, jamais dupliqué.
    champs, mêmes sélecteurs).
 3. Une ligne en erreur est signalée en rouge, avec le détail : valeur importée non reconnue
    (produit, shift, employé... introuvable), champ obligatoire manquant, date invalide, etc. Le
-   texte tel qu'il était dans le fichier reste affiché à côté du champ, pour que vous puissiez
-   corriger directement dans le tableau d'aperçu — sans avoir besoin de rouvrir le fichier source.
+   texte tel qu'il était dans le fichier reste affiché à côté du champ concerné ("Valeur
+   importée : « ... »"), pour que vous puissiez corriger directement dans l'aperçu — en
+   choisissant la bonne valeur dans les mêmes menus déroulants qu'en saisie manuelle — sans avoir
+   besoin de rouvrir le fichier source.
 
-![Aperçu de l'import avec des lignes modifiables directement à l'écran](/screenshots/depenses-liste-statuts.png)
+![Aperçu de l'import avec une ligne en erreur : shift, employé et produit non reconnus, avec la valeur importée affichée et les champs à corriger](/screenshots/ventes-import-apercu-erreur.png)
 
 4. En haut de l'aperçu, des compteurs indiquent : tickets détectés, valides, invalides, articles,
-   montant total estimé.
-5. Corrigez chaque ligne en erreur (dans le tableau, ou en modifiant le fichier source et en le
-   réimportant).
-6. Une fois qu'il n'y a plus aucune erreur, le bouton **Confirmer l'import** devient actif.
+   montant total estimé — sur cet exemple, une seule ligne (sur 4) est invalide, avec 3 erreurs
+   distinctes qui lui sont propres (shift, employé et produit tous non reconnus dans ce cas).
+5. Corrigez chaque ligne en erreur (dans l'aperçu, ou en modifiant le fichier source et en le
+   réimportant via **Remplacer le fichier**).
+6. Une fois qu'il n'y a plus aucune erreur, le bouton **Confirmer et enregistrer** devient actif.
 
 ## Pourquoi rien n'est enregistré avant la confirmation
 
@@ -72,3 +77,8 @@ confirmer.
 Certaines erreurs (colonne obligatoire manquante, fichier vide, trop de lignes) empêchent
 l'import de démarrer du tout — un message l'explique en haut de l'écran. Corrigez le fichier selon
 le message, puis réessayez.
+
+## Voir la suite
+
+- [Ventes](/ventes) — les ventes importées y apparaissent comme n'importe quelle autre vente.
+- [Ajout manuel des ventes — Mode par tickets](/ajout-manuel-mode-tickets)

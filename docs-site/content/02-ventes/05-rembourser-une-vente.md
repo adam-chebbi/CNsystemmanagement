@@ -2,7 +2,7 @@
 title: "Rembourser une vente"
 description: "Annuler proprement une vente déjà enregistrée : le stock et les effets comptables sont automatiquement corrigés."
 category: "Ventes"
-order: 3
+order: 5
 ---
 
 ## Pourquoi ne jamais supprimer une vente
@@ -15,7 +15,7 @@ opération, tout ou rien.
 
 ## Étapes
 
-1. Allez dans **Gestion des ventes → Ventes**.
+1. Allez dans [Ventes](/ventes) (menu **Gestion des ventes → Ventes**).
 2. Retrouvez la vente à rembourser (utilisez la recherche ou les filtres par date si besoin).
 3. Sur la ligne de la vente, cliquez sur l'icône **Rembourser cette vente**.
 4. Une confirmation s'affiche : *« Rembourser le ticket [numéro] ? Les ingrédients consommés
