@@ -30,9 +30,23 @@ Formats acceptés : image (JPG, PNG, WEBP), PDF ou DOCX, jusqu'à 20 Mo.
 
 ## Déposer une facture
 
-1. Glissez-déposez le fichier sur la zone prévue, ou cliquez sur **Cliquer pour sélectionner un
-   fichier**.
-2. Le système analyse le document et affiche l'écran de vérification — cela peut prendre quelques
+1. Glissez-déposez le fichier sur la zone prévue, ou cliquez sur **Importer depuis l'appareil**
+   pour choisir un fichier existant (photo, PDF ou DOCX). Sur un téléphone ou une tablette, un
+   second bouton, **Prendre une photo**, ouvre directement l'appareil photo de l'appareil pour
+   photographier la facture sur place — ce bouton n'apparaît pas sur ordinateur, où il n'a pas de
+   sens.
+2. **Si vous avez pris une photo (ou choisi une image depuis l'appareil)**, un écran de
+   confirmation s'affiche avant toute analyse : *"Cette photo convient-elle ?"*, avec la photo en
+   grand.
+   - **Reprendre la photo** (✗) l'abandonne et rouvre directement la même source (l'appareil photo
+     si vous veniez de photographier, le sélecteur de fichier sinon), pour recommencer sans étape
+     supplémentaire.
+   - **Valider cette photo** (✓) lance l'analyse. Rien n'est envoyé à la reconnaissance de texte
+     avant cette confirmation explicite — l'idée est d'écarter tout de suite une photo floue,
+     coupée ou mal cadrée plutôt que de découvrir le problème après plusieurs secondes d'analyse.
+   - Un PDF ou un DOCX n'a pas d'aperçu visuel utile à confirmer de cette façon : ces formats
+     passent directement à l'analyse, sans écran de confirmation.
+3. Le système analyse le document et affiche l'écran de vérification — cela peut prendre quelques
    instants, surtout pour une image ou un PDF scanné.
 
 ## Vérifier et corriger les informations détectées
