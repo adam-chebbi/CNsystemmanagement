@@ -2,7 +2,9 @@
 title: "Comprendre les rapports de gestion"
 description: "Les différents rapports disponibles, et ce que montre chacun."
 category: "Rapports"
-order: 2
+categoryIcon: "bar-chart"
+categoryOrder: 8
+order: 1
 ---
 
 ## Où trouver ces écrans

@@ -50,6 +50,7 @@ L'application est organisée en modules, chacun dédié à un domaine précis :
 | Module | À quoi il sert |
 |---|---|
 | **Tableau de bord** | La page d'accueil : un résumé visuel de l'activité (chiffres du jour, comparatifs, alertes). |
+| **Notifications & Alertes** | Le centre d'alertes opérationnelles : stock bas, péremption, factures en retard, marges faibles. |
 | **Gestion des ventes** | Enregistrer les ventes et vérifier, en fin de journée, que la caisse correspond bien à ce qui a été vendu. |
 | **Stock** | Suivre les quantités d'ingrédients disponibles, leurs mouvements, et les inventaires. |
 | **Gestion des produits** | Construire la carte du café : produits, recettes, variantes, suppléments. |
