@@ -172,7 +172,7 @@ rentabilité).
 Les 5 premiers produits actuellement **en dessous de leur seuil minimum**, classés par urgence :
 **Critique** (stock à 0 ou en dessous de 50 % du seuil), **Faible** (en dessous de 80 % du seuil),
 ou **Modéré**. C'est un **instantané du stock à cet instant**, indépendant du sélecteur de période
-— exactement la même donnée que celle affichée dans [Consulter le stock](/consulter-le-stock).
+— exactement la même donnée que celle affichée dans [Consulter le stock](/stock).
 Les boutons **Réapprovisionner** et **Créer bon de commande fournisseur** ouvrent le formulaire de
 commande d'achat.
 

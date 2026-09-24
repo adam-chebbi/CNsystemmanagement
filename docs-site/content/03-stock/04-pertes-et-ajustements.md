@@ -1,6 +1,6 @@
 ---
-title: "Déclarer une perte ou un ajustement"
-description: "Signaler un produit cassé, périmé ou perdu, et documenter pourquoi le stock a changé."
+title: "Pertes & ajustements"
+description: "Signaler un produit cassé, périmé ou perdu, ou corriger le stock sans passer par un inventaire complet."
 category: "Stock"
 order: 4
 ---
@@ -21,17 +21,22 @@ inventaire complet).
 
 ## Étapes
 
-1. Choisissez la direction : **Diminuer le stock (perte)** ou **Augmenter le stock
-   (ajustement)**.
-2. Sélectionnez le **produit** (obligatoire) et la **zone** (obligatoire, Réserve principale ou Dépôt).
-3. Indiquez la **quantité** (obligatoire, supérieure à 0).
-4. Choisissez le **motif** (obligatoire) dans la liste : Perte, Casse, Péremption, Consommation interne, Produit
-   offert, Erreur de préparation, Ajustement d'inventaire, ou Autre.
-5. Renseignez la **date et l'heure** (obligatoire, par défaut maintenant) et l'**employé** (obligatoire) qui déclare.
-6. Si le produit est suivi par lot, choisissez le **lot concerné** (obligatoire).
-7. Un commentaire libre est optionnel. Vérifiez puis confirmez.
+1. Cliquez sur **Enregistrer une perte**, puis choisissez la direction : **Diminuer le stock
+   (perte)** ou **Augmenter le stock (ajustement)**.
 
-![Formulaire de déclaration de perte](/screenshots/stock-liste-produits.png)
+![Formulaire "Nouvelle perte / ajustement", direction Perte](/screenshots/stock-pertes-formulaire-perte.png)
+
+2. Sélectionnez le **produit** (obligatoire) et la **zone** (obligatoire, Réserve principale ou
+   Dépôt).
+3. Indiquez la **quantité** (obligatoire, supérieure à 0).
+4. Choisissez le **motif** (obligatoire) dans la liste : Perte, Casse, Péremption, Consommation
+   interne, Produit offert, Erreur de préparation, Ajustement d'inventaire, ou Autre.
+5. Renseignez la **date et l'heure** (obligatoire, par défaut maintenant) et l'**employé**
+   (obligatoire) qui déclare.
+6. Si le produit est suivi par lot, choisissez le **lot concerné** (obligatoire).
+7. Un commentaire libre est optionnel. Cliquez sur **Vérifier**, puis confirmez.
+
+![Formulaire "Nouvelle perte / ajustement", direction Ajustement (augmente le stock)](/screenshots/stock-pertes-formulaire-ajustement.png)
 
 Avant de confirmer, l'écran affiche les **conséquences sur le stock** : stock actuel → nouveau
 stock prévu, avec une mise en évidence rouge si le résultat deviendrait négatif.
@@ -41,5 +46,11 @@ stock prévu, avec une mise en évidence rouge si le résultat deviendrait néga
 La quantité déclarée est immédiatement appliquée au stock, et l'opération apparaît dans le
 **Rapport sur les stocks**, avec sa valeur (quantité × coût moyen) — ce qui permet de suivre le
 coût réel de la casse et des pertes sur une période donnée. Seules les lignes de motif **Perte**
-(pas les Ajustements) comptent dans les indicateurs "Quantité totale perdue" et "Valeur totale des
-pertes" de cette page.
+(pas les Ajustements) comptent dans les indicateurs **Quantité totale perdue** et **Valeur totale
+estimée des pertes**, en haut de cette page — eux-mêmes recalculés selon les filtres actifs
+(produit, catégorie, motif, zone, dates).
+
+## Voir la suite
+
+- [Stock](/stock)
+- [Mouvements](/mouvements)
