@@ -122,7 +122,7 @@ Deux sources déclenchent aujourd'hui une dépense automatique :
 | Source | Déclencheur | Titre généré | Catégorie | Montant |
 |---|---|---|---|---|
 | **Paiement d'une facture fournisseur** | Vous enregistrez un paiement sur une facture, depuis [Factures](/factures-fournisseurs). | "Facture fournisseur {numéro} — {fournisseur}" | Fournitures | Le montant du paiement enregistré (pas le solde total de la facture) — un paiement en plusieurs fois crée donc plusieurs dépenses distinctes. |
-| **Paiement d'un salaire** | Vous renseignez le montant payé sur le suivi financier d'un employé, depuis [Ajouter une avance ou une prime](/avance-ou-prime). | "Salaire — {employé} ({mois/année})" | Personnel | Le montant payé lors de la création du suivi financier ; en cas de modification ultérieure, seule la **différence** (montant payé − montant déjà comptabilisé) est ajoutée, pour ne jamais compter deux fois le même paiement. |
+| **Paiement d'un salaire** | Vous renseignez le montant payé sur le suivi financier d'un employé, depuis [Suivi financier](/suivi-financier). | "Salaire — {employé} ({mois/année})" | Personnel | Le montant payé lors de la création du suivi financier ; en cas de modification ultérieure, seule la **différence** (montant payé − montant déjà comptabilisé) est ajoutée, pour ne jamais compter deux fois le même paiement. |
 
 Pour les deux, le **mode de paiement** est repris de sa source (celui choisi sur la facture, ou
 "Espèces" par défaut pour un salaire) et un commentaire précise qu'il s'agit d'une dépense générée
@@ -179,5 +179,5 @@ définitivement la dépense ; l'action est irréversible.
 
 - [Catégories de dépenses](/categories-de-depenses)
 - [Factures](/factures-fournisseurs)
-- [Ajouter une avance ou une prime](/avance-ou-prime)
+- [Suivi financier](/suivi-financier)
 - [Comprendre les rapports de gestion](/rapports-de-gestion)
