@@ -27,7 +27,7 @@ Trois champs, communs à tous les tickets de cette saisie :
 
 - **Date** (obligatoire, aujourd'hui par défaut) — la journée à laquelle ces ventes ont eu lieu.
 - **Shift** (obligatoire) — le service concerné, tel que défini dans
-  [Suivre le planning](/suivre-le-planning).
+  [Planning & Présence](/planning-et-presence).
 - **Employé** (obligatoire) — la personne qui a réalisé (ou saisit) la vente.
 
 ## Ajouter et remplir un ticket
