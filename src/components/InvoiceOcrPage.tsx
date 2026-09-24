@@ -19,6 +19,7 @@ import {
   Eye,
   EyeOff,
   ScanLine,
+  Camera,
 } from 'lucide-react';
 import { Supplier, PurchasePaymentMethod, PURCHASE_PAYMENT_METHODS } from '../data/purchasesModel';
 import { StockProduct, STOCK_CATEGORIES, STOCK_ZONES, StockZone } from '../data/stockModel';
@@ -65,7 +66,15 @@ interface InvoiceOcrPageProps {
   onIntegrateInvoice: (payload: IntegratePayload) => Promise<void>;
 }
 
-type Step = 'upload' | 'extracting' | 'review' | 'success';
+type Step = 'upload' | 'confirm' | 'extracting' | 'review' | 'success';
+type CaptureSource = 'camera' | 'file';
+
+// Coarse-pointer/touch-UA heuristic — good enough to decide whether showing a dedicated "Prendre
+// une photo" button (backed by <input capture="environment">) is worth the extra tap versus just
+// letting desktop users pick a file the usual way. The capture attribute itself is silently
+// ignored by desktop browsers, so this is a UX nicety, never a hard gate.
+const isLikelyMobileDevice = (): boolean =>
+  typeof navigator !== 'undefined' && /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 
 const inputBaseClass =
   'w-full px-3.5 py-2 text-xs rounded-xl border bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-1 transition';
@@ -91,7 +100,7 @@ export const InvoiceOcrPage: React.FC<InvoiceOcrPageProps> = ({
   onIntegrateInvoice,
 }) => {
   const [step, setStep] = useState<Step>('upload');
-  useUnsavedWorkGuard(step === 'review' || step === 'extracting');
+  useUnsavedWorkGuard(step === 'review' || step === 'extracting' || step === 'confirm');
   const [file, setFile] = useState<File | null>(null);
   const [filePreviewUrl, setFilePreviewUrl] = useState<string | null>(null);
   const [isDragOver, setIsDragOver] = useState(false);
@@ -99,6 +108,14 @@ export const InvoiceOcrPage: React.FC<InvoiceOcrPageProps> = ({
   const [rawText, setRawText] = useState('');
   const [showRawText, setShowRawText] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const isMobile = useMemo(isLikelyMobileDevice, []);
+
+  // A photo (from the camera or the gallery) is held here, unprocessed, until the user confirms
+  // it — nothing is sent to OCR until they've actually looked at what was captured/picked.
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
+  const [pendingPreviewUrl, setPendingPreviewUrl] = useState<string | null>(null);
+  const [pendingSource, setPendingSource] = useState<CaptureSource | null>(null);
 
   // Review draft fields
   const [supplierMode, setSupplierMode] = useState<SupplierMode>('new');
@@ -126,6 +143,12 @@ export const InvoiceOcrPage: React.FC<InvoiceOcrPageProps> = ({
       if (prev) URL.revokeObjectURL(prev);
       return null;
     });
+    setPendingFile(null);
+    setPendingPreviewUrl((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return null;
+    });
+    setPendingSource(null);
     setExtractError(null);
     setRawText('');
     setShowRawText(false);
@@ -185,17 +208,75 @@ export const InvoiceOcrPage: React.FC<InvoiceOcrPageProps> = ({
     }
   };
 
+  const clearPending = () => {
+    setPendingFile(null);
+    setPendingPreviewUrl((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return null;
+    });
+    setPendingSource(null);
+  };
+
+  // Images (whether from the camera or the gallery/file picker) always stop at the confirm
+  // screen first — a photo can be blurry, cropped wrong, or simply the wrong document, and OCR
+  // can take several seconds, so it's worth one extra look before committing to it. PDFs/DOCX
+  // have no meaningful visual preview to confirm, so they go straight to extraction as before.
+  const stageFile = (candidate: File, source: CaptureSource) => {
+    const kind = detectFileKind(candidate);
+    if (!kind) {
+      setExtractError('Format non supporté. Utilisez une photo (JPG/PNG/WEBP), un PDF ou un DOCX.');
+      return;
+    }
+    if (candidate.size > MAX_OCR_FILE_SIZE_BYTES) {
+      setExtractError(`Fichier trop volumineux (max ${(MAX_OCR_FILE_SIZE_BYTES / (1024 * 1024)).toFixed(0)} Mo).`);
+      return;
+    }
+    setExtractError(null);
+
+    if (kind === 'image') {
+      setPendingFile(candidate);
+      setPendingPreviewUrl(URL.createObjectURL(candidate));
+      setPendingSource(source);
+      setStep('confirm');
+    } else {
+      processFile(candidate);
+    }
+  };
+
   const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const chosen = e.target.files?.[0];
-    if (chosen) processFile(chosen);
+    if (chosen) stageFile(chosen, 'file');
     e.target.value = '';
+  };
+
+  const handleCameraInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const chosen = e.target.files?.[0];
+    if (chosen) stageFile(chosen, 'camera');
+    e.target.value = '';
+  };
+
+  const handleConfirmPending = () => {
+    if (!pendingFile) return;
+    const toProcess = pendingFile;
+    clearPending();
+    processFile(toProcess);
+  };
+
+  const handleRetakePending = () => {
+    const source = pendingSource;
+    clearPending();
+    setStep('upload');
+    // Re-open the same source (camera or file picker) the pending photo came from, so retaking
+    // is a single tap rather than having to choose the source again.
+    if (source === 'camera') cameraInputRef.current?.click();
+    else fileInputRef.current?.click();
   };
 
   const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     setIsDragOver(false);
     const dropped = e.dataTransfer.files?.[0];
-    if (dropped) processFile(dropped);
+    if (dropped) stageFile(dropped, 'file');
   };
   const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
@@ -342,6 +423,32 @@ export const InvoiceOcrPage: React.FC<InvoiceOcrPageProps> = ({
             </button>
             <button onClick={onNavigateToPurchases} className={primaryButtonClass}>
               <span>Voir les achats</span>
+            </button>
+          </div>
+        </div>
+      ) : step === 'confirm' ? (
+        <div className="p-6 sm:p-8 rounded-2xl bg-white dark:bg-[#151D2A] border border-gray-100 dark:border-gray-800 shadow-2xs flex flex-col items-center text-center gap-4">
+          <div>
+            <h2 className="text-sm font-bold text-gray-900 dark:text-white">Cette photo convient-elle ?</h2>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+              Vérifiez qu'elle est nette et lisible avant de lancer l'analyse — une facture floue ou coupée réduit la qualité de l'extraction.
+            </p>
+          </div>
+          {pendingPreviewUrl && (
+            <img
+              src={pendingPreviewUrl}
+              alt="Photo de la facture en attente de confirmation"
+              className="w-full max-w-sm rounded-xl border border-gray-100 dark:border-gray-800 object-contain max-h-96"
+            />
+          )}
+          <div className="flex items-center gap-3 pt-1">
+            <button onClick={handleRetakePending} className={secondaryButtonClass}>
+              <X size={14} />
+              <span>Reprendre la photo</span>
+            </button>
+            <button onClick={handleConfirmPending} className={primaryButtonClass}>
+              <CheckCircle2 size={14} />
+              <span>Valider cette photo</span>
             </button>
           </div>
         </div>
@@ -706,11 +813,20 @@ export const InvoiceOcrPage: React.FC<InvoiceOcrPageProps> = ({
             </div>
             <p className="text-sm font-bold text-gray-900 dark:text-white">Glissez-déposez une facture ici</p>
             <p className="text-xs text-gray-400 my-2">ou</p>
-            <button onClick={() => fileInputRef.current?.click()} className={`${primaryButtonClass} mx-auto`}>
-              <UploadCloud size={14} />
-              <span>Cliquer pour sélectionner un fichier</span>
-            </button>
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-2">
+              <button onClick={() => fileInputRef.current?.click()} className={`${primaryButtonClass} mx-auto`}>
+                <UploadCloud size={14} />
+                <span>Importer depuis l'appareil</span>
+              </button>
+              {isMobile && (
+                <button onClick={() => cameraInputRef.current?.click()} className={`${secondaryButtonClass} mx-auto`}>
+                  <Camera size={14} />
+                  <span>Prendre une photo</span>
+                </button>
+              )}
+            </div>
             <input ref={fileInputRef} type="file" accept={OCR_ACCEPTED_EXTENSIONS.join(',')} className="hidden" onChange={handleFileInputChange} />
+            <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={handleCameraInputChange} />
             <p className="text-[11px] text-gray-400 mt-4">
               Formats acceptés : photo (JPG, PNG, WEBP), PDF, DOCX — Taille max {(MAX_OCR_FILE_SIZE_BYTES / (1024 * 1024)).toFixed(0)} Mo
             </p>
