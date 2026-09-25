@@ -128,10 +128,11 @@ export function Footer() {
           <p>
             © {new Date().getFullYear()} {SITE.name}. Tous droits réservés.
           </p>
-          <p>
+          <p className="flex items-center gap-1.5">
             Site réalisé par{' '}
-            <a href={CREDIT.href} target="_blank" rel="noopener noreferrer" className="font-medium text-muted underline-offset-2 transition-colors hover:text-ink hover:underline">
-              {CREDIT.name}
+            <a href={CREDIT.href} target="_blank" rel="noopener noreferrer" aria-label={CREDIT.name} className="inline-flex items-center opacity-80 transition-opacity hover:opacity-100">
+              <img src="/creative-comet-logo.png" alt={CREDIT.name} className="h-3.5 w-auto dark:hidden" />
+              <img src="/creative-comet-logo-dark.png" alt={CREDIT.name} className="hidden h-3.5 w-auto dark:block" />
             </a>
           </p>
         </div>
