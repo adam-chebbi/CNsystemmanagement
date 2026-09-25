@@ -45,6 +45,12 @@ export interface CatalogExtra {
   id: string;
   name: string;
   price: number;
+  // Ingredient consumption for this extra alone (e.g. "Chantilly" -> 30g crème fraîche), on top of
+  // whatever the base product's own recipe already consumes — see server/routes/sales.ts's
+  // deductStockForSale, which expands both the sold article's recipe and every selected extra's own
+  // recipe. Ingredient-only lines (no sub-recipe/composed-product nesting, unlike a product's recipe)
+  // since an extra is a small, self-contained add-on.
+  recipe?: RecipeLine[];
 }
 
 // Tunisia's standard VAT rate — the fallback for any article that hasn't been given a specific

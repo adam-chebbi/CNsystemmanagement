@@ -15,6 +15,10 @@ export interface SaleItem {
   vatRate?: number;
   netAmount?: number;
   taxAmount?: number;
+  // Which CatalogExtra.id's were selected on this line (applies to all `qty` units of it) — used
+  // at sale time to also deduct each extra's own ingredient recipe, on top of the base product's.
+  // Absent on sales recorded before this field existed, and on lines with no extras selected.
+  extraIds?: string[];
 }
 
 export type ServiceType = 'Sur place' | 'À emporter';

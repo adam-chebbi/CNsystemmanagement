@@ -138,8 +138,8 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({
   }, [enriched]);
 
   const theoreticalConsumption = useMemo(
-    () => computeTheoreticalConsumption(transactions, articles, ingredients, subRecipes),
-    [transactions, articles, ingredients, subRecipes]
+    () => computeTheoreticalConsumption(transactions, articles, ingredients, subRecipes, extras),
+    [transactions, articles, ingredients, subRecipes, extras]
   );
   const topConsumedIngredients = useMemo(
     () =>

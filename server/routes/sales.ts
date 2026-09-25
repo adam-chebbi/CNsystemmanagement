@@ -9,7 +9,7 @@ import type { SaleItem, SaleTransaction } from '../../src/data/salesTransactions
 import type { CatalogArticle } from '../../src/data/manualSalesCatalog.js';
 import { accumulateRecipeConsumption } from '../../src/data/productsModel.js';
 import { normalizeKey } from '../../src/data/textUtils.js';
-import { getAllArticlesRaw, getAllSubRecipesRaw } from './productCatalog.js';
+import { getAllArticlesRaw, getAllSubRecipesRaw, getAllExtrasRaw } from './productCatalog.js';
 import { getAllProducts, postEntries, cancelLedgerEntryById, getLedgerEntryIdsBySource, type LedgerEntryInput } from './stock.js';
 import { resolveEffectiveEmployeeName } from '../lib/employeeSelection.js';
 
@@ -42,6 +42,7 @@ const saleItemSchema = z.object({
   vatRate: z.number().min(0).max(1).optional(),
   netAmount: z.number().optional(),
   taxAmount: z.number().optional(),
+  extraIds: z.array(z.string()).optional(),
 });
 
 const saleSchema = z.object({
@@ -71,20 +72,30 @@ const resolveArticleForSaleItem = (item: SaleItem, articles: CatalogArticle[]): 
   articles.find((a) => normalizeKey(item.name).startsWith(normalizeKey(a.name)));
 
 // Recursively expands every sold item's recipe (ingredients, sub-recipes, and composed products —
-// see manualSalesCatalog.RecipeLine) into raw ingredient quantities, then posts a single 'Sortie'
-// stock movement per ingredient via the exact same postEntries() the manual Stock module uses.
-// Deliberately defensive: a product with no recipe, or an ingredient that no longer exists, is
-// silently skipped rather than thrown — a sale must never fail because of a stock/recipe data gap.
+// see manualSalesCatalog.RecipeLine) — plus the recipe of every extra selected on that item, if it
+// has one (e.g. "Chantilly" -> crème fraîche) — into raw ingredient quantities, then posts a single
+// 'Sortie' stock movement per ingredient via the exact same postEntries() the manual Stock module
+// uses. Deliberately defensive: a product/extra with no recipe, or an ingredient that no longer
+// exists, is silently skipped rather than thrown — a sale must never fail because of a stock/recipe
+// data gap.
 const deductStockForSale = (items: SaleItem[], performedBy: string, saleId: number): void => {
   const articles = getAllArticlesRaw();
   const subRecipes = getAllSubRecipesRaw();
+  const extras = getAllExtrasRaw();
   const products = getAllProducts();
 
   const consumption = new Map<string, number>();
   items.forEach((item) => {
     const article = resolveArticleForSaleItem(item, articles);
-    if (!article?.recipe || article.recipe.length === 0) return;
-    accumulateRecipeConsumption(article.recipe, item.qty, products, subRecipes, articles, consumption, new Set());
+    if (article?.recipe && article.recipe.length > 0) {
+      accumulateRecipeConsumption(article.recipe, item.qty, products, subRecipes, articles, consumption, new Set());
+    }
+    item.extraIds?.forEach((extraId) => {
+      const extra = extras.find((e) => e.id === extraId);
+      if (extra?.recipe && extra.recipe.length > 0) {
+        accumulateRecipeConsumption(extra.recipe, item.qty, products, subRecipes, articles, consumption, new Set());
+      }
+    });
   });
   if (consumption.size === 0) return;
 

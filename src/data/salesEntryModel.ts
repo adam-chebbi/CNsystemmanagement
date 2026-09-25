@@ -225,6 +225,7 @@ const buildSaleItemFromDraft = (item: DraftTicketItem, catalog: Pick<SalesCatalo
     vatRate,
     netAmount: lineNet,
     taxAmount: lineTtc - lineNet,
+    extraIds: item.extraIds.length > 0 ? item.extraIds : undefined,
   };
 };
 

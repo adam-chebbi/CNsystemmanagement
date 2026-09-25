@@ -21,8 +21,13 @@ const rowToCategory = (r: CategoryRow): ProductCategory => ({ id: r.id, name: r.
 interface SubCategoryRow { id: string; category_id: string; name: string; created_at: string }
 const rowToSubCategory = (r: SubCategoryRow): ProductSubCategory => ({ id: r.id, categoryId: r.category_id, name: r.name, createdAt: r.created_at });
 
-interface ExtraRow { id: string; name: string; price: number }
-const rowToExtra = (r: ExtraRow): CatalogExtra => ({ id: r.id, name: r.name, price: r.price });
+interface ExtraRow { id: string; name: string; price: number; recipe: string | null }
+const rowToExtra = (r: ExtraRow): CatalogExtra => ({
+  id: r.id,
+  name: r.name,
+  price: r.price,
+  recipe: r.recipe ? fromJson<RecipeLine[]>(r.recipe, []) : undefined,
+});
 
 interface ArticleRow {
   id: string; name: string; category: string; sub_category: string | null; price: number;
@@ -65,6 +70,7 @@ const rowToSubRecipe = (r: SubRecipeRow): SubRecipe => ({
 export const getAllArticlesRaw = (): CatalogArticle[] => (db.prepare('SELECT * FROM catalog_articles').all() as ArticleRow[]).map(rowToArticle);
 export const getAllSubRecipesRaw = (): SubRecipe[] =>
   (db.prepare('SELECT * FROM sub_recipes ORDER BY created_at ASC').all() as SubRecipeRow[]).map(rowToSubRecipe);
+export const getAllExtrasRaw = (): CatalogExtra[] => (db.prepare('SELECT * FROM catalog_extras ORDER BY rowid ASC').all() as ExtraRow[]).map(rowToExtra);
 
 export const productCatalogRouter = Router();
 productCatalogRouter.use(requireAuth);
@@ -183,7 +189,18 @@ productCatalogRouter.delete(
 
 // --- Extras ----------------------------------------------------------------------------------
 
-const extraSchema = z.object({ name: z.string().trim().min(1), price: z.number().min(0) });
+// Shared with articleSchema below — defined here since extras need it first.
+const recipeLineSchema = z.object({
+  id: z.string(),
+  kind: z.enum(['ingredient', 'subrecipe', 'product']),
+  ingredientId: z.string().optional(),
+  subRecipeId: z.string().optional(),
+  productId: z.string().optional(),
+  quantity: z.number(),
+  unit: z.string(),
+});
+
+const extraSchema = z.object({ name: z.string().trim().min(1), price: z.number().min(0), recipe: z.array(recipeLineSchema).optional() });
 
 productCatalogRouter.get(
   '/catalog-extras',
@@ -199,8 +216,8 @@ productCatalogRouter.post(
   requirePermission('products:manage'),
   asyncHandler((req, res) => {
     const body = extraSchema.parse(req.body);
-    const row: ExtraRow = { id: randomUUID(), name: body.name, price: body.price };
-    db.prepare('INSERT INTO catalog_extras (id, name, price) VALUES (?, ?, ?)').run(row.id, row.name, row.price);
+    const row: ExtraRow = { id: randomUUID(), name: body.name, price: body.price, recipe: body.recipe ? toJson(body.recipe) : null };
+    db.prepare('INSERT INTO catalog_extras (id, name, price, recipe) VALUES (?, ?, ?, ?)').run(row.id, row.name, row.price, row.recipe);
     recordActivity('Produits', 'Création', `Extra créé — ${row.name}`, req.user!.fullName);
     res.status(201).json(rowToExtra(row));
   })
@@ -213,9 +230,10 @@ productCatalogRouter.put(
     const body = extraSchema.parse(req.body);
     const existing = db.prepare('SELECT * FROM catalog_extras WHERE id = ?').get(req.params.id) as ExtraRow | undefined;
     if (!existing) throw notFound('Extra');
-    db.prepare('UPDATE catalog_extras SET name = ?, price = ? WHERE id = ?').run(body.name, body.price, req.params.id);
+    const recipe = body.recipe ? toJson(body.recipe) : null;
+    db.prepare('UPDATE catalog_extras SET name = ?, price = ?, recipe = ? WHERE id = ?').run(body.name, body.price, recipe, req.params.id);
     recordActivity('Produits', 'Modification', `Extra modifié — ${existing.name} → ${body.name}`, req.user!.fullName);
-    res.json(rowToExtra({ id: req.params.id, name: body.name, price: body.price }));
+    res.json(rowToExtra({ id: req.params.id, name: body.name, price: body.price, recipe }));
   })
 );
 
@@ -237,16 +255,6 @@ productCatalogRouter.delete(
 );
 
 // --- Articles (products) ------------------------------------------------------------------------
-
-const recipeLineSchema = z.object({
-  id: z.string(),
-  kind: z.enum(['ingredient', 'subrecipe', 'product']),
-  ingredientId: z.string().optional(),
-  subRecipeId: z.string().optional(),
-  productId: z.string().optional(),
-  quantity: z.number(),
-  unit: z.string(),
-});
 
 const variantSchema = z.object({ id: z.string(), label: z.string(), priceDelta: z.number().optional() });
 

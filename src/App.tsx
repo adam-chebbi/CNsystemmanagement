@@ -1266,6 +1266,8 @@ export default function App() {
                   subCategories={productSubCategories}
                   articles={catalogArticles}
                   extras={catalogExtras}
+                  ingredients={stockProducts}
+                  units={stockUnits}
                   onNavigateToDashboard={() => {
                     setActiveTab('dashboard');
                     setActiveSubItem('');

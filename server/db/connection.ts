@@ -63,6 +63,14 @@ if (!catalogArticleColumns.has('price_includes_tax')) {
   db.exec('ALTER TABLE catalog_articles ADD COLUMN price_includes_tax INTEGER');
 }
 
+// One-time, idempotent migration: extras (suppléments) gained their own optional fiche technique
+// (ingredients + quantities), so selecting one on a sale can deduct its consumption too, on top of
+// the base product's own recipe — see server/routes/sales.ts's deductStockForSale.
+const catalogExtraColumns = new Set((db.pragma('table_info(catalog_extras)') as { name: string }[]).map((c) => c.name));
+if (!catalogExtraColumns.has('recipe')) {
+  db.exec('ALTER TABLE catalog_extras ADD COLUMN recipe TEXT');
+}
+
 // One-time, idempotent migration: stock_ledger and expenses gained source_type/source_id tracking
 // columns (so an automated entry, e.g. the stock deduction or VAT expense a sale creates, can be
 // found and reversed by a later refund) after the original schema shipped.

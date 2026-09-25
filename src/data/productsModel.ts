@@ -299,13 +299,15 @@ export const accumulateRecipeConsumption = (
   });
 };
 
-// Ventes × quantité de recette = consommation théorique. Pure read-only estimate; any real stock
-// change still has to go through a manual Stock → Mouvements entry.
+// Ventes × quantité de recette = consommation théorique (recette du produit + recette de chaque
+// extra sélectionné). Pure read-only estimate; any real stock change still has to go through a
+// manual Stock → Mouvements entry (or the automatic deduction on sale — see sales.ts).
 export const computeTheoreticalConsumption = (
   transactions: SaleTransaction[],
   articles: CatalogArticle[],
   ingredients: StockProduct[],
-  subRecipes: SubRecipe[]
+  subRecipes: SubRecipe[],
+  extras: CatalogExtra[] = []
 ): Map<string, number> => {
   const consumption = new Map<string, number>();
   transactions.forEach((tx) => {
@@ -313,8 +315,13 @@ export const computeTheoreticalConsumption = (
       const article =
         articles.find((a) => normalizeKey(a.name) === normalizeKey(item.name)) ??
         articles.find((a) => normalizeKey(item.name).startsWith(normalizeKey(a.name)));
-      if (!article?.recipe) return;
-      accumulateRecipeConsumption(article.recipe, item.qty, ingredients, subRecipes, articles, consumption, new Set());
+      if (article?.recipe) {
+        accumulateRecipeConsumption(article.recipe, item.qty, ingredients, subRecipes, articles, consumption, new Set());
+      }
+      item.extraIds?.forEach((extraId) => {
+        const extra = extras.find((e) => e.id === extraId);
+        if (extra?.recipe) accumulateRecipeConsumption(extra.recipe, item.qty, ingredients, subRecipes, articles, consumption, new Set());
+      });
     });
   });
   return consumption;

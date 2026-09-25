@@ -18,8 +18,9 @@ import {
   FolderTree,
   Tag,
   Sparkles,
+  Beaker,
 } from 'lucide-react';
-import { CatalogArticle, CatalogExtra } from '../data/manualSalesCatalog';
+import { CatalogArticle, CatalogExtra, RecipeLine } from '../data/manualSalesCatalog';
 import {
   ProductCategory,
   ProductSubCategory,
@@ -28,13 +29,18 @@ import {
   resolveProductSubCategoryByName,
   getCategoryUsageCount,
   getSubCategoryUsageCount,
+  createEmptyRecipeLine,
+  areUnitsCompatible,
 } from '../data/productsModel';
+import { StockProduct, StockUnit } from '../data/stockModel';
 
 interface ProductCatalogPageProps {
   categories: ProductCategory[];
   subCategories: ProductSubCategory[];
   articles: CatalogArticle[];
   extras: CatalogExtra[];
+  ingredients: StockProduct[];
+  units: StockUnit[];
   onNavigateToDashboard: () => void;
   onNavigateToProducts: () => void;
   onCreateCategory: (category: ProductCategory) => void;
@@ -68,6 +74,8 @@ export const ProductCatalogPage: React.FC<ProductCatalogPageProps> = ({
   subCategories,
   articles,
   extras,
+  ingredients,
+  units,
   onNavigateToDashboard,
   onNavigateToProducts,
   onCreateCategory,
@@ -102,8 +110,32 @@ export const ProductCatalogPage: React.FC<ProductCatalogPageProps> = ({
   const [editingExtraId, setEditingExtraId] = useState<string | null>(null);
   const [extraName, setExtraName] = useState('');
   const [extraPrice, setExtraPrice] = useState('');
+  const [extraRecipe, setExtraRecipe] = useState<RecipeLine[]>([]);
   const [extraSaveError, setExtraSaveError] = useState<string | null>(null);
   const [extraIsSaving, setExtraIsSaving] = useState(false);
+
+  // An extra's own fiche technique: ingredient-only lines (no sub-recipe/composed-product nesting,
+  // unlike a product's recipe — an extra is a small, self-contained add-on) — deducted from stock
+  // on top of the base product's own recipe whenever this extra is selected on a sale (see
+  // server/routes/sales.ts's deductStockForSale).
+  const addExtraRecipeLine = () => setExtraRecipe((prev) => [...prev, createEmptyRecipeLine()]);
+  const removeExtraRecipeLine = (id: string) => setExtraRecipe((prev) => prev.filter((l) => l.id !== id));
+  const updateExtraRecipeLine = (id: string, patch: Partial<RecipeLine>) =>
+    setExtraRecipe((prev) =>
+      prev.map((l) => {
+        if (l.id !== id) return l;
+        const next = { ...l, ...patch };
+        // Reset the unit when the ingredient changes so an incompatible leftover can't linger.
+        if (patch.ingredientId !== undefined && patch.ingredientId !== l.ingredientId) next.unit = '';
+        return next;
+      })
+    );
+  const getUnitOptionsForExtraLine = (line: RecipeLine): StockUnit[] => {
+    if (!line.ingredientId) return units;
+    const ing = ingredients.find((i) => i.id === line.ingredientId);
+    if (!ing) return units;
+    return units.filter((u) => areUnitsCompatible(u.name, ing.unit));
+  };
 
   const filteredExtras = useMemo(
     () => extras.filter((e) => !searchQuery.trim() || e.name.toLowerCase().includes(searchQuery.trim().toLowerCase())),
@@ -115,13 +147,26 @@ export const ProductCatalogPage: React.FC<ProductCatalogPageProps> = ({
     if (!extraName.trim()) list.push('Le nom du supplément est obligatoire.');
     const priceNum = Number(extraPrice);
     if (extraPrice.trim() === '' || Number.isNaN(priceNum) || priceNum < 0) list.push('Le prix doit être un nombre positif ou nul.');
+    extraRecipe.forEach((line, idx) => {
+      const label = `Ingrédient ${idx + 1}`;
+      if (!line.ingredientId) list.push(`${label} : sélectionnez un ingrédient.`);
+      else if (!line.quantity || line.quantity <= 0) list.push(`${label} : la quantité doit être supérieure à 0.`);
+      else if (!line.unit) list.push(`${label} : sélectionnez une unité.`);
+      else {
+        const ing = ingredients.find((i) => i.id === line.ingredientId);
+        if (ing && !areUnitsCompatible(line.unit, ing.unit)) {
+          list.push(`${label} : l'unité "${line.unit}" est incompatible avec l'unité de stock de cet ingrédient ("${ing.unit}").`);
+        }
+      }
+    });
     return list;
-  }, [extraName, extraPrice]);
+  }, [extraName, extraPrice, extraRecipe, ingredients]);
 
   const handleOpenCreateExtra = () => {
     setEditingExtraId(null);
     setExtraName('');
     setExtraPrice('');
+    setExtraRecipe([]);
     setExtraSaveError(null);
     setExtraFormOpen(true);
   };
@@ -130,6 +175,7 @@ export const ProductCatalogPage: React.FC<ProductCatalogPageProps> = ({
     setEditingExtraId(extra.id);
     setExtraName(extra.name);
     setExtraPrice(String(extra.price));
+    setExtraRecipe((extra.recipe ?? []).map((line) => ({ ...line })));
     setExtraSaveError(null);
     setExtraFormOpen(true);
   };
@@ -139,7 +185,7 @@ export const ProductCatalogPage: React.FC<ProductCatalogPageProps> = ({
     setExtraIsSaving(true);
     setExtraSaveError(null);
     try {
-      const payload = { name: extraName.trim(), price: Number(extraPrice) };
+      const payload = { name: extraName.trim(), price: Number(extraPrice), recipe: extraRecipe.length > 0 ? extraRecipe : undefined };
       if (editingExtraId) await onUpdateExtra(editingExtraId, payload);
       else await onCreateExtra(payload);
       setExtraFormOpen(false);
@@ -548,6 +594,71 @@ export const ProductCatalogPage: React.FC<ProductCatalogPageProps> = ({
                   className={`${inputBaseClass} ${inputValidClass}`}
                 />
               </div>
+
+              <div className="pt-1 border-t border-gray-100 dark:border-gray-800 space-y-2.5">
+                <div className="flex items-center justify-between pt-2">
+                  <span className="text-xs font-bold text-gray-900 dark:text-white flex items-center gap-1.5">
+                    <Beaker size={14} className="text-emerald-500" /> Fiche technique
+                  </span>
+                </div>
+                <p className="text-[11px] text-gray-400">
+                  Optionnel — ce que cet ajout consomme en stock (ex : Chantilly → 30g crème fraîche), en plus de la fiche
+                  technique du produit sur lequel il est sélectionné.
+                </p>
+                {extraRecipe.map((line) => (
+                  <div key={line.id} className="rounded-xl border border-gray-100 dark:border-gray-800 bg-gray-50/60 dark:bg-gray-800/40 p-2.5 space-y-2">
+                    <div className="flex items-center gap-2">
+                      <select
+                        value={line.ingredientId ?? ''}
+                        onChange={(e) => updateExtraRecipeLine(line.id, { ingredientId: e.target.value })}
+                        className={`${inputBaseClass} appearance-none cursor-pointer flex-1 ${inputValidClass}`}
+                      >
+                        <option value="">Choisir un ingrédient</option>
+                        {ingredients.map((ing) => (
+                          <option key={ing.id} value={ing.id}>
+                            {ing.name} ({ing.unit})
+                          </option>
+                        ))}
+                      </select>
+                      <button
+                        onClick={() => removeExtraRecipeLine(line.id)}
+                        className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40 cursor-pointer shrink-0"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <DecimalInput
+                        min={0}
+                        step="any"
+                        value={line.quantity || ''}
+                        onChange={(e) => updateExtraRecipeLine(line.id, { quantity: Number(e.target.value) || 0 })}
+                        placeholder="Quantité"
+                        className={`${inputBaseClass} ${inputValidClass}`}
+                      />
+                      <select
+                        value={line.unit}
+                        onChange={(e) => updateExtraRecipeLine(line.id, { unit: e.target.value })}
+                        className={`${inputBaseClass} appearance-none cursor-pointer ${inputValidClass}`}
+                      >
+                        <option value="">Unité</option>
+                        {getUnitOptionsForExtraLine(line).map((u) => (
+                          <option key={u.id} value={u.name}>
+                            {u.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                ))}
+                <button
+                  onClick={addExtraRecipeLine}
+                  className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 inline-flex items-center gap-1 cursor-pointer"
+                >
+                  <Plus size={13} /> Ajouter un ingrédient
+                </button>
+              </div>
+
               {extraSaveError && (
                 <div className="p-3 rounded-xl bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800/60 text-xs text-red-600 dark:text-red-400 flex items-center gap-2">
                   <AlertCircle size={14} /> {extraSaveError}

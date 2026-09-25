@@ -91,7 +91,8 @@ CREATE TABLE IF NOT EXISTS product_subcategories (
 CREATE TABLE IF NOT EXISTS catalog_extras (
   id TEXT PRIMARY KEY,
   name TEXT NOT NULL,
-  price REAL NOT NULL
+  price REAL NOT NULL,
+  recipe TEXT
 );
 
 CREATE TABLE IF NOT EXISTS catalog_articles (
