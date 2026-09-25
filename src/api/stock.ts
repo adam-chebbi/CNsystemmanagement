@@ -7,7 +7,10 @@ export const renameStockUnit = (id: string, name: string) => apiPut<StockUnit>(`
 export const deleteStockUnit = (id: string) => apiDelete<void>(`/stock/units/${id}`);
 
 export const getStockProducts = () => apiGet<StockProduct[]>('/stock/products');
-export const createStockProduct = (product: Omit<StockProduct, 'id'>) => apiPost<StockProduct>('/stock/products', product);
+// lotNumber/expiryDate are optional and only meaningful when creating a new lot-tracked ingredient
+// with an initial quantity — see IngredientManualAddForm. Never part of StockProduct itself.
+export const createStockProduct = (product: Omit<StockProduct, 'id'> & { lotNumber?: string; expiryDate?: string }) =>
+  apiPost<StockProduct>('/stock/products', product);
 export const updateStockProduct = (id: string, product: Omit<StockProduct, 'id'>) => apiPut<StockProduct>(`/stock/products/${id}`, product);
 
 export const getStockLots = () => apiGet<StockLot[]>('/stock/lots');

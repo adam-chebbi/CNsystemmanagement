@@ -184,7 +184,10 @@ export const StockInventoryPage: React.FC<StockInventoryPageProps> = ({
       });
 
       await new Promise((resolve) => setTimeout(resolve, 700));
-      onPostEntries(entries);
+      // Nothing to post when every counted product matches its theoretical quantity — the server
+      // rejects an empty entries array (it expects at least one real movement), and there is
+      // nothing to adjust anyway, so skip the call entirely rather than sending a pointless request.
+      if (entries.length > 0) onPostEntries(entries);
       setLastResult({ count: discrepantRows.length, choice });
       setStep('success');
     } catch (err) {
@@ -261,9 +264,15 @@ export const StockInventoryPage: React.FC<StockInventoryPageProps> = ({
           </div>
           <h2 className="text-lg font-bold text-gray-900 dark:text-white">Inventaire enregistré</h2>
           <p className="text-xs text-gray-500 dark:text-gray-400 max-w-md">
-            {lastResult?.count ?? 0} écart{(lastResult?.count ?? 0) > 1 ? 's ont' : ' a'} été enregistré
-            {(lastResult?.count ?? 0) > 1 ? 's' : ''} dans l'historique.{' '}
-            {lastResult?.choice === 'Ajusté' ? 'Le stock a été ajusté au stock réel.' : 'Le stock théorique a été conservé.'}
+            {(lastResult?.count ?? 0) === 0 ? (
+              "Aucun écart constaté — le stock réel correspond exactement au stock théorique, rien n'a été modifié."
+            ) : (
+              <>
+                {lastResult?.count} écart{(lastResult?.count ?? 0) > 1 ? 's ont' : ' a'} été enregistré
+                {(lastResult?.count ?? 0) > 1 ? 's' : ''} dans l'historique.{' '}
+                {lastResult?.choice === 'Ajusté' ? 'Le stock a été ajusté au stock réel.' : 'Le stock théorique a été conservé.'}
+              </>
+            )}
           </p>
           <div className="flex items-center gap-2 pt-2">
             <button onClick={handleStartNew} className={secondaryButtonClass}>
@@ -281,9 +290,13 @@ export const StockInventoryPage: React.FC<StockInventoryPageProps> = ({
           <div className="p-4 rounded-2xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/60 flex items-start gap-3">
             <ShieldCheck size={20} className="text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
             <div>
-              <p className="text-sm font-bold text-emerald-800 dark:text-emerald-300">Vérifiez les écarts avant confirmation</p>
+              <p className="text-sm font-bold text-emerald-800 dark:text-emerald-300">
+                {discrepantRows.length === 0 ? 'Aucun écart constaté' : 'Vérifiez les écarts avant confirmation'}
+              </p>
               <p className="text-xs text-emerald-700/80 dark:text-emerald-400/80">
-                Choisissez ensuite d'ajuster le stock au stock réel ou de conserver le stock théorique. Dans les deux cas, l'écart sera conservé dans l'historique.
+                {discrepantRows.length === 0
+                  ? "Le stock réel correspond exactement au stock théorique sur toute la portée comptée — vous pouvez confirmer pour clore cet inventaire sans rien modifier."
+                  : "Choisissez ensuite d'ajuster le stock au stock réel ou de conserver le stock théorique. Dans les deux cas, l'écart sera conservé dans l'historique."}
               </p>
             </div>
           </div>

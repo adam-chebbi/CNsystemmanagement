@@ -22,7 +22,7 @@ import {
 interface IngredientManualAddFormProps {
   products: StockProduct[];
   units: StockUnit[];
-  onImportIngredients: (products: Omit<StockProduct, 'id'>[]) => void;
+  onImportIngredients: (products: (Omit<StockProduct, 'id'> & { lotNumber?: string; expiryDate?: string })[]) => void;
   onClose: () => void;
 }
 
@@ -69,7 +69,12 @@ export const IngredientManualAddForm: React.FC<IngredientManualAddFormProps> = (
     setIsSaving(true);
     setSaveError(null);
     try {
-      const newProducts = buildStockProductsFromImportRows(recomputedRows);
+      const newProducts = buildStockProductsFromImportRows(recomputedRows).map((product, index) => {
+        const row = recomputedRows[index];
+        return row.lotTracked && row.lotNumber.trim()
+          ? { ...product, lotNumber: row.lotNumber.trim(), expiryDate: row.expiryDate }
+          : product;
+      });
       await Promise.resolve(onImportIngredients(newProducts));
       setSavedCount(newProducts.length);
       setStep('success');
@@ -262,6 +267,36 @@ export const IngredientManualAddForm: React.FC<IngredientManualAddFormProps> = (
                     Gestion par lot (numéro de lot et date de péremption suivis à chaque entrée — le numéro de lot reste optionnel)
                   </label>
                 </div>
+
+                {row.lotTracked && (
+                  <>
+                    <div>
+                      <label className={labelClass}>Numéro de lot (optionnel)</label>
+                      <input
+                        type="text"
+                        value={row.lotNumber}
+                        onChange={(e) => updateRow(row.id, { lotNumber: e.target.value })}
+                        placeholder="Ex: LOT-2026-014"
+                        className={`${inputBaseClass} ${inputValidClass}`}
+                      />
+                      <p className="text-[11px] text-gray-400 mt-1">
+                        Laissez vide pour ne pas rattacher le stock initial à un lot précis — vous pourrez en créer un plus tard depuis Mouvements.
+                      </p>
+                    </div>
+                    <div>
+                      <label className={labelClass}>Date de péremption{row.lotNumber.trim() ? ' *' : ''}</label>
+                      <input
+                        type="date"
+                        value={row.expiryDate}
+                        onChange={(e) => updateRow(row.id, { expiryDate: e.target.value })}
+                        className={`${inputBaseClass} ${showErrors && issuesByField.has('expiryDate') ? inputErrorClass : inputValidClass}`}
+                      />
+                      {showErrors && issuesByField.get('expiryDate') && (
+                        <p className="text-[11px] text-red-500 mt-1 flex items-center gap-1"><AlertCircle size={11} /> {issuesByField.get('expiryDate')}</p>
+                      )}
+                    </div>
+                  </>
+                )}
               </div>
             </div>
           );

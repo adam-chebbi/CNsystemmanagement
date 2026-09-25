@@ -265,6 +265,11 @@ const productSchema = z.object({
   averageCost: z.number().min(0),
   reserveQty: z.number(),
   depotQty: z.number(),
+  // Optional, manual-add-ingredient-form-only: when given, the initial reserve/depot quantity is
+  // also recorded as a real lot (one row per zone with a positive quantity) instead of being an
+  // untraceable number on the product itself — same lot shape as a normal stock reception.
+  lotNumber: z.string().trim().optional(),
+  expiryDate: z.string().optional(),
 });
 
 stockRouter.get('/products', requireAnyPermission('stock:view', 'stock:manage', 'stock:inventory', 'products:manage', 'sales:create'), asyncHandler((_req, res) => {
@@ -282,6 +287,18 @@ stockRouter.post('/products', requirePermission('stock:manage'), asyncHandler((r
     `INSERT INTO stock_products (id, name, sku, category, unit, min_threshold, target_stock, lot_tracked, average_cost, reserve_qty, depot_qty)
      VALUES (@id, @name, @sku, @category, @unit, @min_threshold, @target_stock, @lot_tracked, @average_cost, @reserve_qty, @depot_qty)`
   ).run(row);
+
+  // If a lot number was given, back the initial quantity with a real lot per zone instead of
+  // leaving it as an untraceable number on the product — same shape as receiving stock normally.
+  if (body.lotNumber) {
+    const insertLot = db.prepare(
+      'INSERT INTO stock_lots (id, product_id, lot_number, zone, quantity, expiry_date, received_at) VALUES (?, ?, ?, ?, ?, ?, ?)'
+    );
+    const expiry = body.expiryDate || nowIso();
+    if (body.reserveQty > 0) insertLot.run(randomUUID(), row.id, body.lotNumber, 'Réserve principale', body.reserveQty, expiry, nowIso());
+    if (body.depotQty > 0) insertLot.run(randomUUID(), row.id, body.lotNumber, 'Dépôt', body.depotQty, expiry, nowIso());
+  }
+
   recordActivity('Stock', 'Création', `Produit de stock créé — ${row.name}`, req.user!.fullName);
   res.status(201).json(rowToProduct(row));
 }));

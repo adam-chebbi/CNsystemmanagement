@@ -71,6 +71,11 @@ export interface ImportedIngredientRowDraft {
   minThreshold: string;
   targetStock: string;
   lotTracked: boolean;
+  // Only used by the manual "Ajouter un ingrédient" form (Inventaires page) — never set by the
+  // Excel/CSV import, which has no lot-number column. Both stay blank/optional: leaving lotNumber
+  // empty simply means the initial stock isn't tied to any specific lot, same as any other product.
+  lotNumber: string;
+  expiryDate: string;
   averageCost: string;
   reserveQty: string;
   depotQty: string;
@@ -101,6 +106,8 @@ export const createEmptyIngredientRow = (): ImportedIngredientRowDraft => ({
   minThreshold: '0',
   targetStock: '0',
   lotTracked: false,
+  lotNumber: '',
+  expiryDate: '',
   averageCost: '',
   reserveQty: '0',
   depotQty: '0',
@@ -188,6 +195,8 @@ const parseIngredientImportRow = (
     minThreshold: rawMinThreshold.trim() || '0',
     targetStock: rawTargetStock.trim() || '0',
     lotTracked,
+    lotNumber: '',
+    expiryDate: '',
     averageCost: rawAverageCost.trim(),
     reserveQty: rawReserveQty.trim() || '0',
     depotQty: rawDepotQty.trim() || '0',
@@ -237,6 +246,13 @@ export const recomputeIngredientRowIssues = (
   const cost = parseDecimalCell(row.averageCost);
   if (!row.averageCost.trim() || Number.isNaN(cost) || cost < 0) {
     issues.push({ field: 'cout_moyen', value: row.averageCost, message: 'Le coût moyen doit être un nombre positif ou nul.' });
+  }
+  // A lot number is always optional (leaving it blank just means this initial stock isn't tied to
+  // any specific lot) — but a lot record needs an expiry date to mean anything in Lots &
+  // péremptions, so it's only required once a lot number is actually given, same rule as receiving
+  // stock from Mouvements.
+  if (row.lotNumber.trim() && !row.expiryDate.trim()) {
+    issues.push({ field: 'expiryDate', value: row.expiryDate, message: 'La date de péremption est obligatoire pour créer ce lot.' });
   }
   return issues;
 };
