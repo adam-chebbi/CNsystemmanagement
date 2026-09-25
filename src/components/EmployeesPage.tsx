@@ -1,6 +1,8 @@
 import { DecimalInput } from './ui/DecimalInput';
 import { todayIso, addDaysIso } from '../data/dateUtils';
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { getRoles } from '../api/roles';
+import type { Role } from '../data/rbacModel';
 import {
   Users,
   Search,
@@ -14,7 +16,8 @@ import {
   Plus,
   Eye,
   Pencil,
-  Trash2,
+  Archive,
+  ArchiveRestore,
   X,
   AlertCircle,
   ShieldCheck,
@@ -27,6 +30,9 @@ import {
   ImagePlus,
   CalendarDays,
   LineChart,
+  Mail,
+  KeyRound,
+  Lock,
 } from 'lucide-react';
 import { useQueryParam } from '../hooks/useQueryParam';
 import {
@@ -47,6 +53,12 @@ import {
   FinancialRecord,
 } from '../data/hrModel';
 
+export interface NewEmployeeAccount {
+  email?: string;
+  roleId: string;
+  password: string;
+}
+
 interface EmployeesPageProps {
   employees: Employee[];
   dayRecords: DayRecord[];
@@ -54,9 +66,10 @@ interface EmployeesPageProps {
   onNavigateToDashboard: () => void;
   onNavigateToPlanning: () => void;
   onNavigateToFinancials: () => void;
-  onCreateEmployee: (employee: Employee) => void;
+  onCreateEmployee: (employee: Employee, account?: NewEmployeeAccount) => void;
   onUpdateEmployee: (employee: Employee) => void;
-  onDeleteEmployee: (employeeId: string) => void;
+  onArchiveEmployee: (employeeId: string) => void;
+  onReactivateEmployee: (employeeId: string) => void;
   isDarkMode?: boolean;
 }
 
@@ -107,6 +120,8 @@ const EmployeeAvatar: React.FC<{ employee: Pick<Employee, 'firstName' | 'lastNam
   );
 };
 
+const MIN_ACCOUNT_PASSWORD_LENGTH = 8;
+
 export const EmployeesPage: React.FC<EmployeesPageProps> = ({
   employees,
   dayRecords,
@@ -116,7 +131,8 @@ export const EmployeesPage: React.FC<EmployeesPageProps> = ({
   onNavigateToFinancials,
   onCreateEmployee,
   onUpdateEmployee,
-  onDeleteEmployee,
+  onArchiveEmployee,
+  onReactivateEmployee,
 }) => {
   const [formOpen, setFormOpen] = useState<FormMode | null>(null);
   const [step, setStep] = useState<Step>('form');
@@ -128,13 +144,38 @@ export const EmployeesPage: React.FC<EmployeesPageProps> = ({
   const cinInputRef = useRef<HTMLInputElement>(null);
   const [attachmentError, setAttachmentError] = useState<string | null>(null);
 
+  // "Compte de connexion" — only offered when creating a new employee (create=='create'); editing
+  // an existing account's access happens from Rôles & permissions instead (see that page's Users
+  // tab), never re-duplicated here.
+  const [createAccount, setCreateAccount] = useState(false);
+  const [accountEmail, setAccountEmail] = useState('');
+  const [accountRoleId, setAccountRoleId] = useState('');
+  const [accountPassword, setAccountPassword] = useState('');
+  const [accountPasswordConfirm, setAccountPasswordConfirm] = useState('');
+  // Fetched on demand rather than passed down — mirrors RolesPermissionsPage's own self-sufficient
+  // role loading; only needed here for the account section's role picker.
+  const [roles, setRoles] = useState<Role[]>([]);
+  useEffect(() => {
+    getRoles().then(setRoles).catch(() => undefined);
+  }, []);
+
+  const accountIssues = useMemo(() => {
+    if (!createAccount) return new Map<string, string>();
+    const map = new Map<string, string>();
+    if (!accountRoleId) map.set('accountRoleId', 'Le rôle est obligatoire.');
+    if (accountEmail.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(accountEmail.trim())) map.set('accountEmail', 'Adresse email invalide.');
+    if (accountPassword.length < MIN_ACCOUNT_PASSWORD_LENGTH) map.set('accountPassword', `Le mot de passe doit contenir au moins ${MIN_ACCOUNT_PASSWORD_LENGTH} caractères.`);
+    if (accountPasswordConfirm !== accountPassword) map.set('accountPasswordConfirm', 'Les mots de passe ne correspondent pas.');
+    return map;
+  }, [createAccount, accountRoleId, accountEmail, accountPassword, accountPasswordConfirm]);
+
   // "Voir" opens ?employee=<id> — a shareable/bookmarkable deep link straight into that
   // employee's detail modal. An id that doesn't match any employee (stale link, typo) just
   // resolves to no modal open, rather than crashing.
   const [employeeParam, setEmployeeParam] = useQueryParam('employee');
   const viewingEmployee = useMemo(() => employees.find((e) => e.id === employeeParam) ?? null, [employees, employeeParam]);
   const setViewingEmployee = (emp: Employee | null) => setEmployeeParam(emp ? emp.id : '');
-  const [deleteTarget, setDeleteTarget] = useState<Employee | null>(null);
+  const [archiveTarget, setArchiveTarget] = useState<Employee | null>(null);
   const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
 
   // Filters — search and status are synced to the URL (?q=&status=) so a filtered view can be
@@ -197,6 +238,11 @@ export const EmployeesPage: React.FC<EmployeesPageProps> = ({
     setHasAttemptedVerify(false);
     setSaveError(null);
     setAttachmentError(null);
+    setCreateAccount(false);
+    setAccountEmail('');
+    setAccountRoleId('');
+    setAccountPassword('');
+    setAccountPasswordConfirm('');
   };
 
   const handleOpenEdit = (employee: Employee) => {
@@ -215,7 +261,7 @@ export const EmployeesPage: React.FC<EmployeesPageProps> = ({
 
   const handleVerify = () => {
     setHasAttemptedVerify(true);
-    if (issues.length === 0) setStep('preview');
+    if (issues.length === 0 && accountIssues.size === 0) setStep('preview');
   };
 
   const handleConfirm = async () => {
@@ -225,8 +271,14 @@ export const EmployeesPage: React.FC<EmployeesPageProps> = ({
     try {
       await new Promise((resolve) => setTimeout(resolve, 500));
       const employee = buildEmployeeFromDraft(draft);
-      if (formOpen === 'create') onCreateEmployee(employee);
-      else onUpdateEmployee(employee);
+      if (formOpen === 'create') {
+        onCreateEmployee(
+          employee,
+          createAccount ? { email: accountEmail.trim() || undefined, roleId: accountRoleId, password: accountPassword } : undefined
+        );
+      } else {
+        onUpdateEmployee(employee);
+      }
       setStep('success');
       if (viewingEmployee && viewingEmployee.id === employee.id) setViewingEmployee(employee);
     } catch (err) {
@@ -242,13 +294,18 @@ export const EmployeesPage: React.FC<EmployeesPageProps> = ({
     setSaveError(null);
     setStep('form');
     setFormOpen('create');
+    setCreateAccount(false);
+    setAccountEmail('');
+    setAccountRoleId('');
+    setAccountPassword('');
+    setAccountPasswordConfirm('');
   };
 
-  const handleConfirmDelete = () => {
-    if (!deleteTarget) return;
-    onDeleteEmployee(deleteTarget.id);
-    setDeleteTarget(null);
-    if (viewingEmployee?.id === deleteTarget.id) setViewingEmployee(null);
+  const handleConfirmArchive = () => {
+    if (!archiveTarget) return;
+    onArchiveEmployee(archiveTarget.id);
+    setArchiveTarget(null);
+    if (viewingEmployee?.id === archiveTarget.id) setViewingEmployee(null);
   };
 
   // --- Filters / list ---
@@ -463,7 +520,11 @@ export const EmployeesPage: React.FC<EmployeesPageProps> = ({
                       <div className="flex items-center justify-center gap-1">
                         <button onClick={() => setViewingEmployee(emp)} title="Voir" className="p-1.5 rounded-lg text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/40 transition cursor-pointer"><Eye size={14} /></button>
                         <button onClick={() => handleOpenEdit(emp)} title="Modifier" className="p-1.5 rounded-lg text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 transition cursor-pointer"><Pencil size={14} /></button>
-                        <button onClick={() => setDeleteTarget(emp)} title="Supprimer" className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40 transition cursor-pointer"><Trash2 size={14} /></button>
+                        {emp.status === 'Actif' ? (
+                          <button onClick={() => setArchiveTarget(emp)} title="Archiver" className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40 transition cursor-pointer"><Archive size={14} /></button>
+                        ) : (
+                          <button onClick={() => onReactivateEmployee(emp.id)} title="Réactiver" className="p-1.5 rounded-lg text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 transition cursor-pointer"><ArchiveRestore size={14} /></button>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -502,6 +563,9 @@ export const EmployeesPage: React.FC<EmployeesPageProps> = ({
                   <CheckCircle2 size={30} />
                 </div>
                 <h2 className="text-lg font-bold text-gray-900 dark:text-white">{formOpen === 'create' ? 'Employé ajouté avec succès' : 'Employé modifié avec succès'}</h2>
+                {formOpen === 'create' && createAccount && (
+                  <p className="text-xs text-gray-500 dark:text-gray-400 max-w-sm">Son compte de connexion a été créé et lié à cette fiche.</p>
+                )}
                 <div className="flex items-center gap-2 pt-2 flex-wrap justify-center">
                   <button onClick={handleStartNew} className={secondaryButtonClass}>
                     <Plus size={14} />
@@ -539,6 +603,13 @@ export const EmployeesPage: React.FC<EmployeesPageProps> = ({
                   <div className="flex justify-between"><span className="text-gray-500">Délivrance CIN :</span><span className="font-bold text-gray-900 dark:text-white">{formatDisplayDate(draft.cinIssueDate)}</span></div>
                   <div className="flex justify-between"><span className="text-gray-500">Copie CIN :</span><span className="font-bold text-gray-900 dark:text-white">{draft.cinDocument ? draft.cinDocument.name : 'Aucune'}</span></div>
                 </div>
+                {formOpen === 'create' && createAccount && (
+                  <div className="p-3.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800/60 space-y-1.5 text-xs">
+                    <p className="font-bold text-emerald-800 dark:text-emerald-300 flex items-center gap-1.5"><KeyRound size={13} /> Compte de connexion</p>
+                    <div className="flex justify-between"><span className="text-emerald-700/80 dark:text-emerald-400/80">Email :</span><span className="font-bold text-emerald-900 dark:text-emerald-200">{accountEmail.trim() || '—'}</span></div>
+                    <div className="flex justify-between"><span className="text-emerald-700/80 dark:text-emerald-400/80">Rôle :</span><span className="font-bold text-emerald-900 dark:text-emerald-200">{roles.find((r) => r.id === accountRoleId)?.name ?? '—'}</span></div>
+                  </div>
+                )}
                 {saveError && <div className="p-3.5 rounded-xl bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800/60 text-xs text-red-600 dark:text-red-400 flex items-center gap-2"><AlertCircle size={14} /> {saveError}</div>}
                 <div className="flex items-center justify-end gap-2 pt-2">
                   <button onClick={() => setStep('form')} disabled={isSaving} className={secondaryButtonClass}><span>Modifier</span></button>
@@ -655,6 +726,53 @@ export const EmployeesPage: React.FC<EmployeesPageProps> = ({
                   </div>
                 </div>
 
+                {/* Compte de connexion — create only; editing an existing account happens from Rôles & permissions */}
+                {formOpen === 'create' && (
+                  <div className="space-y-3 pt-3 border-t border-gray-100 dark:border-gray-800">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input type="checkbox" checked={createAccount} onChange={(e) => setCreateAccount(e.target.checked)} className="w-3.5 h-3.5 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer" />
+                      <span className="text-xs font-bold text-gray-700 dark:text-gray-300 flex items-center gap-1.5"><KeyRound size={13} className="text-emerald-500" /> Compte de connexion (optionnel)</span>
+                    </label>
+                    {createAccount && (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 pl-6">
+                        <div className="sm:col-span-2">
+                          <label className={labelClass}>Email (optionnel)</label>
+                          <div className="relative">
+                            <Mail size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                            <input type="text" value={accountEmail} onChange={(e) => setAccountEmail(e.target.value)} placeholder="nom@cafenoir.tn" className={`${inputBaseClass} pl-8 ${showErrors && accountIssues.has('accountEmail') ? inputErrorClass : inputValidClass}`} />
+                          </div>
+                          {showErrors && accountIssues.get('accountEmail') && (<p className="text-[11px] text-red-500 mt-1 flex items-center gap-1"><AlertCircle size={11} /> {accountIssues.get('accountEmail')}</p>)}
+                        </div>
+                        <div className="sm:col-span-2">
+                          <label className={labelClass}>Rôle *</label>
+                          <select value={accountRoleId} onChange={(e) => setAccountRoleId(e.target.value)} className={`${inputBaseClass} appearance-none cursor-pointer ${showErrors && accountIssues.has('accountRoleId') ? inputErrorClass : inputValidClass}`}>
+                            <option value="">Sélectionner un rôle</option>
+                            {roles.map((r) => (<option key={r.id} value={r.id}>{r.name}</option>))}
+                          </select>
+                          {showErrors && accountIssues.get('accountRoleId') && (<p className="text-[11px] text-red-500 mt-1 flex items-center gap-1"><AlertCircle size={11} /> {accountIssues.get('accountRoleId')}</p>)}
+                        </div>
+                        <div>
+                          <label className={labelClass}>Mot de passe *</label>
+                          <div className="relative">
+                            <Lock size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                            <input type="password" value={accountPassword} onChange={(e) => setAccountPassword(e.target.value)} className={`${inputBaseClass} pl-8 ${showErrors && accountIssues.has('accountPassword') ? inputErrorClass : inputValidClass}`} />
+                          </div>
+                          {showErrors && accountIssues.get('accountPassword') && (<p className="text-[11px] text-red-500 mt-1 flex items-center gap-1"><AlertCircle size={11} /> {accountIssues.get('accountPassword')}</p>)}
+                        </div>
+                        <div>
+                          <label className={labelClass}>Confirmation du mot de passe *</label>
+                          <div className="relative">
+                            <Lock size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                            <input type="password" value={accountPasswordConfirm} onChange={(e) => setAccountPasswordConfirm(e.target.value)} className={`${inputBaseClass} pl-8 ${showErrors && accountIssues.has('accountPasswordConfirm') ? inputErrorClass : inputValidClass}`} />
+                          </div>
+                          {showErrors && accountIssues.get('accountPasswordConfirm') && (<p className="text-[11px] text-red-500 mt-1 flex items-center gap-1"><AlertCircle size={11} /> {accountIssues.get('accountPasswordConfirm')}</p>)}
+                        </div>
+                        <p className="sm:col-span-2 text-[11px] text-gray-400">Ce compte sera définitivement lié à cet employé — pour gérer les comptes existants (réinitialiser un mot de passe, activer/désactiver), utilisez Rôles &amp; permissions.</p>
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 <div className="flex items-center justify-end gap-2 pt-2 border-t border-gray-100 dark:border-gray-800">
                   <button onClick={handleCloseForm} className={secondaryButtonClass}><span>Annuler la saisie</span></button>
                   <button onClick={handleVerify} className={primaryButtonClass}><ShieldCheck size={14} /><span>Vérifier</span></button>
@@ -733,29 +851,30 @@ export const EmployeesPage: React.FC<EmployeesPageProps> = ({
         </div>
       )}
 
-      {/* Delete confirmation modal */}
-      {deleteTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200" onClick={() => setDeleteTarget(null)}>
+      {/* Archive confirmation modal */}
+      {archiveTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200" onClick={() => setArchiveTarget(null)}>
           <div className="w-full max-w-sm rounded-2xl bg-white dark:bg-[#151D2A] border border-gray-200 dark:border-gray-700 shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200" onClick={(e) => e.stopPropagation()}>
             <div className="p-4 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between">
-              <h3 className="font-bold text-sm text-gray-900 dark:text-white flex items-center gap-2"><AlertCircle size={16} className="text-red-500" /> Supprimer cet employé</h3>
-              <button onClick={() => setDeleteTarget(null)} className="p-1 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 cursor-pointer"><X size={16} /></button>
+              <h3 className="font-bold text-sm text-gray-900 dark:text-white flex items-center gap-2"><Archive size={16} className="text-red-500" /> Archiver cet employé</h3>
+              <button onClick={() => setArchiveTarget(null)} className="p-1 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 cursor-pointer"><X size={16} /></button>
             </div>
             <div className="p-5 text-xs text-gray-600 dark:text-gray-300 space-y-2">
               <p>
-                Voulez-vous vraiment supprimer <strong className="text-gray-900 dark:text-white">{getEmployeeFullName(deleteTarget)}</strong> ? Cette action est
-                irréversible.
+                Voulez-vous archiver <strong className="text-gray-900 dark:text-white">{getEmployeeFullName(archiveTarget)}</strong> ? Son statut passera à
+                Inactif — rien n'est supprimé : son planning, son suivi financier et tout son historique restent intacts et consultables.
               </p>
-              {getEmployeeReferenceCount(deleteTarget.id, dayRecords, financialRecords) > 0 && (
-                <div className="p-2.5 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/60 text-amber-700 dark:text-amber-300">
-                  Cet employé a des enregistrements de planning et/ou de suivi financier associés — ils seront également supprimés.
-                </div>
+              <div className="p-2.5 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/60 text-amber-700 dark:text-amber-300">
+                Si un compte de connexion est lié à cet employé, il sera désactivé immédiatement (déconnexion et blocage de l'accès).
+              </div>
+              {getEmployeeReferenceCount(archiveTarget.id, dayRecords, financialRecords) > 0 && (
+                <p className="text-gray-500">Vous pourrez réactiver cet employé à tout moment depuis cette page ou depuis la page Archive.</p>
               )}
             </div>
             <div className="p-4 bg-gray-50 dark:bg-gray-800/50 border-t border-gray-100 dark:border-gray-800 flex items-center justify-end gap-2">
-              <button onClick={() => setDeleteTarget(null)} className={secondaryButtonClass}><span>Annuler</span></button>
-              <button onClick={handleConfirmDelete} className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-semibold shadow-2xs transition active:scale-98 cursor-pointer">
-                <Trash2 size={14} /><span>Supprimer</span>
+              <button onClick={() => setArchiveTarget(null)} className={secondaryButtonClass}><span>Annuler</span></button>
+              <button onClick={handleConfirmArchive} className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-semibold shadow-2xs transition active:scale-98 cursor-pointer">
+                <Archive size={14} /><span>Archiver</span>
               </button>
             </div>
           </div>
