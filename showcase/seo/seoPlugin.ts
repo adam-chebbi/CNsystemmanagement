@@ -1,8 +1,51 @@
+import { execFileSync } from 'node:child_process';
 import { closeSync, mkdirSync, openSync, readFileSync, readSync, statSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import type { Plugin } from 'vite';
 import { DEFAULT_SHOWCASE_SITE_INFO } from '../../src/data/showcaseSettingsModel';
 import { BUSINESS, SEO_PAGES, SEO_SITE, buildBusinessJsonLd, type SeoPath } from '../src/config/seo';
+
+// The source files whose last real commit date stands in for each page's <lastmod> — not the build
+// date, which would just re-stamp "today" on every deploy regardless of whether the page actually
+// changed (Google explicitly discounts a lastmod it catches doing that). The live menu items/prices
+// themselves aren't tracked here (they come from the management system at request time, not from
+// this repo — see the comment on SEO_PAGES above), only the page templates that render them; /menu's
+// `changefreq: daily` already tells crawlers to check the live content on its own schedule.
+const PAGE_SOURCE_FILES: Record<SeoPath, string[]> = {
+  '/': [
+    'src/App.tsx',
+    'src/components/Header.tsx',
+    'src/components/Footer.tsx',
+    'src/components/Hero.tsx',
+    'src/components/Features.tsx',
+    'src/components/MenuSection.tsx',
+    'src/components/Story.tsx',
+    'src/components/Ambiance.tsx',
+    'src/config/site.ts',
+    'src/config/seo.ts',
+    '../src/data/showcaseSettingsModel.ts',
+  ],
+  '/menu': [
+    'src/App.tsx',
+    'src/components/Header.tsx',
+    'src/components/Footer.tsx',
+    'src/pages/MenuPage.tsx',
+    'src/components/MenuProductCard.tsx',
+    'src/config/site.ts',
+    'src/config/seo.ts',
+  ],
+};
+
+/** Last real commit date (YYYY-MM-DD) touching any of `files`, relative to `cwd` — falls back to today's date if git is unavailable (e.g. a source tree with no history). */
+function lastCommitDate(cwd: string, files: string[]): string {
+  try {
+    const out = execFileSync('git', ['log', '-1', '--format=%cs', '--', ...files], { cwd, encoding: 'utf8' }).trim();
+    if (out) return out;
+  } catch {
+    /* git not available or not a repo — fall through */
+  }
+  return new Date().toISOString().slice(0, 10);
+}
 
 // Build-time SEO for a static single-page site:
 //  - every page gets its OWN <head> (title, description, canonical, Open Graph, Twitter, JSON-LD) in
@@ -140,11 +183,11 @@ export function seoPlugin(siteUrlRaw: string): Plugin {
       mkdirSync(path.join(outDir, 'menu'), { recursive: true });
       writeFileSync(path.join(outDir, 'menu', 'index.html'), indexHtml.replace(block, () => renderHead(siteUrl, '/menu', og)));
 
-      const lastmod = new Date().toISOString().slice(0, 10);
       const image = `${siteUrl}${SEO_SITE.ogImage}`;
       const urls = (Object.keys(SEO_PAGES) as SeoPath[])
         .map((p) => {
           const page = SEO_PAGES[p];
+          const lastmod = lastCommitDate(root, PAGE_SOURCE_FILES[p]);
           return [
             '  <url>',
             `    <loc>${esc(pageUrl(siteUrl, p))}</loc>`,
