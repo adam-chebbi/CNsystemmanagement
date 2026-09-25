@@ -3,12 +3,11 @@ import { LoaderCircle } from 'lucide-react';
 import { useAuth } from '../auth/AuthContext';
 import { ApiError } from '../api/client';
 
-const BRAND_TITLE = 'Café Noir';
-const TYPE_INTERVAL_MS = 95;
 const BLANK_PAUSE_MS = 450;
+const REVEAL_MS = 700;
 const SETTLE_PAUSE_MS = 550;
 
-type Phase = 'blank' | 'typing' | 'settled';
+type Phase = 'blank' | 'revealing' | 'settled';
 
 const prefersReducedMotion = (): boolean =>
   typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
@@ -47,27 +46,22 @@ export const LoginPage: React.FC = () => {
 
   const reduceMotion = useMemo(prefersReducedMotion, []);
   const [phase, setPhase] = useState<Phase>(reduceMotion ? 'settled' : 'blank');
-  const [typedLength, setTypedLength] = useState(reduceMotion ? BRAND_TITLE.length : 0);
 
-  // Onboarding sequence: blank -> type out "Café Noir" -> brief pause -> settle to top center.
+  // Onboarding sequence: blank -> reveal the logo -> brief pause -> settle to top center.
   useEffect(() => {
     if (reduceMotion) return;
-    const t = setTimeout(() => setPhase('typing'), BLANK_PAUSE_MS);
+    const t = setTimeout(() => setPhase('revealing'), BLANK_PAUSE_MS);
     return () => clearTimeout(t);
   }, [reduceMotion]);
 
   useEffect(() => {
-    if (reduceMotion || phase !== 'typing') return;
-    if (typedLength >= BRAND_TITLE.length) {
-      const t = setTimeout(() => setPhase('settled'), SETTLE_PAUSE_MS);
-      return () => clearTimeout(t);
-    }
-    const t = setTimeout(() => setTypedLength((n) => n + 1), TYPE_INTERVAL_MS);
+    if (reduceMotion || phase !== 'revealing') return;
+    const t = setTimeout(() => setPhase('settled'), REVEAL_MS + SETTLE_PAUSE_MS);
     return () => clearTimeout(t);
-  }, [phase, typedLength, reduceMotion]);
+  }, [phase, reduceMotion]);
 
   const settled = phase === 'settled';
-  const visibleTitle = BRAND_TITLE.slice(0, typedLength);
+  const revealed = phase !== 'blank';
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -109,10 +103,13 @@ export const LoginPage: React.FC = () => {
           settled ? 'top-[16%] sm:top-[18%] scale-[0.55]' : 'top-1/2 scale-100'
         }`}
       >
-        <h1 className="text-4xl sm:text-5xl font-bold tracking-tight text-gray-900 whitespace-nowrap">
-          {visibleTitle}
-          <span className={`inline-block w-[3px] ml-1 -mb-1 h-9 sm:h-11 bg-emerald-600 align-middle ${phase === 'typing' ? 'animate-pulse' : 'opacity-0'}`} />
-        </h1>
+        <img
+          src="/logo-text.png"
+          alt="Café Noir"
+          className={`h-9 sm:h-11 w-auto transition-all duration-700 ease-out ${
+            revealed ? 'opacity-100 translate-y-0 blur-none' : 'opacity-0 translate-y-2 blur-sm'
+          }`}
+        />
         <p
           className={`text-xs text-gray-400 mt-2 tracking-wide transition-opacity duration-500 ${
             settled ? 'opacity-100 delay-300' : 'opacity-0'

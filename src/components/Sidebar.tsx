@@ -344,7 +344,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               title="Développer le menu"
               className="w-10 h-10 rounded-xl bg-[#151D2A] border border-gray-700/50 flex items-center justify-center shadow-sm hover:scale-105 transition cursor-pointer mb-3 overflow-hidden"
             >
-              <img src="/logo.png" alt="Café Noir" className="w-full h-full object-contain p-1.5" />
+              <img src="/logo-icon-dark.png" alt="Café Noir" className="w-full h-full object-contain p-1.5" />
             </button>
 
             {/* List of icons without texts */}
@@ -400,7 +400,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 button and the close button are lg:hidden — desktop keeps only the logo here and
                 uses the Header's own profile dropdown for account actions instead. */}
             <div className="p-4 pb-2 flex items-center gap-2">
-              <img src="/logo.png" alt="Café Noir" className="h-8 w-auto object-contain shrink-0" />
+              <img
+                src={isDarkMode ? '/logo-icon-dark.png' : '/logo.png'}
+                alt="Café Noir"
+                className="h-8 w-auto object-contain shrink-0"
+              />
 
               <button
                 type="button"
