@@ -31,9 +31,9 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar, showSidebarTogg
       )}
 
       <Link to="/" className="flex items-center gap-2 shrink-0">
-        <img src="/logo.png" alt="Café Noir" className="h-7 w-auto" />
-        <span className="hidden sm:flex items-baseline gap-1.5">
-          <span className="text-sm font-extrabold text-gray-900 leading-tight">Café Noir</span>
+        <img src="/logo.png" alt="" className="h-7 w-auto" />
+        <span className="hidden sm:flex items-center gap-1.5">
+          <img src="/logo-text.png" alt="Café Noir" className="h-3.5 w-auto" />
           <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 border border-emerald-100 rounded px-1.5 py-0.5 tracking-wider">DOCS</span>
         </span>
       </Link>
