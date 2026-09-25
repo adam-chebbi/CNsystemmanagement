@@ -18,6 +18,13 @@ export interface AuthedUser {
   // cleared via POST /auth/change-password. requireAuthAllowPendingPasswordChange is the one
   // exception, used only by the handful of routes that must stay reachable while this is true.
   mustChangePassword: boolean;
+  // Set only for accounts created from an employee's "Compte de connexion" section (see
+  // EmployeesPage.tsx / POST /hr/employees) — null for accounts with no HR record behind them
+  // (the original Super Admin, or any admin/IT-only account). Used to auto-resolve "who did this"
+  // on sales/stock/purchases when the account lacks hr:select_employee — see
+  // resolveEffectiveEmployeeName in server/lib/employeeSelection.ts.
+  employeeId: string | null;
+  employeeName: string | null;
 }
 
 declare global {
@@ -42,6 +49,8 @@ interface UserWithRoleRow {
   role_name: string | null;
   is_system: number | null;
   must_change_password: number;
+  employee_id: string | null;
+  employee_name: string | null;
 }
 
 interface PermissionRow {
@@ -62,8 +71,9 @@ export const resolveAuthedUser = (req: Request): { user: AuthedUser; token: stri
 
   const row = db
     .prepare(
-      `SELECT u.id, u.full_name, u.cin, u.role_id, r.name AS role_name, r.is_system, u.must_change_password
-       FROM users u LEFT JOIN roles r ON r.id = u.role_id
+      `SELECT u.id, u.full_name, u.cin, u.role_id, r.name AS role_name, r.is_system, u.must_change_password,
+              u.employee_id, (e.first_name || ' ' || e.last_name) AS employee_name
+       FROM users u LEFT JOIN roles r ON r.id = u.role_id LEFT JOIN employees e ON e.id = u.employee_id
        WHERE u.id = ?`
     )
     .get(session.user_id) as UserWithRoleRow | undefined;
@@ -87,6 +97,8 @@ export const resolveAuthedUser = (req: Request): { user: AuthedUser; token: stri
       isSuperAdmin,
       permissions,
       mustChangePassword: row.must_change_password === 1,
+      employeeId: row.employee_id,
+      employeeName: row.employee_name,
     },
   };
 };
