@@ -3,13 +3,13 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { db } from '../db/connection.js';
 import { asyncHandler, ApiError, notFound } from '../middleware/errors.js';
-import { requireAuth, requirePermission } from '../middleware/auth.js';
+import { requireAuth, requirePermission, requireAnyPermission } from '../middleware/auth.js';
 import { recordActivity } from '../lib/activity.js';
 import { hashPassword } from '../lib/password.js';
 import { groupPermissionsByModule, isKnownPermissionKey, MANAGE_ROLES_PERMISSION } from '../../src/data/rbacModel.js';
-import { CIN_PATTERN } from './auth.js';
+import { assertCanModifySuperAdminTarget } from '../lib/userGuards.js';
 
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+export const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PHONE_PATTERN = /^(\+216)?\d{8}$/;
 
 interface RoleRow {
@@ -73,9 +73,12 @@ rolesRouter.get(
   })
 );
 
+// Also reachable with just hr:manage (not only roles:manage) — the employee form's optional
+// "Compte de connexion" section needs the role list to populate its picker, without needing full
+// Roles & Permissions access itself.
 rolesRouter.get(
   '/roles',
-  requirePermission(MANAGE_ROLES_PERMISSION),
+  requireAnyPermission(MANAGE_ROLES_PERMISSION, 'hr:manage'),
   asyncHandler((_req, res) => {
     res.json(listRolesWithDetails());
   })
@@ -190,15 +193,23 @@ interface UserRow {
   phone: string | null;
   role_id: string | null;
   role_name: string | null;
+  role_is_system: number | null;
   must_change_password: number;
+  employee_id: string | null;
+  employee_name: string | null;
+  is_active: number;
   created_at: string;
 }
 
+// Users are now created exclusively from the employee form's optional "Compte de connexion"
+// section (see POST /hr/employees) — this list is management-only: who's linked to which employee,
+// reset a password, activate/deactivate. There is no POST /users here any more.
 const listUsersWithRole = () =>
   (db
     .prepare(
-      `SELECT u.id, u.full_name, u.cin, u.email, u.phone, u.role_id, r.name AS role_name, u.must_change_password, u.created_at
-       FROM users u LEFT JOIN roles r ON r.id = u.role_id
+      `SELECT u.id, u.full_name, u.cin, u.email, u.phone, u.role_id, r.name AS role_name, r.is_system AS role_is_system, u.must_change_password,
+              u.employee_id, (e.first_name || ' ' || e.last_name) AS employee_name, u.is_active, u.created_at
+       FROM users u LEFT JOIN roles r ON r.id = u.role_id LEFT JOIN employees e ON e.id = u.employee_id
        ORDER BY u.created_at ASC`
     )
     .all() as UserRow[])
@@ -210,7 +221,11 @@ const listUsersWithRole = () =>
       phone: u.phone ?? '',
       roleId: u.role_id,
       roleName: u.role_name,
+      isSuperAdmin: u.role_is_system === 1,
       mustChangePassword: u.must_change_password === 1,
+      employeeId: u.employee_id,
+      employeeName: u.employee_name,
+      isActive: u.is_active === 1,
       createdAt: u.created_at,
     }));
 
@@ -222,15 +237,7 @@ rolesRouter.get(
   })
 );
 
-const userSchema = z.object({
-  fullName: z.string().min(1, 'Le nom complet est obligatoire.').max(150),
-  cin: z.string().regex(CIN_PATTERN, 'Le numéro CIN doit comporter 8 chiffres.'),
-  email: z.string().trim().regex(EMAIL_PATTERN, 'Adresse email invalide.').optional().or(z.literal('')),
-  phone: z.string().trim().regex(PHONE_PATTERN, 'Numéro de téléphone invalide.').optional().or(z.literal('')),
-  roleId: z.string().min(1, 'Le rôle est obligatoire.'),
-});
-
-const assertRoleExists = (roleId: string): void => {
+export const assertRoleExists = (roleId: string): void => {
   const role = db.prepare('SELECT id FROM roles WHERE id = ?').get(roleId);
   if (!role) throw new ApiError(400, 'Rôle introuvable.');
 };
@@ -248,41 +255,6 @@ const assertEmailPhoneAvailable = (email: string, phone: string, excludeUserId?:
   }
 };
 
-rolesRouter.post(
-  '/users',
-  requirePermission(MANAGE_ROLES_PERMISSION),
-  asyncHandler((req, res) => {
-    const body = userSchema.parse(req.body);
-    assertRoleExists(body.roleId);
-    const duplicateCin = db.prepare('SELECT id FROM users WHERE cin = ?').get(body.cin);
-    if (duplicateCin) throw new ApiError(409, 'Ce numéro CIN est déjà utilisé par un autre compte.');
-    assertEmailPhoneAvailable(body.email ?? '', body.phone ?? '');
-
-    // The temporary password is always the account's own CIN — no email/SMS service exists to
-    // deliver a generated secret, and unlike a random string, the CIN needs no separate delivery at
-    // all: the Super Admin already just typed it, and the user already knows their own. They're
-    // forced to replace it with a real password on first login (must_change_password below).
-    const id = randomUUID();
-    db.prepare(
-      `INSERT INTO users (id, full_name, cin, email, phone, password_hash, must_change_password, role_id, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?)`
-    ).run(
-      id,
-      body.fullName.trim(),
-      body.cin.trim(),
-      body.email || null,
-      body.phone || null,
-      hashPassword(body.cin.trim()),
-      body.roleId,
-      new Date().toISOString()
-    );
-
-    recordActivity('Rôles & permissions', 'Création', `Utilisateur "${body.fullName.trim()}" créé.`, req.user!.fullName);
-    const [created] = listUsersWithRole().filter((u) => u.id === id);
-    res.status(201).json(created);
-  })
-);
-
 // Resets an existing account's password back to its own CIN (forgotten password, account handed to
 // someone new, etc.) — same rule as account creation, and forces the change-password screen again
 // on next login (must_change_password), so every reset always ends with the user picking a real
@@ -295,6 +267,7 @@ rolesRouter.post(
       | { id: string; full_name: string; cin: string }
       | undefined;
     if (!existing) throw notFound('Utilisateur');
+    assertCanModifySuperAdminTarget(req.user!, existing.id);
 
     db.prepare(
       'UPDATE users SET password_hash = ?, must_change_password = 1, failed_login_attempts = 0, locked_until = NULL, password_updated_at = ? WHERE id = ?'
@@ -333,6 +306,7 @@ rolesRouter.put(
   asyncHandler((req, res) => {
     const existing = db.prepare('SELECT id FROM users WHERE id = ?').get(req.params.id);
     if (!existing) throw notFound('Utilisateur');
+    assertCanModifySuperAdminTarget(req.user!, req.params.id);
 
     const body = userUpdateSchema.parse(req.body);
     if (body.roleId !== undefined) {
@@ -357,23 +331,43 @@ rolesRouter.put(
   })
 );
 
-rolesRouter.delete(
-  '/users/:id',
+// Deactivating replaces deletion for login accounts: the account, its history, and everything it's
+// linked to (an employee record, activity log entries...) all stay exactly as they are — only
+// future logins are blocked. Revokes active sessions immediately, same as the old delete route did.
+rolesRouter.post(
+  '/users/:id/deactivate',
   requirePermission(MANAGE_ROLES_PERMISSION),
   asyncHandler((req, res) => {
     const existing = db.prepare('SELECT id, full_name FROM users WHERE id = ?').get(req.params.id) as { id: string; full_name: string } | undefined;
     if (!existing) throw notFound('Utilisateur');
-    if (existing.id === req.user!.id) throw new ApiError(400, 'Vous ne pouvez pas supprimer votre propre compte.');
-
+    if (existing.id === req.user!.id) throw new ApiError(400, 'Vous ne pouvez pas désactiver votre propre compte.');
+    assertCanModifySuperAdminTarget(req.user!, existing.id);
     assertNotLastSuperAdmin(req.params.id);
 
     const tx = db.transaction(() => {
       db.prepare('UPDATE sessions SET revoked_at = ? WHERE user_id = ? AND revoked_at IS NULL').run(new Date().toISOString(), existing.id);
-      db.prepare('DELETE FROM users WHERE id = ?').run(existing.id);
+      db.prepare('UPDATE users SET is_active = 0 WHERE id = ?').run(existing.id);
     });
     tx();
 
-    recordActivity('Rôles & permissions', 'Suppression', `Utilisateur "${existing.full_name}" supprimé.`, req.user!.fullName);
-    res.status(204).end();
+    recordActivity('Rôles & permissions', 'Modification', `Utilisateur désactivé — ${existing.full_name}.`, req.user!.fullName);
+    const [updated] = listUsersWithRole().filter((u) => u.id === existing.id);
+    res.json(updated);
+  })
+);
+
+rolesRouter.post(
+  '/users/:id/reactivate',
+  requirePermission(MANAGE_ROLES_PERMISSION),
+  asyncHandler((req, res) => {
+    const existing = db.prepare('SELECT id, full_name FROM users WHERE id = ?').get(req.params.id) as { id: string; full_name: string } | undefined;
+    if (!existing) throw notFound('Utilisateur');
+    assertCanModifySuperAdminTarget(req.user!, existing.id);
+
+    db.prepare('UPDATE users SET is_active = 1 WHERE id = ?').run(existing.id);
+
+    recordActivity('Rôles & permissions', 'Modification', `Utilisateur réactivé — ${existing.full_name}.`, req.user!.fullName);
+    const [updated] = listUsersWithRole().filter((u) => u.id === existing.id);
+    res.json(updated);
   })
 );

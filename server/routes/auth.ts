@@ -15,6 +15,9 @@ interface UserRow {
   role_name: string | null;
   is_system: number | null;
   must_change_password: number;
+  is_active: number;
+  employee_id: string | null;
+  employee_name: string | null;
 }
 
 interface PermissionRow {
@@ -36,6 +39,8 @@ const buildAuthResponseUser = (row: UserRow) => {
     isSuperAdmin: row.is_system === 1,
     permissions,
     mustChangePassword: row.must_change_password === 1,
+    employeeId: row.employee_id,
+    employeeName: row.employee_name,
   };
 };
 
@@ -113,8 +118,9 @@ authRouter.post(
     const row = db
       .prepare(
         `SELECT u.id, u.full_name, u.cin, u.role_id, r.name AS role_name, r.is_system, u.must_change_password,
-                u.password_hash, u.failed_login_attempts, u.locked_until
-         FROM users u LEFT JOIN roles r ON r.id = u.role_id
+                u.password_hash, u.failed_login_attempts, u.locked_until, u.is_active,
+                u.employee_id, (e.first_name || ' ' || e.last_name) AS employee_name
+         FROM users u LEFT JOIN roles r ON r.id = u.role_id LEFT JOIN employees e ON e.id = u.employee_id
          WHERE LOWER(u.email) = ? OR LOWER(u.phone) = ? OR u.cin = ?`
       )
       .get(normalizedIdentifier, normalizedIdentifier, identifier) as
@@ -125,6 +131,12 @@ authRouter.post(
     // reveal which of the two was the actual problem.
     const invalidCredentialsError = new ApiError(401, 'Identifiant ou mot de passe incorrect.');
     if (!row) throw invalidCredentialsError;
+
+    // Checked before the lockout/password checks — a deactivated account should never even learn
+    // whether its own password still "works", and must never accumulate failed-attempt lockouts.
+    if (row.is_active !== 1) {
+      throw new ApiError(401, 'Ce compte a été désactivé. Contactez un administrateur.');
+    }
 
     if (row.locked_until && new Date(row.locked_until).getTime() > Date.now()) {
       throw new ApiError(423, 'Compte temporairement verrouillé après plusieurs échecs. Réessayez dans quelques minutes.');
