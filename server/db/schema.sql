@@ -30,6 +30,11 @@ CREATE TABLE IF NOT EXISTS role_permissions (
 -- a Super Admin, or by the one-time migration backfill for accounts that predate passwords) is
 -- used to log in once. failed_login_attempts/locked_until implement a simple lockout after
 -- repeated bad passwords — see server/routes/auth.ts's LOGIN_LOCKOUT_THRESHOLD.
+-- employee_id links this login account to its HR record (src/components/EmployeesPage.tsx's
+-- optional "Compte de connexion" section) — nullable, since some accounts (the original Super
+-- Admin, or any admin/IT account) are never meant to have an HR employee record behind them.
+-- is_active gates login independently of everything else (server/routes/auth.ts) — deactivating an
+-- account never deletes it or anything it's linked to, just blocks future logins.
 CREATE TABLE IF NOT EXISTS users (
   id TEXT PRIMARY KEY,
   full_name TEXT NOT NULL,
@@ -42,6 +47,8 @@ CREATE TABLE IF NOT EXISTS users (
   failed_login_attempts INTEGER NOT NULL DEFAULT 0,
   locked_until TEXT,
   role_id TEXT REFERENCES roles(id),
+  employee_id TEXT REFERENCES employees(id),
+  is_active INTEGER NOT NULL DEFAULT 1,
   created_at TEXT NOT NULL
 );
 

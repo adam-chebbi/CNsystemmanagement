@@ -108,6 +108,20 @@ addUserColumnIfMissing('locked_until', 'locked_until TEXT');
 db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email ON users(email) WHERE email IS NOT NULL');
 db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_users_phone ON users(phone) WHERE phone IS NOT NULL');
 
+// One-time, idempotent migration: users gained an optional employee_id (linking a login account to
+// its HR record, set from the "Compte de connexion" section of the employee form) and an is_active
+// flag (deactivating a login independently of deleting anything) after the original schema shipped.
+addUserColumnIfMissing('employee_id', 'employee_id TEXT REFERENCES employees(id)');
+addUserColumnIfMissing('is_active', 'is_active INTEGER NOT NULL DEFAULT 1');
+
+// One-time, idempotent migration: employees gained an archive workflow (status + departure_date)
+// replacing outright deletion — departure_date existed in the schema already but was never written;
+// this just backfills it to today for any employee that was already Inactif before this shipped, so
+// the Archive page has a sensible date to show instead of blank.
+db.prepare("UPDATE employees SET departure_date = COALESCE(departure_date, ?) WHERE status = 'Inactif'").run(
+  new Date().toISOString().slice(0, 10)
+);
+
 // Backfill: any account that predates passwords (password_hash IS NULL) gets its own CIN as a
 // temporary password, with must_change_password forcing the change-password screen on next login —
 // same rule as every other temporary password in the app (see server/routes/roles.ts): it's always

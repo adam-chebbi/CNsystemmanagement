@@ -67,4 +67,25 @@ export const bootstrapRbac = (): void => {
   }
 
   db.prepare('UPDATE users SET role_id = ? WHERE role_id IS NULL').run(superAdmin.id);
+
+  // One-time, idempotent backfill: 'hr:select_employee' is a new permission — granting it to every
+  // role that already existed keeps today's "pick any employee on a sale/purchase/movement" behavior
+  // working for current staff (a deliberate, non-breaking rollout choice). Gated on "no NON-Super-Admin
+  // role has ever had this key" — checked against non-Super-Admin roles specifically, since Super
+  // Admin always already has it from the PERMISSION_KEYS resync a few lines above, which would
+  // otherwise make this look "already backfilled" on the very first boot and silently skip every
+  // other role. Never re-runs once any such role has the key, so a Super Admin later revoking it
+  // from a role isn't fought on the next restart.
+  const NEW_PERMISSION_TO_GRANT_TO_EXISTING_ROLES = 'hr:select_employee';
+  const alreadyBackfilled = db
+    .prepare(
+      `SELECT 1 FROM role_permissions rp JOIN roles r ON r.id = rp.role_id
+       WHERE rp.permission_key = ? AND r.is_system = 0 LIMIT 1`
+    )
+    .get(NEW_PERMISSION_TO_GRANT_TO_EXISTING_ROLES);
+  if (!alreadyBackfilled) {
+    const allRoles = db.prepare('SELECT id FROM roles').all() as RoleRow[];
+    const insertPermission = db.prepare('INSERT OR IGNORE INTO role_permissions (role_id, permission_key) VALUES (?, ?)');
+    allRoles.forEach((role) => insertPermission.run(role.id, NEW_PERMISSION_TO_GRANT_TO_EXISTING_ROLES));
+  }
 };

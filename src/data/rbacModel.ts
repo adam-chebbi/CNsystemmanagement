@@ -106,6 +106,7 @@ export const PERMISSIONS: PermissionDef[] = [
   { key: 'hr:view', module: 'hr', moduleLabel: 'Gestion du personnel', label: 'Consulter', description: 'Voir les employés et le planning.' },
   { key: 'hr:manage', module: 'hr', moduleLabel: 'Gestion du personnel', label: 'Gérer', description: 'Créer/modifier employés, shifts, planning.' },
   { key: 'hr:financial', module: 'hr', moduleLabel: 'Gestion du personnel', label: 'Suivi financier', description: 'Voir et saisir les salaires (données sensibles).', sensitive: true },
+  { key: 'hr:select_employee', module: 'hr', moduleLabel: 'Gestion du personnel', label: "Sélection libre de l'employé", description: "Choisir manuellement l'employé sur une vente, un achat, un mouvement de stock... Sans cette permission, l'employé est automatiquement celui lié à votre compte." },
 
   // --- Journal d'activité -----------------------------------------------------------------------
   { key: 'activity_log:view', module: 'activity_log', moduleLabel: "Journal d'activité", label: 'Consulter', description: "Voir l'historique des actions effectuées dans l'application." },
@@ -155,26 +156,18 @@ export interface RbacUser {
   phone: string;
   roleId: string | null;
   roleName: string | null;
-  // True right after creation or a password reset, until the user actually logs in and sets their
-  // own password (see server/routes/auth.ts's POST /change-password).
+  isSuperAdmin: boolean;
+  // True right after a password reset, until the user actually logs in and sets their own password
+  // (see server/routes/auth.ts's POST /change-password). Accounts are now created exclusively from
+  // the employee form (EmployeesPage.tsx), never from here.
   mustChangePassword: boolean;
+  // Set only for accounts created from an employee's "Compte de connexion" section — null for
+  // accounts with no HR record behind them.
+  employeeId: string | null;
+  employeeName: string | null;
+  isActive: boolean;
   createdAt: string;
 }
-
-export interface DraftUser {
-  id: string;
-  fullName: string;
-  cin: string;
-  email: string;
-  phone: string;
-  roleId: string;
-}
-
-export const createEmptyDraftUser = (): DraftUser => ({ id: '', fullName: '', cin: '', email: '', phone: '', roleId: '' });
-
-const CIN_PATTERN = /^\d{8}$/;
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const PHONE_PATTERN = /^(\+216)?\d{8}$/;
 
 export interface RbacValidationIssue {
   field: string;
@@ -190,40 +183,5 @@ export const validateDraftRole = (draft: Pick<DraftRole, 'name'>, existingRoles:
     const duplicate = existingRoles.find((r) => r.name.trim().toLowerCase() === trimmed.toLowerCase() && r.id !== editingId);
     if (duplicate) issues.push({ field: 'name', message: 'Ce nom de rôle est déjà utilisé.' });
   }
-  return issues;
-};
-
-export const validateDraftUser = (
-  draft: Pick<DraftUser, 'fullName' | 'cin' | 'email' | 'phone' | 'roleId'>,
-  existingUsers: RbacUser[],
-  editingId?: string
-): RbacValidationIssue[] => {
-  const issues: RbacValidationIssue[] = [];
-  if (!draft.fullName.trim()) issues.push({ field: 'fullName', message: 'Le nom complet est obligatoire.' });
-  if (!CIN_PATTERN.test(draft.cin.trim())) {
-    issues.push({ field: 'cin', message: 'Le numéro CIN doit comporter 8 chiffres.' });
-  } else {
-    const duplicate = existingUsers.find((u) => u.cin === draft.cin.trim() && u.id !== editingId);
-    if (duplicate) issues.push({ field: 'cin', message: 'Ce numéro CIN est déjà utilisé par un autre compte.' });
-  }
-  const email = draft.email.trim();
-  if (email) {
-    if (!EMAIL_PATTERN.test(email)) {
-      issues.push({ field: 'email', message: 'Adresse email invalide.' });
-    } else {
-      const duplicate = existingUsers.find((u) => u.email.toLowerCase() === email.toLowerCase() && u.id !== editingId);
-      if (duplicate) issues.push({ field: 'email', message: 'Cette adresse email est déjà utilisée par un autre compte.' });
-    }
-  }
-  const phone = draft.phone.trim();
-  if (phone) {
-    if (!PHONE_PATTERN.test(phone)) {
-      issues.push({ field: 'phone', message: 'Numéro de téléphone invalide (8 chiffres, +216 optionnel).' });
-    } else {
-      const duplicate = existingUsers.find((u) => u.phone === phone && u.id !== editingId);
-      if (duplicate) issues.push({ field: 'phone', message: 'Ce numéro de téléphone est déjà utilisé par un autre compte.' });
-    }
-  }
-  if (!draft.roleId) issues.push({ field: 'roleId', message: 'Le rôle est obligatoire.' });
   return issues;
 };
