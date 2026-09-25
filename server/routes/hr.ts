@@ -10,6 +10,7 @@ import {
   MAX_SHIFTS,
   buildDayRecordsFromPattern,
   getEmployeeFullName,
+  computeNetDue,
   type Employee,
   type Shift,
   type DayRecord,
@@ -18,16 +19,19 @@ import {
   type WeeklyPattern,
 } from '../../src/data/hrModel.js';
 import { recordAutoExpense } from '../lib/expenses.js';
+import { hashPassword } from '../lib/password.js';
+import { assertRoleExists, EMAIL_PATTERN } from './roles.js';
+import { assertCanModifySuperAdminTarget } from '../lib/userGuards.js';
 
 const nowIso = () => new Date().toISOString();
 const CIN_PATTERN = /^\d{8}$/;
 
 // --- Row <-> entity mappers ---------------------------------------------------------------------
 
-interface EmployeeRow { id: string; first_name: string; last_name: string; phone: string; photo_url: string | null; poste: string; entry_date: string; status: string; salary: number; cin_number: string; cin_issue_date: string; cin_document: string | null; created_at: string }
+interface EmployeeRow { id: string; first_name: string; last_name: string; phone: string; photo_url: string | null; poste: string; entry_date: string; departure_date: string | null; status: string; salary: number; cin_number: string; cin_issue_date: string; cin_document: string | null; created_at: string }
 const rowToEmployee = (r: EmployeeRow): Employee => ({
   id: r.id, firstName: r.first_name, lastName: r.last_name, phone: r.phone, photoUrl: r.photo_url ?? undefined,
-  poste: r.poste, entryDate: r.entry_date, status: r.status as Employee['status'], salary: r.salary,
+  poste: r.poste, entryDate: r.entry_date, departureDate: r.departure_date ?? undefined, status: r.status as Employee['status'], salary: r.salary,
   cinNumber: r.cin_number, cinIssueDate: r.cin_issue_date, cinDocument: r.cin_document ? fromJson(r.cin_document, undefined as never) : undefined,
   createdAt: r.created_at,
 });
@@ -78,21 +82,63 @@ const employeeSchema = z.object({
   cinDocument: z.object({ name: z.string(), mimeType: z.string(), dataUrl: z.string() }).optional(),
 });
 
+// Optional "Compte de connexion" section on the employee form — creating an employee can, in the
+// same submission, create its linked login account. Confirmation-password matching is checked
+// client-side only (standard: the server just needs the final value once).
+const employeeAccountSchema = z.object({
+  email: z.string().trim().regex(EMAIL_PATTERN, 'Adresse email invalide.').optional().or(z.literal('')),
+  roleId: z.string().min(1, 'Le rôle est obligatoire.'),
+  password: z.string().min(8, 'Le mot de passe doit contenir au moins 8 caractères.'),
+});
+const employeeWithAccountSchema = employeeSchema.extend({ account: employeeAccountSchema.optional() });
+
 hrRouter.get('/employees', requireAnyPermission('hr:view', 'hr:manage', 'hr:financial', 'sales:create', 'sales:view'), asyncHandler((_req, res) => res.json(getAllEmployees())));
 
 hrRouter.post('/employees', requirePermission('hr:manage'), asyncHandler((req, res) => {
-  const body = employeeSchema.parse(req.body);
+  const body = employeeWithAccountSchema.parse(req.body);
   const duplicate = getAllEmployees().find((e) => e.cinNumber === body.cinNumber);
   if (duplicate) throw new ApiError(409, `Ce numéro CIN est déjà utilisé par ${getEmployeeFullName(duplicate)}.`);
+
+  if (body.account) {
+    assertRoleExists(body.account.roleId);
+    const cinTaken = db.prepare('SELECT id FROM users WHERE cin = ?').get(body.cinNumber);
+    if (cinTaken) throw new ApiError(409, 'Un compte de connexion existe déjà avec ce numéro CIN.');
+    if (body.account.email) {
+      const emailTaken = db.prepare('SELECT id FROM users WHERE LOWER(email) = LOWER(?)').get(body.account.email);
+      if (emailTaken) throw new ApiError(409, 'Cette adresse email est déjà utilisée par un autre compte.');
+    }
+  }
+
   const id = randomUUID();
   const createdAt = nowIso().slice(0, 10);
-  db.prepare(
-    `INSERT INTO employees (id, first_name, last_name, phone, photo_url, poste, entry_date, status, salary, cin_number, cin_issue_date, cin_document, created_at)
-     VALUES (@id, @firstName, @lastName, @phone, @photoUrl, @poste, @entryDate, @status, @salary, @cinNumber, @cinIssueDate, @cinDocument, @createdAt)`
-  ).run({ id, createdAt, ...body, photoUrl: body.photoUrl ?? null, cinDocument: toJson(body.cinDocument) });
-  recordActivity('Personnel', 'Création', `Employé créé — ${getEmployeeFullName(body)}`, req.user!.fullName);
+  const tx = db.transaction(() => {
+    db.prepare(
+      `INSERT INTO employees (id, first_name, last_name, phone, photo_url, poste, entry_date, status, salary, cin_number, cin_issue_date, cin_document, created_at)
+       VALUES (@id, @firstName, @lastName, @phone, @photoUrl, @poste, @entryDate, @status, @salary, @cinNumber, @cinIssueDate, @cinDocument, @createdAt)`
+    ).run({ id, createdAt, ...body, photoUrl: body.photoUrl ?? null, cinDocument: toJson(body.cinDocument) });
+
+    if (body.account) {
+      const userId = randomUUID();
+      db.prepare(
+        `INSERT INTO users (id, full_name, cin, email, password_hash, must_change_password, role_id, employee_id, is_active, created_at)
+         VALUES (?, ?, ?, ?, ?, 0, ?, ?, 1, ?)`
+      ).run(
+        userId,
+        getEmployeeFullName(body),
+        body.cinNumber,
+        body.account.email || null,
+        hashPassword(body.account.password),
+        body.account.roleId,
+        id,
+        new Date().toISOString()
+      );
+    }
+  });
+  tx();
+
+  recordActivity('Personnel', 'Création', `Employé créé — ${getEmployeeFullName(body)}${body.account ? ' (avec compte de connexion)' : ''}`, req.user!.fullName);
   res.status(201).json(rowToEmployee({ id, created_at: createdAt, first_name: body.firstName, last_name: body.lastName, phone: body.phone,
-    photo_url: body.photoUrl ?? null, poste: body.poste, entry_date: body.entryDate, status: body.status, salary: body.salary,
+    photo_url: body.photoUrl ?? null, poste: body.poste, entry_date: body.entryDate, departure_date: null, status: body.status, salary: body.salary,
     cin_number: body.cinNumber, cin_issue_date: body.cinIssueDate, cin_document: toJson(body.cinDocument) }));
 }));
 
@@ -111,18 +157,43 @@ hrRouter.put('/employees/:id', requirePermission('hr:manage'), asyncHandler((req
   res.json(rowToEmployee({ ...existing, first_name: body.firstName, last_name: body.lastName, cin_number: body.cinNumber }));
 }));
 
-hrRouter.delete('/employees/:id', requirePermission('hr:manage'), asyncHandler((req, res) => {
+// Archiving replaces outright deletion: day_records/recurring_plans/financial_records are never
+// touched (they keep referencing this employee_id exactly as before), only the employee's own
+// status changes — so every historical sale/purchase/stock movement/financial record that already
+// displays this person's name keeps doing so forever, and Suivi financier can still settle a final
+// payment for them after departure. If a login account is linked, it's deactivated in the same
+// transaction (revoking any active sessions) since HR status and system access must move together
+// on the way out, even though reactivating later deliberately does NOT restore access automatically
+// (see /reactivate below) — re-enabling login is always a separate, conscious action.
+hrRouter.post('/employees/:id/archive', requirePermission('hr:manage'), asyncHandler((req, res) => {
   const existing = db.prepare('SELECT * FROM employees WHERE id = ?').get(req.params.id) as EmployeeRow | undefined;
   if (!existing) throw notFound('Employé');
+
+  const linkedUser = db.prepare('SELECT id FROM users WHERE employee_id = ?').get(req.params.id) as { id: string } | undefined;
+  if (linkedUser) assertCanModifySuperAdminTarget(req.user!, linkedUser.id);
+
+  const today = nowIso().slice(0, 10);
   const tx = db.transaction(() => {
-    db.prepare('DELETE FROM day_records WHERE employee_id = ?').run(req.params.id);
-    db.prepare('DELETE FROM recurring_plans WHERE employee_id = ?').run(req.params.id);
-    db.prepare('DELETE FROM financial_records WHERE employee_id = ?').run(req.params.id);
-    db.prepare('DELETE FROM employees WHERE id = ?').run(req.params.id);
+    db.prepare("UPDATE employees SET status = 'Inactif', departure_date = ? WHERE id = ?").run(today, req.params.id);
+    if (linkedUser) {
+      db.prepare('UPDATE sessions SET revoked_at = ? WHERE user_id = ? AND revoked_at IS NULL').run(new Date().toISOString(), linkedUser.id);
+      db.prepare('UPDATE users SET is_active = 0 WHERE id = ?').run(linkedUser.id);
+    }
   });
   tx();
-  recordActivity('Personnel', 'Suppression', `Employé supprimé — ${getEmployeeFullName({ firstName: existing.first_name, lastName: existing.last_name })}`, req.user!.fullName);
-  res.status(204).end();
+
+  recordActivity('Personnel', 'Modification', `Employé archivé — ${getEmployeeFullName({ firstName: existing.first_name, lastName: existing.last_name })}`, req.user!.fullName);
+  res.json(rowToEmployee({ ...existing, status: 'Inactif', departure_date: today }));
+}));
+
+hrRouter.post('/employees/:id/reactivate', requirePermission('hr:manage'), asyncHandler((req, res) => {
+  const existing = db.prepare('SELECT * FROM employees WHERE id = ?').get(req.params.id) as EmployeeRow | undefined;
+  if (!existing) throw notFound('Employé');
+
+  db.prepare("UPDATE employees SET status = 'Actif', departure_date = NULL WHERE id = ?").run(req.params.id);
+
+  recordActivity('Personnel', 'Modification', `Employé réactivé — ${getEmployeeFullName({ firstName: existing.first_name, lastName: existing.last_name })}`, req.user!.fullName);
+  res.json(rowToEmployee({ ...existing, status: 'Actif', departure_date: null }));
 }));
 
 // --- Shifts (max 2, enforced) ----------------------------------------------------------------
@@ -302,8 +373,22 @@ hrRouter.get('/financial-records', requirePermission('hr:financial'), asyncHandl
   res.json((db.prepare('SELECT * FROM financial_records').all() as FinancialRow[]).map(rowToFinancial));
 }));
 
+// Montant payé = Salaire de base + Primes − Avances − Retenues (computeNetDue) is what's actually
+// owed for the period — paying more than that is always a data-entry mistake, so it's rejected the
+// same way an over-payment on a supplier invoice already is (purchases.ts:303,334).
+const assertAmountPaidWithinNetDue = (body: z.infer<typeof financialSchema>): void => {
+  const netDue = computeNetDue(body);
+  if (body.amountPaid > netDue) {
+    throw new ApiError(
+      400,
+      `Le montant payé (${body.amountPaid.toFixed(2)} DT) dépasse le montant dû (${netDue.toFixed(2)} DT).`
+    );
+  }
+};
+
 hrRouter.post('/financial-records', requirePermission('hr:financial'), asyncHandler((req, res) => {
   const body = financialSchema.parse(req.body);
+  assertAmountPaidWithinNetDue(body);
   const duplicate = db.prepare('SELECT id FROM financial_records WHERE employee_id = ? AND period_month_index = ? AND period_year = ?').get(body.employeeId, body.periodMonthIndex, body.periodYear);
   if (duplicate) throw new ApiError(409, 'Un suivi financier existe déjà pour cet employé sur cette période.');
   const id = randomUUID();
@@ -321,6 +406,7 @@ hrRouter.post('/financial-records', requirePermission('hr:financial'), asyncHand
 
 hrRouter.put('/financial-records/:id', requirePermission('hr:financial'), asyncHandler((req, res) => {
   const body = financialSchema.parse(req.body);
+  assertAmountPaidWithinNetDue(body);
   const existing = db.prepare('SELECT * FROM financial_records WHERE id = ?').get(req.params.id) as FinancialRow | undefined;
   if (!existing) throw notFound('Suivi financier');
   db.prepare(
