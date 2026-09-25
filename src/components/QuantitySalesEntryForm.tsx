@@ -1,4 +1,5 @@
 import { DecimalInput } from './ui/DecimalInput';
+import { EmployeePicker } from './ui/EmployeePicker';
 import React, { useMemo } from 'react';
 import {
   Minus,
@@ -179,18 +180,12 @@ export const QuantitySalesFormStep: React.FC<QuantitySalesFormStepProps> = ({
           </div>
           <div>
             <label className={labelClass}>Employé *</label>
-            <select
+            <EmployeePicker
               value={form.employee}
-              onChange={(e) => onChangeGeneral({ employee: e.target.value })}
+              onChange={(v) => onChangeGeneral({ employee: v })}
+              employees={employees}
               className={`${inputBaseClass} cursor-pointer ${showErrors && issuesByKey.has('qgeneral:employee') ? inputErrorClass : inputValidClass}`}
-            >
-              <option value="">Sélectionner un employé</option>
-              {employees.map((e) => (
-                <option key={e} value={e}>
-                  {e}
-                </option>
-              ))}
-            </select>
+            />
           </div>
         </div>
       </div>

@@ -1,3 +1,4 @@
+import { EmployeePicker } from './ui/EmployeePicker';
 import React, { useMemo, useRef, useState } from 'react';
 import {
   UploadCloud,
@@ -265,14 +266,12 @@ export const InventoryImportForm: React.FC<InventoryImportFormProps> = ({ produc
         </div>
         <div>
           <label className="text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1.5 block">Employé ayant réalisé l'inventaire *</label>
-          <select
+          <EmployeePicker
             value={performedBy}
-            onChange={(e) => setPerformedBy(e.target.value)}
+            onChange={(v) => setPerformedBy(v)}
+            employees={employees}
             className={`${inputBaseClass} appearance-none cursor-pointer max-w-xs ${!performedBy ? inputErrorClass : inputValidClass}`}
-          >
-            <option value="">Sélectionner un employé</option>
-            {employees.map((e) => (<option key={e} value={e}>{e}</option>))}
-          </select>
+          />
         </div>
       </div>
 

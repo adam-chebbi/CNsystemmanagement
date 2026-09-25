@@ -1,4 +1,5 @@
 import { DecimalInput } from './ui/DecimalInput';
+import { EmployeePicker } from './ui/EmployeePicker';
 import React, { useMemo, useRef, useState } from 'react';
 import { useUnsavedWorkGuard } from '../hooks/useUnsavedWorkGuard';
 import {
@@ -451,18 +452,12 @@ export const PurchaseOrdersImportPage: React.FC<PurchaseOrdersImportPageProps> =
                     </div>
                     <div>
                       <label className={labelClass}>Employé *</label>
-                      <select
+                      <EmployeePicker
                         value={row.order.createdBy}
-                        onChange={(e) => updateRowOrder(row.id, { createdBy: e.target.value })}
+                        onChange={(v) => updateRowOrder(row.id, { createdBy: v })}
+                        employees={employees}
                         className={`${inputBaseClass} appearance-none cursor-pointer ${fieldsWithError.has('employe') ? inputErrorClass : inputValidClass}`}
-                      >
-                        <option value="">Sélectionner un employé</option>
-                        {employees.map((emp) => (
-                          <option key={emp} value={emp}>
-                            {emp}
-                          </option>
-                        ))}
-                      </select>
+                      />
                     </div>
                     <div>
                       <label className={labelClass}>Date de livraison prévue</label>

@@ -1,5 +1,6 @@
 import React, { useMemo, useRef, useState } from 'react';
 import { useUnsavedWorkGuard } from '../hooks/useUnsavedWorkGuard';
+import { EmployeePicker } from './ui/EmployeePicker';
 import {
   Receipt,
   UploadCloud,
@@ -518,18 +519,12 @@ export const ImportSalesPage: React.FC<ImportSalesPageProps> = ({
                     </div>
                     <div>
                       <label className={labelClass}>Employé *</label>
-                      <select
+                      <EmployeePicker
                         value={row.employee}
-                        onChange={(e) => updateRowGeneral(row.id, { employee: e.target.value })}
+                        onChange={(v) => updateRowGeneral(row.id, { employee: v })}
+                        employees={employees}
                         className={`${inputBaseClass} appearance-none cursor-pointer ${fieldsWithError.has('employee') ? inputErrorClass : inputValidClass}`}
-                      >
-                        <option value="">Sélectionner un employé</option>
-                        {employees.map((emp) => (
-                          <option key={emp} value={emp}>
-                            {emp}
-                          </option>
-                        ))}
-                      </select>
+                      />
                     </div>
                   </div>
 

@@ -1,4 +1,5 @@
 import { DecimalInput } from './ui/DecimalInput';
+import { EmployeePicker } from './ui/EmployeePicker';
 import React, { useMemo, useState } from 'react';
 import { useUnsavedWorkGuard } from '../hooks/useUnsavedWorkGuard';
 import {
@@ -814,18 +815,12 @@ export const ManualSalesEntryPage: React.FC<ManualSalesEntryPageProps> = ({
                 <label className={labelClass}>Employé *</label>
                 <div className="relative">
                   <Users size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
-                  <select
+                  <EmployeePicker
                     value={form.employee}
-                    onChange={(e) => updateGeneral({ employee: e.target.value })}
+                    onChange={(v) => updateGeneral({ employee: v })}
+                    employees={employees}
                     className={`${inputBaseClass} appearance-none pl-8 pr-8 cursor-pointer ${showErrors && issuesByKey.has('general:employee') ? inputErrorClass : inputValidClass}`}
-                  >
-                    <option value="">Sélectionner un employé</option>
-                    {employees.map((e) => (
-                      <option key={e} value={e}>
-                        {e}
-                      </option>
-                    ))}
-                  </select>
+                  />
                   <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
                 </div>
                 {showErrors && issuesByKey.get('general:employee') && (

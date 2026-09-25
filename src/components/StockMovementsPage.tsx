@@ -1,4 +1,5 @@
 import { DecimalInput } from './ui/DecimalInput';
+import { EmployeePicker } from './ui/EmployeePicker';
 import React, { useMemo, useState } from 'react';
 import {
   ArrowRightLeft,
@@ -676,16 +677,12 @@ export const StockMovementsPage: React.FC<StockMovementsPageProps> = ({
 
                 <div>
                   <label className={labelClass}>Effectué par *</label>
-                  <select
+                  <EmployeePicker
                     value={form.performedBy}
-                    onChange={(e) => updateForm({ performedBy: e.target.value })}
+                    onChange={(v) => updateForm({ performedBy: v })}
+                    employees={employees}
                     className={`${inputBaseClass} appearance-none cursor-pointer ${showErrors && issuesByField.has('performedBy') ? inputErrorClass : inputValidClass}`}
-                  >
-                    <option value="">Sélectionner un employé</option>
-                    {employees.map((e) => (
-                      <option key={e} value={e}>{e}</option>
-                    ))}
-                  </select>
+                  />
                   {showErrors && issuesByField.get('performedBy') && (
                     <p className="text-[11px] text-red-500 mt-1 flex items-center gap-1"><AlertCircle size={11} /> {issuesByField.get('performedBy')}</p>
                   )}
@@ -975,16 +972,12 @@ export const StockMovementsPage: React.FC<StockMovementsPageProps> = ({
               </div>
               <div>
                 <label className={labelClass}>Annulé par *</label>
-                <select
+                <EmployeePicker
                   value={cancelBy}
-                  onChange={(e) => setCancelBy(e.target.value)}
+                  onChange={(v) => setCancelBy(v)}
+                  employees={employees}
                   className={`${inputBaseClass} appearance-none cursor-pointer ${inputValidClass}`}
-                >
-                  <option value="">Sélectionner un employé</option>
-                  {employees.map((e) => (
-                    <option key={e} value={e}>{e}</option>
-                  ))}
-                </select>
+                />
               </div>
             </div>
             <div className="p-4 bg-gray-50 dark:bg-gray-800/50 border-t border-gray-100 dark:border-gray-800 flex items-center justify-end gap-2">

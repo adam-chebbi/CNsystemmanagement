@@ -1,4 +1,5 @@
 import { DecimalInput } from './ui/DecimalInput';
+import { EmployeePicker } from './ui/EmployeePicker';
 import React, { useMemo, useState } from 'react';
 import {
   ClipboardList,
@@ -393,16 +394,12 @@ export const StockInventoryPage: React.FC<StockInventoryPageProps> = ({
             </div>
             <div>
               <label className={labelClass}>Réalisé par *</label>
-              <select
+              <EmployeePicker
                 value={form.performedBy}
-                onChange={(e) => setForm((prev) => ({ ...prev, performedBy: e.target.value }))}
+                onChange={(v) => setForm((prev) => ({ ...prev, performedBy: v }))}
+                employees={employees}
                 className={`${inputBaseClass} appearance-none cursor-pointer ${hasAttemptedVerify && !form.performedBy ? inputErrorClass : inputValidClass}`}
-              >
-                <option value="">Sélectionner un employé</option>
-                {employees.map((e) => (
-                  <option key={e} value={e}>{e}</option>
-                ))}
-              </select>
+              />
             </div>
           </div>
 

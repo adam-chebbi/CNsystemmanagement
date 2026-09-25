@@ -1,4 +1,5 @@
 import { DecimalInput } from './ui/DecimalInput';
+import { EmployeePicker } from './ui/EmployeePicker';
 import { todayIso } from '../data/dateUtils';
 import React, { useMemo, useState } from 'react';
 import {
@@ -729,14 +730,12 @@ export const PurchasesPage: React.FC<PurchasesPageProps> = ({
                   <div>
                     <label className={labelClass}>Passé par *</label>
                     <div className="relative">
-                      <select
+                      <EmployeePicker
                         value={draft.createdBy}
-                        onChange={(e) => updateDraft({ createdBy: e.target.value })}
+                        onChange={(v) => updateDraft({ createdBy: v })}
+                        employees={employees}
                         className={`${inputBaseClass} appearance-none pr-8 cursor-pointer ${showErrors && issuesByField.has('createdBy') ? inputErrorClass : inputValidClass}`}
-                      >
-                        <option value="">Sélectionner un employé</option>
-                        {employees.map((e) => (<option key={e} value={e}>{e}</option>))}
-                      </select>
+                      />
                       <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
                     </div>
                     {showErrors && issuesByField.get('createdBy') && (
@@ -1241,10 +1240,12 @@ const PurchaseDetailModal: React.FC<{
                   </div>
                   <div>
                     <label className={labelClass}>Réceptionné par *</label>
-                    <select value={receptionPerformedBy} onChange={(e) => setReceptionPerformedBy(e.target.value)} className={`${inputBaseClass} appearance-none cursor-pointer ${inputValidClass}`}>
-                      <option value="">Sélectionner un employé</option>
-                      {employees.map((e) => (<option key={e} value={e}>{e}</option>))}
-                    </select>
+                    <EmployeePicker
+                      value={receptionPerformedBy}
+                      onChange={(v) => setReceptionPerformedBy(v)}
+                      employees={employees}
+                      className={`${inputBaseClass} appearance-none cursor-pointer ${inputValidClass}`}
+                    />
                   </div>
                 </div>
                 <div className="space-y-2">

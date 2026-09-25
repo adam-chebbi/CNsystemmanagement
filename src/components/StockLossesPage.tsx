@@ -1,4 +1,5 @@
 import { DecimalInput } from './ui/DecimalInput';
+import { EmployeePicker } from './ui/EmployeePicker';
 import React, { useMemo, useState } from 'react';
 import {
   PackageMinus,
@@ -451,16 +452,12 @@ export const StockLossesPage: React.FC<StockLossesPageProps> = ({
 
                 <div>
                   <label className={labelClass}>Effectué par *</label>
-                  <select
+                  <EmployeePicker
                     value={form.performedBy}
-                    onChange={(e) => updateForm({ performedBy: e.target.value })}
+                    onChange={(v) => updateForm({ performedBy: v })}
+                    employees={employees}
                     className={`${inputBaseClass} appearance-none cursor-pointer ${showErrors && issuesByField.has('performedBy') ? inputErrorClass : inputValidClass}`}
-                  >
-                    <option value="">Sélectionner un employé</option>
-                    {employees.map((e) => (
-                      <option key={e} value={e}>{e}</option>
-                    ))}
-                  </select>
+                  />
                   {showErrors && issuesByField.get('performedBy') && (
                     <p className="text-[11px] text-red-500 mt-1 flex items-center gap-1"><AlertCircle size={11} /> {issuesByField.get('performedBy')}</p>
                   )}

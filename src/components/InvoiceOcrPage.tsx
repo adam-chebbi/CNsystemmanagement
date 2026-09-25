@@ -1,4 +1,5 @@
 import { DecimalInput } from './ui/DecimalInput';
+import { EmployeePicker } from './ui/EmployeePicker';
 import React, { useMemo, useRef, useState } from 'react';
 import { useUnsavedWorkGuard } from '../hooks/useUnsavedWorkGuard';
 import {
@@ -614,16 +615,12 @@ export const InvoiceOcrPage: React.FC<InvoiceOcrPageProps> = ({
                   </div>
                   <div>
                     <label className={labelClass}>Effectué par *</label>
-                    <select
+                    <EmployeePicker
                       value={performedBy}
-                      onChange={(e) => setPerformedBy(e.target.value)}
+                      onChange={(v) => setPerformedBy(v)}
+                      employees={employees}
                       className={`${inputBaseClass} appearance-none cursor-pointer ${!performedBy ? inputErrorClass : inputValidClass}`}
-                    >
-                      <option value="">Sélectionner un employé</option>
-                      {employees.map((e) => (
-                        <option key={e} value={e}>{e}</option>
-                      ))}
-                    </select>
+                    />
                   </div>
                 </div>
 

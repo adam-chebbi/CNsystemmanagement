@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { X, Plus, Trash2, AlertCircle, ShieldCheck, Loader2, CheckCircle2, Users } from 'lucide-react';
 import { CatalogArticle, getArticleCategoriesInUse } from '../data/manualSalesCatalog';
+import { EmployeePicker } from './ui/EmployeePicker';
 import {
   InternalConsumptionFormState,
   createEmptyInternalConsumptionForm,
@@ -115,16 +116,12 @@ export const InternalConsumptionModal: React.FC<InternalConsumptionModalProps> =
 
                 <div>
                   <label className={labelClass}>Employé *</label>
-                  <select
+                  <EmployeePicker
                     value={form.employee}
-                    onChange={(e) => setForm((prev) => ({ ...prev, employee: e.target.value }))}
+                    onChange={(v) => setForm((prev) => ({ ...prev, employee: v }))}
+                    employees={employees}
                     className={`${inputBaseClass} appearance-none cursor-pointer ${hasAttemptedVerify && issuesByField.has('employee') ? inputErrorClass : inputValidClass}`}
-                  >
-                    <option value="">Sélectionner un employé</option>
-                    {employees.map((e) => (
-                      <option key={e} value={e}>{e}</option>
-                    ))}
-                  </select>
+                  />
                   {hasAttemptedVerify && issuesByField.get('employee') && (
                     <p className="text-[11px] text-red-500 mt-1 flex items-center gap-1"><AlertCircle size={11} /> {issuesByField.get('employee')}</p>
                   )}
