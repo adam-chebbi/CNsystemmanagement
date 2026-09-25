@@ -189,6 +189,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             { id: 'report_finance', label: 'Rapport financier', permission: 'reports:financial' },
             { id: 'report_tax', label: 'Rapport fiscal', permission: 'reports:financial' },
             { id: 'report_export', label: 'Export', permission: 'reports:view' },
+            { id: 'report_archive', label: 'Archive', permission: 'reports:view' },
           ],
         },
       ],

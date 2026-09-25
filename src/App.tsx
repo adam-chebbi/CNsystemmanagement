@@ -128,6 +128,7 @@ const FinancialReportPage = lazy(() => import('./components/FinancialReportPage'
 const TaxReportPage = lazy(() => import('./components/TaxReportPage').then((m) => ({ default: m.TaxReportPage })));
 const MonthlyReportPage = lazy(() => import('./components/MonthlyReportPage').then((m) => ({ default: m.MonthlyReportPage })));
 const ExportDataPage = lazy(() => import('./components/ExportDataPage').then((m) => ({ default: m.ExportDataPage })));
+const ArchivePage = lazy(() => import('./components/ArchivePage').then((m) => ({ default: m.ArchivePage })));
 
 // Lazy-loaded: Notifications & Alertes.
 const NotificationsPage = lazy(() => import('./components/NotificationsPage').then((m) => ({ default: m.NotificationsPage })));
@@ -706,18 +707,22 @@ export default function App() {
   });
 
   // --- Gestion du personnel: Employés ---
-  const handleCreateEmployee = (employee: Employee) => {
-    runMutation(() => hrApi.createEmployee(toEmployeeInput(employee)));
+  const handleCreateEmployee = (employee: Employee, account?: { email?: string; roleId: string; password: string }) => {
+    runMutation(() => hrApi.createEmployee(toEmployeeInput(employee), account));
   };
 
   const handleUpdateEmployee = (employee: Employee) => {
     runMutation(() => hrApi.updateEmployee(employee.id, toEmployeeInput(employee)));
   };
 
-  // Deleting an employee also removes their planning/attendance and financial history — the
-  // server cascades this deletion transactionally.
-  const handleDeleteEmployee = (employeeId: string) => {
-    runMutation(() => hrApi.deleteEmployee(employeeId));
+  // Archiving replaces deletion — planning, attendance and financial history are never touched,
+  // only the employee's own status (and, if a login account is linked, its access) change.
+  const handleArchiveEmployee = (employeeId: string) => {
+    runMutation(() => hrApi.archiveEmployee(employeeId));
+  };
+
+  const handleReactivateEmployee = (employeeId: string) => {
+    runMutation(() => hrApi.reactivateEmployee(employeeId));
   };
 
   // --- Gestion du personnel: Shifts (capped at Paramètres → Nombre maximum de shifts) ---
@@ -1444,7 +1449,8 @@ export default function App() {
                   onNavigateToFinancials={() => setActiveSubItem('staff_finance')}
                   onCreateEmployee={handleCreateEmployee}
                   onUpdateEmployee={handleUpdateEmployee}
-                  onDeleteEmployee={handleDeleteEmployee}
+                  onArchiveEmployee={handleArchiveEmployee}
+                  onReactivateEmployee={handleReactivateEmployee}
                 />
               </Suspense>
             ) : activeTab === 'staff_mgmt' && activeSubItem === 'staff_schedule' ? (
@@ -1624,6 +1630,18 @@ export default function App() {
                   }}
                 />
               </Suspense>
+            ) : activeTab === 'reports_mgmt' && activeSubItem === 'report_archive' ? (
+              <Suspense fallback={<StockPageLoadingFallback />}>
+                <ArchivePage
+                  isDarkMode={isDarkMode}
+                  employees={hrEmployees}
+                  onReactivateEmployee={handleReactivateEmployee}
+                  onNavigateToDashboard={() => {
+                    setActiveTab('dashboard');
+                    setActiveSubItem('');
+                  }}
+                />
+              </Suspense>
             ) : activeTab === 'activity_log' ? (
               <Suspense fallback={<StockPageLoadingFallback />}>
                 <ActivityLogPage
@@ -1665,7 +1683,6 @@ export default function App() {
             ) : activeTab === 'roles_permissions' ? (
               <Suspense fallback={<StockPageLoadingFallback />}>
                 <RolesPermissionsPage
-                  employees={hrEmployees}
                   onNavigateToDashboard={() => {
                     setActiveTab('dashboard');
                     setActiveSubItem('');
