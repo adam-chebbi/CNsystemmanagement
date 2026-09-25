@@ -62,6 +62,9 @@ export interface Employee {
   poste: string;
   entryDate: string; // ISO date
   status: EmployeeStatus;
+  // Set automatically when archived (POST /hr/employees/:id/archive), cleared on reactivation —
+  // never set directly through the create/edit form.
+  departureDate?: string;
   salary: number;
   cinNumber: string;
   cinIssueDate: string;
@@ -482,6 +485,30 @@ export const validateDraftFinancialRecord = (
 
   if (draft.amountPaid.trim() && Number(draft.amountPaid) > 0 && !draft.paymentDate) {
     issues.push({ field: 'paymentDate', message: 'La date de paiement est obligatoire lorsqu’un montant est payé.' });
+  }
+
+  // Montant payé = Salaire de base + Primes − Avances − Retenues (computeNetDue) is what's actually
+  // owed for the period — only checked once every field involved already parses to a valid number,
+  // so this never masks the more basic "doit être un nombre positif" errors above with a confusing
+  // comparison against garbage input.
+  const hasValidMoneyFields = ['baseSalary', 'advances', 'bonuses', 'deductions', 'amountPaid'].every((field) => {
+    const raw = draft[field as keyof DraftFinancialRecord] as string;
+    return raw.trim() === '' || (!Number.isNaN(Number(raw)) && Number(raw) >= 0);
+  });
+  if (hasValidMoneyFields) {
+    const netDue = computeNetDue({
+      baseSalary: Number(draft.baseSalary || 0),
+      bonuses: Number(draft.bonuses || 0),
+      deductions: Number(draft.deductions || 0),
+      advances: Number(draft.advances || 0),
+    });
+    const amountPaid = Number(draft.amountPaid || 0);
+    if (amountPaid > netDue) {
+      issues.push({
+        field: 'amountPaid',
+        message: `Le montant payé (${amountPaid.toFixed(2)} DT) dépasse le montant dû (${netDue.toFixed(2)} DT).`,
+      });
+    }
   }
 
   return issues;
