@@ -209,8 +209,8 @@ export const AnalysisFilterBar: React.FC<AnalysisFilterBarProps> = ({
 
       {/* Custom Date Modal */}
       {showCustomModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4 animate-in fade-in">
-          <div className="bg-white dark:bg-[#151D2A] rounded-2xl p-5 border border-gray-100 dark:border-gray-800 shadow-2xl max-w-sm w-full space-y-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4 animate-in fade-in" onClick={() => setShowCustomModal(false)}>
+          <div className="bg-white dark:bg-[#151D2A] rounded-2xl p-5 border border-gray-100 dark:border-gray-800 shadow-2xl max-w-sm w-full space-y-4" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between pb-2 border-b border-gray-100 dark:border-gray-800">
               <div className="flex items-center gap-2">
                 <CalendarIcon size={16} className="text-emerald-600" />

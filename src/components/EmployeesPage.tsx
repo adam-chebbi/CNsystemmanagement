@@ -491,7 +491,7 @@ export const EmployeesPage: React.FC<EmployeesPageProps> = ({
 
       {/* Create / edit — responsive modal dialog */}
       {formOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-3 sm:p-4 animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-3 sm:p-4 animate-in fade-in duration-200" onClick={handleCloseForm}>
           <div
             className="w-full max-w-2xl max-h-[92vh] overflow-y-auto custom-scrollbar rounded-2xl bg-white dark:bg-[#151D2A] border border-gray-200 dark:border-gray-700 shadow-2xl animate-in zoom-in-95 duration-200"
             onClick={(e) => e.stopPropagation()}
@@ -728,15 +728,15 @@ export const EmployeesPage: React.FC<EmployeesPageProps> = ({
       {/* Document lightbox */}
       {lightboxSrc && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-6 bg-black/85 animate-in fade-in duration-150" onClick={() => setLightboxSrc(null)}>
-          <img src={lightboxSrc} alt="Copie CIN" className="max-w-full max-h-full rounded-xl shadow-2xl" />
+          <img src={lightboxSrc} alt="Copie CIN" className="max-w-full max-h-full rounded-xl shadow-2xl" onClick={(e) => e.stopPropagation()} />
           <button onClick={() => setLightboxSrc(null)} className="absolute top-5 right-5 p-2 rounded-full bg-white/10 text-white hover:bg-white/20 transition cursor-pointer"><X size={20} /></button>
         </div>
       )}
 
       {/* Delete confirmation modal */}
       {deleteTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
-          <div className="w-full max-w-sm rounded-2xl bg-white dark:bg-[#151D2A] border border-gray-200 dark:border-gray-700 shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200" onClick={() => setDeleteTarget(null)}>
+          <div className="w-full max-w-sm rounded-2xl bg-white dark:bg-[#151D2A] border border-gray-200 dark:border-gray-700 shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200" onClick={(e) => e.stopPropagation()}>
             <div className="p-4 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between">
               <h3 className="font-bold text-sm text-gray-900 dark:text-white flex items-center gap-2"><AlertCircle size={16} className="text-red-500" /> Supprimer cet employé</h3>
               <button onClick={() => setDeleteTarget(null)} className="p-1 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 cursor-pointer"><X size={16} /></button>

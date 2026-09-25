@@ -10,8 +10,8 @@ export const ActionModals: React.FC<ActionModalProps> = ({ type, onClose }) => {
   if (!type) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 animate-in fade-in">
-      <div className="relative w-full max-w-lg bg-white dark:bg-[#151D2A] rounded-2xl p-6 shadow-2xl border border-gray-100 dark:border-gray-800 space-y-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 animate-in fade-in" onClick={onClose}>
+      <div className="relative w-full max-w-lg bg-white dark:bg-[#151D2A] rounded-2xl p-6 shadow-2xl border border-gray-100 dark:border-gray-800 space-y-4" onClick={(e) => e.stopPropagation()}>
         {/* Close Button */}
         <button
           onClick={onClose}

@@ -82,11 +82,12 @@ export const ObjectivePicker: React.FC<ObjectivePickerProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 animate-in fade-in duration-200" onClick={onClose}>
       <div
         className={`relative w-full max-w-sm bg-white dark:bg-[#151D2A] rounded-2xl shadow-2xl border border-gray-100 dark:border-gray-800 overflow-hidden ${
           reduceMotion ? '' : 'animate-in zoom-in-95 slide-in-from-bottom-2 duration-300'
         }`}
+        onClick={(e) => e.stopPropagation()}
       >
         {/* Decorative gradient header */}
         <div className="relative bg-gradient-to-br from-primary to-emerald-700 px-5 pt-5 pb-8 overflow-hidden">

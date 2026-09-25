@@ -324,8 +324,8 @@ const RolesTab: React.FC<{ groups: PermissionModuleGroup[]; roles: Role[]; onCha
 // (not a dismissible toast) so the rule — CIN as temporary password, forced change on next login —
 // is clearly acknowledged rather than easy to miss.
 const PasswordRuleConfirmation: React.FC<{ title: string; fullName: string; onConfirm: () => void }> = ({ title, fullName, onConfirm }) => (
-  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4 animate-in fade-in duration-150">
-    <div className="w-full max-w-sm bg-white dark:bg-[#151D2A] rounded-2xl shadow-xl border border-gray-100 dark:border-gray-800 p-5 space-y-4 text-center">
+  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4 animate-in fade-in duration-150" onClick={onConfirm}>
+    <div className="w-full max-w-sm bg-white dark:bg-[#151D2A] rounded-2xl shadow-xl border border-gray-100 dark:border-gray-800 p-5 space-y-4 text-center" onClick={(e) => e.stopPropagation()}>
       <div className="w-11 h-11 mx-auto rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
         <CheckCircle2 size={20} />
       </div>

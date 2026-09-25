@@ -945,8 +945,8 @@ export const StockMovementsPage: React.FC<StockMovementsPageProps> = ({
 
       {/* Cancel confirmation modal */}
       {cancelTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
-          <div className="w-full max-w-md rounded-2xl bg-white dark:bg-[#151D2A] border border-gray-200 dark:border-gray-700 shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200" onClick={() => setCancelTarget(null)}>
+          <div className="w-full max-w-md rounded-2xl bg-white dark:bg-[#151D2A] border border-gray-200 dark:border-gray-700 shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200" onClick={(e) => e.stopPropagation()}>
             <div className="p-4 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between">
               <h3 className="font-bold text-sm text-gray-900 dark:text-white flex items-center gap-2">
                 <Ban size={16} className="text-red-500" /> Annuler ce mouvement
