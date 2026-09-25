@@ -6,6 +6,7 @@ import { db } from '../db/connection.js';
 import { asyncHandler, ApiError, notFound } from '../middleware/errors.js';
 import { requireAuth, requirePermission, requireAnyPermission } from '../middleware/auth.js';
 import { recordActivity } from '../lib/activity.js';
+import { resolveEffectiveEmployeeName } from '../lib/employeeSelection.js';
 import {
   applyLedgerEntries,
   reverseLedgerEntry,
@@ -339,6 +340,7 @@ stockRouter.get('/ledger', requireAnyPermission('stock:view', 'stock:manage', 's
 
 stockRouter.post('/ledger/post', requirePermission('stock:manage'), asyncHandler((req, res) => {
   const body = z.object({ entries: z.array(ledgerEntryInputSchema).min(1) }).parse(req.body);
+  body.entries.forEach((e) => resolveEffectiveEmployeeName(req.user!, e.performedBy));
   const tx = db.transaction(() => postEntries(body.entries));
   const result = tx();
   recordActivity('Stock', body.entries[0].type, `${body.entries.length} mouvement(s) de stock enregistré(s)`, req.user!.fullName);
@@ -350,6 +352,7 @@ stockRouter.post('/import', requirePermission('stock:import'), asyncHandler((req
     entries: z.array(ledgerEntryInputSchema),
     productUpdates: z.array(z.object({ id: z.string(), minThreshold: z.number().optional(), targetStock: z.number().optional() })).optional(),
   }).parse(req.body);
+  body.entries.forEach((e) => resolveEffectiveEmployeeName(req.user!, e.performedBy));
 
   const tx = db.transaction(() => {
     const result = body.entries.length > 0 ? postEntries(body.entries) : { products: getAllProducts(), lots: getAllLots(), ledger: [] };
@@ -366,6 +369,7 @@ stockRouter.post('/import', requirePermission('stock:import'), asyncHandler((req
 
 stockRouter.post('/ledger/:id/cancel', requirePermission('stock:manage'), asyncHandler((req, res) => {
   const body = z.object({ cancelledBy: z.string().min(1), cancelReason: z.string().optional() }).parse(req.body);
+  resolveEffectiveEmployeeName(req.user!, body.cancelledBy);
   const row = db.prepare('SELECT * FROM stock_ledger WHERE id = ?').get(req.params.id) as LedgerRow | undefined;
   if (!row) throw notFound('Mouvement de stock');
   const entry = rowToLedger(row);

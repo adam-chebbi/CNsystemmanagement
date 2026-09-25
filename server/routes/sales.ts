@@ -11,6 +11,7 @@ import { accumulateRecipeConsumption } from '../../src/data/productsModel.js';
 import { normalizeKey } from '../../src/data/textUtils.js';
 import { getAllArticlesRaw, getAllSubRecipesRaw } from './productCatalog.js';
 import { getAllProducts, postEntries, cancelLedgerEntryById, getLedgerEntryIdsBySource, type LedgerEntryInput } from './stock.js';
+import { resolveEffectiveEmployeeName } from '../lib/employeeSelection.js';
 
 interface SaleRow {
   id: number; sale_number: string; service_type: string; table_or_area: string; items: string;
@@ -139,6 +140,7 @@ salesRouter.get('/transactions', requirePermission('sales:view'), asyncHandler((
 
 salesRouter.post('/transactions', requirePermission('sales:create'), asyncHandler((req, res) => {
   const body = z.object({ tickets: z.array(saleSchema).min(1) }).parse(req.body);
+  body.tickets.forEach((t) => resolveEffectiveEmployeeName(req.user!, t.barista));
   const tx = db.transaction(() => {
     const maxRow = db.prepare('SELECT MAX(id) as maxId FROM sales_transactions').get() as { maxId: number | null };
     let nextId = (maxRow.maxId ?? 0) + 1;

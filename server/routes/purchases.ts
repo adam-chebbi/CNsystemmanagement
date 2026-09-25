@@ -25,6 +25,7 @@ import { normalizeKey } from '../../src/data/textUtils.js';
 import type { ProductAlias } from '../../src/data/productAliases.js';
 import { STOCK_ZONES, type StockZone } from '../../src/data/stockModel.js';
 import { recordAutoExpense } from '../lib/expenses.js';
+import { resolveEffectiveEmployeeName } from '../lib/employeeSelection.js';
 
 const nowIso = () => new Date().toISOString();
 
@@ -139,6 +140,7 @@ purchasesRouter.get('/orders', requirePermission('purchases:view'), asyncHandler
 
 purchasesRouter.post('/orders', requirePermission('purchases:create'), asyncHandler((req, res) => {
   const body = orderSchema.parse(req.body);
+  resolveEffectiveEmployeeName(req.user!, body.createdBy);
   const supplier = db.prepare('SELECT id FROM suppliers WHERE id = ?').get(body.supplierId);
   if (!supplier) throw new ApiError(400, 'Fournisseur invalide.');
   const id = randomUUID();
@@ -156,6 +158,7 @@ purchasesRouter.post('/orders', requirePermission('purchases:create'), asyncHand
 
 purchasesRouter.put('/orders/:id', requirePermission('purchases:edit'), asyncHandler((req, res) => {
   const body = orderSchema.parse(req.body);
+  resolveEffectiveEmployeeName(req.user!, body.createdBy);
   const existing = db.prepare('SELECT * FROM purchase_orders WHERE id = ?').get(req.params.id) as OrderRow | undefined;
   if (!existing) throw notFound('Commande');
   const priorLines = fromJson<PurchaseOrderLine[]>(existing.lines, []);
@@ -207,6 +210,7 @@ const receptionSchema = z.object({
 
 purchasesRouter.post('/orders/:id/receive', requirePermission('purchases:receive'), asyncHandler((req, res) => {
   const body = receptionSchema.parse(req.body);
+  resolveEffectiveEmployeeName(req.user!, body.performedBy);
   const orderRow = db.prepare('SELECT * FROM purchase_orders WHERE id = ?').get(req.params.id) as OrderRow | undefined;
   if (!orderRow) throw notFound('Commande');
   const order = rowToOrder(orderRow);

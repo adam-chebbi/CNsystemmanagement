@@ -9,6 +9,7 @@ import { recordActivity } from '../lib/activity.js';
 import { accumulateRecipeConsumption } from '../../src/data/productsModel.js';
 import { getAllArticlesRaw, getAllSubRecipesRaw } from './productCatalog.js';
 import { getAllProducts, postEntries, type LedgerEntryInput } from './stock.js';
+import { resolveEffectiveEmployeeName } from '../lib/employeeSelection.js';
 
 export interface InternalConsumptionItem {
   name: string;
@@ -73,6 +74,7 @@ internalConsumptionRouter.get('/', requirePermission('sales:create'), asyncHandl
 
 internalConsumptionRouter.post('/', requirePermission('sales:create'), asyncHandler((req, res) => {
   const body = bodySchema.parse(req.body);
+  resolveEffectiveEmployeeName(req.user!, body.employee);
   const now = new Date();
 
   const tx = db.transaction(() => {
