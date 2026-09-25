@@ -14,6 +14,11 @@ export interface AuthUser {
   // instead of the app while this is true; the server also refuses every other route in the
   // meantime (see server/middleware/auth.ts's requireAuth), so this is a UX mirror, not the gate.
   mustChangePassword: boolean;
+  // Set only for accounts created from an employee's "Compte de connexion" section — null for
+  // accounts with no HR record behind them (the original Super Admin, or any admin/IT-only
+  // account). Drives EmployeePicker's auto-selection when hr:select_employee is missing.
+  employeeId: string | null;
+  employeeName: string | null;
 }
 
 interface AuthContextValue {
@@ -26,6 +31,9 @@ interface AuthContextValue {
   // bypass enforced server-side in server/middleware/auth.ts's requirePermission. This is only a
   // UX nicety (hiding/showing buttons and menu items); the real gate is always the server's.
   hasPermission: (key: string) => boolean;
+  // Whether this account can manually pick any employee on a sale/purchase/movement, vs. being
+  // auto-locked to its own linked employee — see EmployeePicker (src/components/ui/EmployeePicker.tsx).
+  canSelectEmployee: boolean;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -65,8 +73,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     [user]
   );
 
+  const canSelectEmployee = hasPermission('hr:select_employee');
+
   return (
-    <AuthContext.Provider value={{ user, isReady, login, logout, changePassword, hasPermission }}>
+    <AuthContext.Provider value={{ user, isReady, login, logout, changePassword, hasPermission, canSelectEmployee }}>
       {children}
     </AuthContext.Provider>
   );

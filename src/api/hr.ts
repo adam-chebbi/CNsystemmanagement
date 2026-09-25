@@ -2,9 +2,15 @@ import { apiGet, apiPost, apiPut, apiDelete } from './client';
 import type { Employee, Shift, DayRecord, RecurringPlan, FinancialRecord, AttendanceStatus, WeeklyPattern } from '../data/hrModel';
 
 export const getEmployees = () => apiGet<Employee[]>('/hr/employees');
-export const createEmployee = (employee: Omit<Employee, 'id' | 'createdAt'>) => apiPost<Employee>('/hr/employees', employee);
+export const createEmployee = (
+  employee: Omit<Employee, 'id' | 'createdAt'>,
+  account?: { email?: string; roleId: string; password: string }
+) => apiPost<Employee>('/hr/employees', { ...employee, account });
 export const updateEmployee = (id: string, employee: Omit<Employee, 'id' | 'createdAt'>) => apiPut<Employee>(`/hr/employees/${id}`, employee);
-export const deleteEmployee = (id: string) => apiDelete<void>(`/hr/employees/${id}`);
+// Archiving replaces deletion — nothing referencing this employee is ever removed, only its status
+// and any linked login account's access change. See server/routes/hr.ts.
+export const archiveEmployee = (id: string) => apiPost<Employee>(`/hr/employees/${id}/archive`, {});
+export const reactivateEmployee = (id: string) => apiPost<Employee>(`/hr/employees/${id}/reactivate`, {});
 
 export const getShifts = () => apiGet<Shift[]>('/hr/shifts');
 export const createShift = (shift: Omit<Shift, 'id' | 'createdAt'>) => apiPost<Shift>('/hr/shifts', shift);
