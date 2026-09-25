@@ -32,7 +32,9 @@ Cliquez sur **Créer un mouvement**.
 ![Formulaire "Nouveau mouvement", type Transfert — une zone d'origine et une zone de destination](/screenshots/stock-mouvements-formulaire-transfert.png)
 
 4. Indiquez le **motif** (obligatoire, texte libre — ex : "Réception fournisseur", "Réassort
-   comptoir") et l'**employé** qui **effectue** le mouvement (obligatoire).
+   comptoir") et l'**employé** qui **effectue** le mouvement (obligatoire). Sans la permission
+   **Gestion du personnel → Sélection libre de l'employé**, ce champ est automatiquement verrouillé
+   sur l'employé lié à votre compte — voir [Rôles et permissions](/roles-et-permissions).
 5. Un **commentaire** est optionnel.
 6. Si le produit est suivi par lot :
    - **Entrée** — le **numéro de lot** reste optionnel (laissez-le vide pour qu'il soit généré
@@ -71,8 +73,9 @@ produit, motif/commentaire (recherche libre), zone, type et date.
 ## Annuler un mouvement
 
 Un mouvement déjà confirmé peut être annulé depuis cet historique (icône d'annulation sur sa
-ligne, avec le nom de l'**employé qui annule**) — le stock est alors remis dans l'état où il
-était avant ce mouvement. Un mouvement **lié à un lot** ne peut pas être annulé depuis cet écran.
+ligne, avec le nom de l'**employé qui annule**, soumis à la même permission que ci-dessus) — le
+stock est alors remis dans l'état où il était avant ce mouvement. Un mouvement **lié à un lot** ne
+peut pas être annulé depuis cet écran.
 
 ## Pour un import en masse
 

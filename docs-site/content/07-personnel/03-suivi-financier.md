@@ -43,6 +43,16 @@ Ces deux chiffres répondent à des questions différentes et ne doivent pas êt
 réel" sert à savoir combien l'employé coûte réellement ce mois-ci (utile pour les rapports), "reste
 à payer" sert à savoir combien lui régler maintenant.
 
+## Le montant payé ne peut jamais dépasser le net dû
+
+Le **net dû** de la période, c'est `Salaire de base + Primes − Avances − Retenues`. Que ce soit
+dans le formulaire complet ou via les boutons rapides +Avance/+Prime, le système refuse
+d'enregistrer un **montant payé** supérieur à ce net dû — saisir, par exemple, un montant payé de
+1500 DT pour un net dû de 1000 DT affiche une erreur claire (*"Le montant payé (1500.00 DT) dépasse
+le montant dû (1000.00 DT)."*) et bloque l'enregistrement, aussi bien dans l'écran que si la
+demande est forcée depuis l'extérieur de l'interface. C'est toujours une erreur de saisie : un
+employé ne peut pas être payé plus que ce qui lui est dû sur la période.
+
 ## Les six indicateurs
 
 Tous portent sur la **période actuellement sélectionnée** (voir plus bas), pas sur "aujourd'hui" :

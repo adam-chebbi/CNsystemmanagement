@@ -37,6 +37,10 @@ Chaque nom saisi (produit, shift, employé, variante, extra) est reconnu automat
 des différences d'accents, de majuscules ou d'espaces — il est ensuite ramené au nom exact
 enregistré dans le système, jamais dupliqué.
 
+Sans la permission **Gestion du personnel → Sélection libre de l'employé**, la colonne `employee`
+est ignorée : chaque ticket importé est automatiquement rattaché à l'employé lié à votre compte,
+quelle que soit la valeur du fichier — voir [Rôles et permissions](/roles-et-permissions).
+
 ## Étapes
 
 1. Glissez-déposez le fichier sur la zone d'import, ou cliquez pour le sélectionner.

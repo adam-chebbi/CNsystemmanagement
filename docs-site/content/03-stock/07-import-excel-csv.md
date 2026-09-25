@@ -71,7 +71,9 @@ ligne avec une quantité crée un mouvement d'**Entrée** (visible dans
 [Mouvements](/mouvements)) ; les lignes avec seulement un seuil et/ou une
 cible mettent à jour le produit directement, sans mouvement associé. Une étape supplémentaire par
 rapport aux deux autres imports : vous devez choisir l'employé **Effectué par** avant de pouvoir
-confirmer.
+confirmer. Sans la permission **Gestion du personnel → Sélection libre de l'employé**, ce champ est
+automatiquement verrouillé sur l'employé lié à votre compte — voir
+[Rôles et permissions](/roles-et-permissions).
 
 ## 3. Inventaires
 

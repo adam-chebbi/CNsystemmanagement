@@ -28,7 +28,9 @@ Trois champs, communs à tous les tickets de cette saisie :
 - **Date** (obligatoire, aujourd'hui par défaut) — la journée à laquelle ces ventes ont eu lieu.
 - **Shift** (obligatoire) — le service concerné, tel que défini dans
   [Planning & Présence](/planning-et-presence).
-- **Employé** (obligatoire) — la personne qui a réalisé (ou saisit) la vente.
+- **Employé** (obligatoire) — la personne qui a réalisé (ou saisit) la vente. Sans la permission
+  **Gestion du personnel → Sélection libre de l'employé**, ce champ est automatiquement verrouillé
+  sur l'employé lié à votre compte — voir [Rôles et permissions](/roles-et-permissions).
 
 ## Ajouter et remplir un ticket
 

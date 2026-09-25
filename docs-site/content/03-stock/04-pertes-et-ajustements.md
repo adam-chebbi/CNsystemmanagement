@@ -32,7 +32,9 @@ inventaire complet).
 4. Choisissez le **motif** (obligatoire) dans la liste : Perte, Casse, Péremption, Consommation
    interne, Produit offert, Erreur de préparation, Ajustement d'inventaire, ou Autre.
 5. Renseignez la **date et l'heure** (obligatoire, par défaut maintenant) et l'**employé**
-   (obligatoire) qui déclare.
+   (obligatoire) qui déclare. Sans la permission **Gestion du personnel → Sélection libre de
+   l'employé**, ce champ est automatiquement verrouillé sur l'employé lié à votre compte — voir
+   [Rôles et permissions](/roles-et-permissions).
 6. Si le produit est suivi par lot, choisissez le **lot concerné** (obligatoire).
 7. Un commentaire libre est optionnel. Cliquez sur **Vérifier**, puis confirmez.
 

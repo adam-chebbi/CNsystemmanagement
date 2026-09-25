@@ -21,7 +21,9 @@ système.
    par catégorie** (choisissez la catégorie), ou **Inventaire par zone** (choisissez Réserve
    principale ou Dépôt). Le nombre de produits concernés s'affiche en direct.
 2. Cliquez sur **Lancer l'inventaire**.
-3. Indiquez qui **réalise** l'inventaire (champ **Réalisé par**, obligatoire).
+3. Indiquez qui **réalise** l'inventaire (champ **Réalisé par**, obligatoire). Sans la permission
+   **Gestion du personnel → Sélection libre de l'employé**, ce champ est automatiquement verrouillé
+   sur l'employé lié à votre compte — voir [Rôles et permissions](/roles-et-permissions).
 4. Pour chaque produit concerné, saisissez le **Stock réel** compté physiquement — le **Stock
    théorique** (ce que le système pense avoir : le total des deux zones, ou la quantité d'une
    seule zone si l'inventaire est fait "Par zone") s'affiche à côté, en lecture seule, et

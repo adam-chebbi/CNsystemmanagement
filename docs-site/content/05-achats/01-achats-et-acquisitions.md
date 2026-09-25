@@ -60,7 +60,9 @@ Cliquez sur **Ajouter l'achat**.
 1. Choisissez le **fournisseur** (obligatoire) — s'il n'existe pas encore, cliquez sur
    **+ Nouveau fournisseur** juste à côté pour le créer sans quitter cet écran ; il est
    automatiquement sélectionné pour la commande en cours.
-2. Choisissez qui a **passé la commande** (employé, obligatoire).
+2. Choisissez qui a **passé la commande** (employé, obligatoire). Sans la permission **Gestion du
+   personnel → Sélection libre de l'employé**, ce champ est automatiquement verrouillé sur
+   l'employé lié à votre compte — voir [Rôles et permissions](/roles-et-permissions).
 3. Renseignez la **date d'achat** (obligatoire, aujourd'hui par défaut) et, si vous la connaissez,
    la **date de livraison prévue** (optionnelle, purement informative).
 4. Ajoutez une ligne par produit commandé : **produit**, **quantité** (supérieure à 0) et **prix
@@ -101,7 +103,8 @@ Depuis le détail d'une commande, cliquez sur **Ajouter une réception** (visibl
 des articles à recevoir) :
 
 1. Indiquez la **date de réception**, la **zone** de stockage (Réserve principale ou Dépôt) et
-   qui a **réceptionné**.
+   qui a **réceptionné**. Comme pour "qui a passé la commande", ce champ est verrouillé sur votre
+   propre employé sans la permission **Sélection libre de l'employé**.
 2. Pour chaque ligne pas encore totalement reçue, saisissez la **quantité reçue** — elle ne peut
    jamais dépasser ce qu'il reste à recevoir sur cette ligne.
 3. Confirmez.

@@ -22,7 +22,8 @@ individuelle, préférez le mode [Par tickets](/ajout-manuel-mode-tickets).
 ## Informations générales de la journée
 
 Les mêmes trois champs que le mode par tickets : **Date**, **Shift**, **Employé** (tous
-obligatoires).
+obligatoires — voir [Ajout manuel (mode Tickets)](/ajout-manuel-mode-tickets) pour le détail du
+verrouillage du champ Employé selon vos permissions).
 
 ## Renseigner les quantités vendues
 

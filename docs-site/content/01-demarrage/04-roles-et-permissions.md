@@ -58,13 +58,31 @@ réservé aux gérants. Deux onglets : **Rôles** et **Utilisateurs**.
 | Gestion des dépenses | Consulter · Saisir · **Approuver** *(sensible)* · **Supprimer** *(sensible)* · Catégories |
 | Gestion des achats | Consulter · Créer · Modifier (brouillon uniquement) · **Annuler / Commander** *(sensible)* · Réceptionner · **Supprimer** *(sensible)* · Fournisseurs · Factures · **Paiement** *(sensible)* · Importer · OCR des factures |
 | Rapports de gestion | Consulter · **Rapports financier & fiscal** *(sensible)* |
-| Gestion du personnel | Consulter (employés, planning) · Gérer · **Suivi financier** *(sensible)* |
+| Gestion du personnel | Consulter (employés, planning) · Gérer · **Suivi financier** *(sensible)* · **Sélection libre de l'employé** *(sensible — voir ci-dessous)* |
 | Journal d'activité | Consulter |
 | Paramètres | **Gérer** *(sensible)* — une seule permission pour toute la page Paramètres, y compris la section Site vitrine |
 | Rôles & permissions | **Gérer** *(sensible)* — conditionne à elle seule la visibilité du menu "Rôles & permissions" |
 
 Les permissions marquées *(sensible)* touchent à l'argent, au stock ou aux droits d'accès — à
 n'accorder qu'après réflexion.
+
+### La permission « Sélection libre de l'employé »
+
+Sur une vente, un mouvement de stock, une commande d'achat, une réception, une facture OCR ou une
+vente interne, le système doit savoir **quel employé** a effectué l'action. Cette permission
+détermine comment ce champ se comporte :
+
+- **Sans la permission** (comportement par défaut) : le champ "Employé" est verrouillé et rempli
+  automatiquement avec l'employé lié au compte connecté — la personne ne peut pas l'enregistrer au
+  nom de quelqu'un d'autre, même en forçant la requête depuis l'extérieur de l'interface (le
+  serveur refuse la demande, pas seulement l'écran).
+- **Avec la permission** : le champ redevient une liste déroulante classique, permettant de choisir
+  librement n'importe quel employé actif — utile pour un(e) gérant(e) qui saisit parfois des
+  ventes au nom de son équipe.
+
+Cette permission a été ajoutée à **tous les rôles existants** au moment de son introduction (pour
+ne rien casser dans les habitudes déjà en place) ; un rôle créé après coup ne l'a **pas** par
+défaut, il faut la cocher explicitement si nécessaire.
 
 ## Exemples de rôles courants
 
@@ -86,36 +104,61 @@ n'accorder qu'après réflexion.
 Saisir, et éventuellement Calcul du quotidien — rien sur le personnel, les rapports financiers ou
 les rôles eux-mêmes.
 
-## Attribuer un rôle à un compte
+## Créer un compte de connexion
 
-Dans l'onglet **Utilisateurs**, cliquez sur **Nouvel utilisateur**, puis choisissez la source :
+Un compte de connexion ne se crée plus depuis cette page : il se crée **depuis la fiche employé**,
+dans **Gestion du personnel → Employés**, au moment où l'on ajoute l'employé (ou en modifiant une
+fiche existante qui n'en a pas encore). Voir
+[Créer aussi son compte de connexion, dans le même formulaire](/employes) pour
+le détail du formulaire.
 
-- **Employé existant** — pré-remplit nom, CIN et téléphone à partir d'une fiche déjà créée dans
-  **Gestion du personnel** (qui n'a pas encore de compte de connexion).
-- **Nouveau contact externe** — un formulaire vierge, pour une personne qui n'a pas de fiche
-  employé (ex : un comptable externe).
+Un employé et son compte de connexion restent deux entités liées mais distinctes : la fiche employé
+porte les informations professionnelles et RH, le compte porte l'authentification et les droits
+d'accès. Un employé peut exister sans compte de connexion (personnel sans besoin d'accès au
+système) ; un compte de connexion est toujours rattaché à exactement un employé, sauf le compte
+Super Admin d'origine qui n'en a pas.
 
-Renseignez le **rôle** dans la liste déroulante. Le mot de passe temporaire du nouveau compte est
-toujours son **numéro CIN** — la personne devra le changer à sa première connexion (voir
-[Première connexion](/se-connecter)). Depuis la liste des utilisateurs, un
-sélecteur permet de **réattribuer un rôle** à tout moment.
+L'onglet **Utilisateurs** de cette page ne sert donc plus qu'à **gérer** les comptes déjà créés :
+consulter la liste, voir à quel employé chacun est lié, réattribuer un rôle, réinitialiser un mot
+de passe, ou activer/désactiver l'accès.
+
+Depuis la liste des utilisateurs, un sélecteur permet de **réattribuer un rôle** à tout moment.
 
 ## Le rôle Super Admin
 
 Un rôle spécial, **Super Admin**, existe par défaut et ne peut être ni renommé ni supprimé ni
 modifié — il a toujours accès à absolument tout, même si de nouvelles permissions sont ajoutées à
-l'application plus tard. Gardez toujours au moins un compte Super Admin actif.
+l'application plus tard. Gardez toujours au moins un compte Super Admin actif ; le système refuse
+de désactiver ou de faire changer de rôle le dernier compte Super Admin restant.
+
+**Un compte Super Admin ne peut être modifié, désactivé ou avoir son mot de passe réinitialisé que
+par un autre compte Super Admin.** Un gérant qui a la permission Rôles & permissions → Gérer mais
+n'est pas lui-même Super Admin voit ces actions refusées sur un compte Super Admin, aussi bien dans
+l'écran (boutons désactivés) que si la demande est forcée depuis l'extérieur de l'interface (le
+serveur la rejette).
 
 ## Réinitialiser le mot de passe d'un compte
 
 Depuis la fiche d'un utilisateur, un bouton **Réinitialiser le mot de passe** régénère le mot de
 passe temporaire (à nouveau le numéro CIN) — communiquez-le à la personne concernée, elle devra le
-changer à sa prochaine connexion.
+changer à sa prochaine connexion. Notez que ceci ne concerne que les mots de passe **réinitialisés**
+après coup : le mot de passe choisi à la création du compte (depuis la fiche employé) est celui
+saisi à ce moment-là, pas automatiquement le CIN.
 
-## Supprimer un compte utilisateur
+## Désactiver un compte utilisateur
 
-La suppression déconnecte immédiatement toutes les sessions actives de ce compte, sur tous ses
-appareils — une confirmation le rappelle avant de valider.
+Un compte ne se supprime plus : il se **désactive**, depuis l'onglet Utilisateurs. La désactivation
+déconnecte immédiatement toutes les sessions actives de ce compte, sur tous ses appareils, et
+bloque toute nouvelle connexion — la personne voit un message clair ("Ce compte a été désactivé.
+Contactez un administrateur.") si elle tente de se reconnecter. Rien de ce que ce compte a créé ou
+modifié n'est supprimé ni ne change d'apparence dans l'historique. Un bouton **Réactiver** permet de
+rétablir l'accès à tout moment. On ne peut pas désactiver son propre compte, ni le dernier compte
+Super Admin restant.
+
+Désactiver l'employé lié à ce compte, depuis **Gestion du personnel**, désactive automatiquement le
+compte de connexion associé — voir
+[Archiver un employé](/employes). L'inverse n'est pas automatique : réactiver
+l'employé ne réactive pas son compte de connexion, c'est une décision distincte à prendre ici.
 
 ## Voir qui est connecté
 

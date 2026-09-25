@@ -55,6 +55,8 @@ estimation de gestion interne, pas un bilan comptable officiel**.
 - **Rapport fiscal** *(accès restreint)* — ventilation de la TVA collectée et déductible, par taux
   — également informatif, pas une déclaration officielle.
 - **Export** — pour extraire les données vers un fichier (Excel/CSV).
+- **Archive** — la liste des employés archivés et des comptes utilisateurs désactivés, voir
+  ci-dessous.
 
 ## Choisir une période
 
@@ -67,3 +69,23 @@ précédent.
 Depuis **Rapports de gestion → Export**, choisissez les données à exporter (ventes, stock,
 dépenses...) et la période, puis téléchargez le fichier — utile pour un usage externe (comptable,
 archivage).
+
+## Archive — retrouver ce qui a été archivé ou désactivé
+
+Depuis **Rapports de gestion → Archive**, une seule liste regroupe tout ce qui a été mis de côté
+sans être supprimé :
+
+- les **employés archivés** (voir [Archiver un employé](/employes)) ;
+- les **comptes utilisateurs désactivés** (voir
+  [Désactiver un compte utilisateur](/roles-et-permissions)).
+
+Un filtre par type (Employé / Utilisateur) et une recherche par nom permettent de retrouver
+rapidement un enregistrement précis ; deux indicateurs en haut de page comptent séparément les
+employés archivés et les comptes désactivés. Chaque ligne propose un bouton **Réactiver**, qui
+renvoie vers l'action correspondante (réactivation de l'employé, ou réactivation du compte) — voir
+les pages liées ci-dessus pour ce que chacune fait précisément, notamment le fait que réactiver un
+employé ne réactive **pas** automatiquement son compte de connexion associé : ce sont deux actions
+distinctes, chacune avec sa propre ligne dans cette liste tant qu'elle n'a pas été effectuée.
+
+Rien de ce qui apparaît ici n'est perdu : archiver ou désactiver ne supprime jamais l'historique des
+ventes, achats, mouvements de stock ou suivis financiers déjà liés à cet employé ou ce compte.

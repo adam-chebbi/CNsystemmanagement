@@ -30,7 +30,7 @@ Une ligne = une commande complète (fournisseur, employé, et tous les produits 
 |---|---|---|
 | `date` | Oui | Date d'achat (`AAAA-MM-JJ` ou `JJ/MM/AAAA`). |
 | `fournisseur` | Oui | Doit déjà exister dans [Listes des fournisseurs](/listes-des-fournisseurs). |
-| `employe` | Oui | Doit déjà exister dans la liste des employés. |
+| `employe` | Oui | Doit déjà exister dans la liste des employés. Sans la permission **Gestion du personnel → Sélection libre de l'employé**, cette colonne est ignorée et chaque commande est rattachée à l'employé lié à votre compte — voir [Rôles et permissions](/roles-et-permissions). |
 | `produits` | Oui | Les articles commandés, séparés par `\|`, chacun au format `"quantité x produit @ prix unitaire"` — ex : `"50x Grains de café Arabica @ 2.500\|20x Gobelets carton @ 1.800"`. Chaque produit doit déjà exister dans le stock. |
 | `date_prevue` | Non | Date de livraison prévue. |
 | `notes` | Non | Texte libre. |

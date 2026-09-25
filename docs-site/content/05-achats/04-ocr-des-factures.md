@@ -68,7 +68,7 @@ reconnu) ; à droite, chaque champ est modifiable.
 | **Articles** (lignes) | Oui, si le document contient un tableau reconnaissable (désignation, quantité, prix). Chaque libellé détecté est ensuite comparé aux produits existants. | Chaque **produit** doit être confirmé/choisi manuellement — une correspondance automatique erronée reste possible. |
 | **Mode de paiement** | Jamais détecté. | Toujours à choisir. |
 | **Zone de réception** | Jamais détectée (par défaut "Réserve principale"). | Toujours à confirmer. |
-| **Effectué par** | Jamais détecté. | Toujours à choisir (un employé valide). |
+| **Effectué par** | Jamais détecté. | Toujours à choisir (un employé valide). Sans la permission **Gestion du personnel → Sélection libre de l'employé**, verrouillé sur l'employé lié à votre compte. |
 
 ### Une vérification de cohérence automatique
 

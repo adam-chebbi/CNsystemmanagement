@@ -45,7 +45,7 @@ tri n'est pas modifiable par un clic sur les colonnes. Affichage 8 lignes par pa
 | **Statut** | Badge Actif / Inactif. |
 | **Salaire** | En DT. |
 | **CIN** | Numéro de la carte d'identité. |
-| **Actions** | Voir, Modifier, Supprimer. |
+| **Actions** | Voir, Modifier, Archiver (ou Réactiver pour un employé déjà Inactif). |
 
 ## Ajouter un employé
 
@@ -70,6 +70,31 @@ Cliquez sur **Ajouter un employé**.
 Cliquez sur **Vérifier**, contrôlez le récapitulatif ("rien n'est encore enregistré"), puis
 **Confirmer et enregistrer**.
 
+### Créer aussi son compte de connexion, dans le même formulaire
+
+Une case **Compte de connexion (optionnel)**, tout en bas du formulaire, permet de donner à cet
+employé ses propres identifiants dès sa création — sans passer par un écran séparé. Si vous la
+laissez décochée, l'employé est enregistré comme une simple fiche RH, sans aucun accès à
+l'application.
+
+Si vous la cochez, quatre champs apparaissent :
+
+| Champ | Détail |
+|---|---|
+| **Email** | Optionnel — l'employé pourra aussi se connecter avec son numéro CIN si aucun email n'est renseigné. |
+| **Rôle** * | Choisi dans la liste des rôles existants (voir [Rôles et permissions](/roles-et-permissions)) — détermine ce que ce compte pourra voir et faire. |
+| **Mot de passe** * | Au moins 8 caractères. |
+| **Confirmation du mot de passe** * | Doit correspondre exactement au mot de passe. |
+
+Le compte créé est **définitivement lié** à cette fiche employé (voir plus bas) — inutile de passer
+ensuite par la mise en correspondance manuelle d'un numéro CIN. Contrairement au mot de passe
+temporaire habituel (le numéro CIN, à changer obligatoirement à la première connexion), un compte
+créé ainsi peut se connecter directement avec le mot de passe choisi ici.
+
+Pour gérer un compte déjà créé (changer son rôle, réinitialiser son mot de passe, l'activer ou le
+désactiver), direction [Rôles et permissions](/roles-et-permissions) — ce formulaire ne sert qu'à
+la création initiale.
+
 ## Consulter la fiche d'un employé
 
 Cliquez sur l'icône **œil (Voir)**.
@@ -88,32 +113,32 @@ en trois étapes s'ouvre, pré-rempli.
 
 ![Formulaire de modification d'un employé](/screenshots/personnel-employes-modifier-formulaire.png)
 
-## Passer un employé en Inactif
+## Archiver un employé (remplace la suppression)
 
-Le statut se change simplement en rouvrant le formulaire de modification et en basculant le bouton
-**Statut** sur Inactif — il n'y a pas d'action dédiée "désactiver". Ce changement n'est jamais
-automatique (aucune date de fin de contrat ne le déclenche).
+![Confirmation d'archivage, avec avertissement sur le compte lié](/screenshots/personnel-employes-suppression-confirmation.png)
 
-### Effet du statut sur le reste de l'application
+Il n'existe **aucun moyen de supprimer définitivement** une fiche employé — seul l'archivage existe,
+et c'est volontaire : **rien n'est jamais effacé**. Cliquez sur l'icône d'archive sur la ligne de
+l'employé, confirmez, et :
 
-- Dans [Planning & Présence](/planning-et-presence), seuls les employés **Actifs** apparaissent
-  dans la grille et peuvent être sélectionnés pour un nouveau planning — un employé passé en
-  Inactif disparaît de la grille, mais son historique de présence n'est pas supprimé pour autant.
-- Dans [Suivi financier](/suivi-financier), le statut n'a **aucun effet** : un employé Inactif
-  reste sélectionnable, ce qui permet par exemple de régler un dernier salaire après son départ.
-- Un indicateur informatif sur le tableau de bord signale le nombre d'employés inactifs dans la
-  base.
+- Son statut passe à **Inactif**, avec la date du jour enregistrée comme date de sortie.
+- **Rien n'est supprimé** — son planning, ses jours de présence passés et tout son suivi financier
+  restent intacts, consultables, et continuent d'afficher son nom exactement comme avant.
+- **Si un compte de connexion est lié à cet employé, il est désactivé immédiatement** : la personne
+  est déconnectée de toutes ses sessions actives et ne peut plus se reconnecter, sans que son compte
+  soit supprimé pour autant (voir [Rôles et permissions](/roles-et-permissions)).
 
-## Supprimer un employé
+Un employé déjà Inactif affiche à la place une action **Réactiver**, qui remet son statut à Actif
+et efface la date de sortie — **sans jamais réactiver automatiquement son compte de connexion** :
+redonner l'accès à l'application est toujours une action séparée et volontaire, à faire depuis
+[Rôles et permissions](/roles-et-permissions).
 
-![Confirmation de suppression, avec avertissement sur les données liées](/screenshots/personnel-employes-suppression-confirmation.png)
+> Si l'employé est lié au compte d'un **Super Admin**, seul un autre Super Admin peut l'archiver —
+> une protection qui empêche qu'un compte moins privilégié ne coupe, même par erreur, l'accès du
+> seul compte capable de tout réparer.
 
-La suppression n'est **jamais bloquée**, mais si l'employé a déjà des données de planning ou de
-suivi financier, un avertissement le précise avant de confirmer : *"Cet employé a des
-enregistrements de planning et/ou de suivi financier associés — ils seront également supprimés."*
-Une fois confirmée, la suppression est **irréversible** et **supprime en cascade** tout ce qui
-concerne cet employé : ses jours de planning, ses éventuels plannings récurrents, et tout son
-suivi financier.
+Tous les employés archivés/inactifs, avec leurs comptes désactivés, sont aussi regroupés dans la
+page [Archive](/archive), sous Rapports et analyses.
 
 ## Comment cette fiche se connecte au reste de l'application
 
@@ -122,16 +147,18 @@ suivi financier.
   salaire de base y est encore vide.
 - **Nom complet** → apparaît, comme simple texte (pas de lien direct vers la fiche), dans de
   nombreux sélecteurs "Effectué par" ailleurs dans l'application (saisie manuelle des ventes,
-  mouvements de stock, pertes, achats, OCR des factures...) — y compris les employés Inactifs,
-  puisque ces sélecteurs ne filtrent pas par statut. Renommer ou supprimer l'employé plus tard ne
-  modifie pas ces enregistrements passés, qui gardent le nom tel qu'il était au moment de la saisie.
+  mouvements de stock, pertes, achats, OCR des factures, ventes internes...). Un employé archivé
+  n'apparaît plus dans ces listes pour de nouvelles saisies, mais les enregistrements passés
+  gardent le nom tel qu'il était au moment de la saisie, sans jamais être modifiés rétroactivement.
+  Voir aussi [Rôles et permissions](/roles-et-permissions) pour la permission qui détermine si un
+  compte peut choisir librement l'employé dans ces sélecteurs, ou s'il est automatiquement limité au
+  sien.
 - **Photo** → utilisée uniquement sur les écrans Employés (tableau, formulaire, fiche détaillée) ;
   elle n'apparaît nulle part ailleurs dans l'application.
-- **Rôle et permissions applicatifs** — cette fiche ne donne **pas** accès à l'application : c'est
-  un dossier RH, pas un compte utilisateur. Un compte de connexion se crée séparément dans
-  **Rôles & Permissions**, où il est possible de partir d'une fiche employé existante pour
-  préremplir le nom, le CIN et le téléphone du nouveau compte (les deux restent des enregistrements
-  distincts, reliés uniquement au moment de la création par un rapprochement sur le numéro CIN).
+- **Compte de connexion** — désormais **lié en permanence** à cette fiche dès sa création (voir
+  ci-dessus), et non plus un simple rapprochement par numéro CIN. La fiche employé reste les
+  informations RH (poste, salaire, planning...), le compte reste l'authentification et les droits
+  d'accès — deux enregistrements distincts, mais reliés durablement.
 
 ## Voir la suite
 
