@@ -65,6 +65,8 @@ import {
   buildSaleTransactionsFromQuantityForm,
 } from '../data/quantitySalesEntryModel';
 import { QuantitySalesFormStep, QuantitySalesPreviewStep } from './QuantitySalesEntryForm';
+import { InternalConsumptionModal } from './InternalConsumptionModal';
+import { buildInternalConsumptionPayload } from '../data/internalConsumptionModel';
 
 interface ManualSalesEntryPageProps {
   articles: CatalogArticle[];
@@ -74,6 +76,7 @@ interface ManualSalesEntryPageProps {
   onNavigateToDashboard: () => void;
   onNavigateToSalesList: () => void;
   onSaveTickets: (transactions: SaleTransaction[]) => void;
+  onSaveInternalConsumption: (payload: ReturnType<typeof buildInternalConsumptionPayload>) => Promise<void>;
   isDarkMode?: boolean;
 }
 
@@ -134,7 +137,9 @@ export const ManualSalesEntryPage: React.FC<ManualSalesEntryPageProps> = ({
   onNavigateToDashboard,
   onNavigateToSalesList,
   onSaveTickets,
+  onSaveInternalConsumption,
 }) => {
+  const [internalConsumptionOpen, setInternalConsumptionOpen] = useState(false);
   const catalog: SalesCatalogContext = { articles, extras, employees, shifts };
   const articleCategories = useMemo(() => getArticleCategoriesInUse(articles), [articles]);
   const [mode, setMode] = useState<EntryMode | null>(null);
@@ -485,6 +490,13 @@ export const ManualSalesEntryPage: React.FC<ManualSalesEntryPageProps> = ({
         </div>
 
         <div className="flex items-center gap-2 self-start sm:self-auto">
+          <button
+            onClick={() => setInternalConsumptionOpen(true)}
+            className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700/80 text-xs font-semibold text-gray-700 dark:text-gray-200 shadow-2xs transition active:scale-98 cursor-pointer"
+          >
+            <Users size={14} className="text-gray-500 dark:text-gray-400" />
+            <span>Ventes internes</span>
+          </button>
           <button
             onClick={onNavigateToSalesList}
             className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700/80 text-xs font-semibold text-gray-700 dark:text-gray-200 shadow-2xs transition active:scale-98 cursor-pointer"
@@ -1340,6 +1352,15 @@ export const ManualSalesEntryPage: React.FC<ManualSalesEntryPageProps> = ({
             </>
           )}
         </>
+      )}
+
+      {internalConsumptionOpen && (
+        <InternalConsumptionModal
+          articles={articles}
+          employees={employees}
+          onSave={onSaveInternalConsumption}
+          onClose={() => setInternalConsumptionOpen(false)}
+        />
       )}
     </div>
   );

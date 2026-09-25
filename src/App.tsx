@@ -43,6 +43,8 @@ import {
 import * as productCatalogApi from './api/productCatalog';
 import * as stockApi from './api/stock';
 import * as salesApi from './api/sales';
+import * as internalConsumptionApi from './api/internalConsumption';
+import type { buildInternalConsumptionPayload } from './data/internalConsumptionModel';
 import * as expensesApi from './api/expenses';
 import * as purchasesApi from './api/purchases';
 import * as hrApi from './api/hr';
@@ -420,7 +422,7 @@ export default function App() {
   // Stock → Import Excel/CSV → "Nouveaux ingrédients" creates brand-new StockProduct rows —
   // independent creates, so a simple Promise.all is enough (no shared before/after quantities to
   // keep atomic, unlike the ledger-based movements import above).
-  const handleImportIngredients = (newProducts: Omit<StockProduct, 'id'>[]) => {
+  const handleImportIngredients = (newProducts: (Omit<StockProduct, 'id'> & { lotNumber?: string; expiryDate?: string })[]) => {
     runMutation(() => Promise.all(newProducts.map((p) => stockApi.createStockProduct(p))));
   };
 
@@ -793,6 +795,9 @@ export default function App() {
     runMutation(() => salesApi.createSalesTransactions(newTransactions.map(toTicketInput)));
   };
 
+  const handleSaveInternalConsumption = (payload: ReturnType<typeof buildInternalConsumptionPayload>) =>
+    runMutation(() => internalConsumptionApi.createInternalConsumption(payload));
+
   const handleRefundSale = (id: number) => {
     runMutation(() => salesApi.refundSaleTransaction(id));
   };
@@ -1010,6 +1015,7 @@ export default function App() {
                   setActiveSubItem('sales');
                 }}
                 onSaveTickets={handleSaveManualSalesTickets}
+                onSaveInternalConsumption={handleSaveInternalConsumption}
               />
             ) : activeTab === 'sales_mgmt' && activeSubItem === 'sales_import' ? (
               <Suspense

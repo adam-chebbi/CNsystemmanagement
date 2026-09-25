@@ -181,6 +181,21 @@ CREATE TABLE IF NOT EXISTS stock_ledger (
   inventory_scope TEXT
 );
 
+-- Staff consuming finished products internally (a coffee drunk on shift, a pastry given away) —
+-- deducts stock through the same recipe expansion a real sale uses, but carries no price/payment
+-- and never becomes a sales_transactions row, so it's never counted as revenue.
+CREATE TABLE IF NOT EXISTS internal_consumptions (
+  id TEXT PRIMARY KEY,
+  employee TEXT NOT NULL,
+  items TEXT NOT NULL,
+  items_summary TEXT NOT NULL,
+  date TEXT NOT NULL,
+  time TEXT NOT NULL,
+  comment TEXT,
+  performed_by TEXT NOT NULL,
+  created_at TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS sales_transactions (
   id INTEGER PRIMARY KEY,
   sale_number TEXT NOT NULL,
