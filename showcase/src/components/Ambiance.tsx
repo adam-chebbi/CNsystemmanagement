@@ -2,6 +2,7 @@ import { X } from 'lucide-react';
 import { useState } from 'react';
 import { GALLERY, IMAGES } from '../config/site';
 import { Dialog } from './Dialog';
+import { Reveal } from './ui/Reveal';
 
 export function Ambiance() {
   const [open, setOpen] = useState(false);
@@ -12,7 +13,7 @@ export function Ambiance() {
       <div aria-hidden className="absolute inset-0 -z-10 bg-black/25" />
       <div aria-hidden className="absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_center,rgba(0,0,0,0.5),transparent_75%)]" />
 
-      <div className="mx-auto flex max-w-[1240px] flex-col items-center px-5 py-16 text-center sm:px-8 sm:py-20 lg:py-24">
+      <Reveal className="mx-auto flex max-w-[1240px] flex-col items-center px-5 py-16 text-center sm:px-8 sm:py-20 lg:py-24">
         <p className="text-[11px] font-medium uppercase tracking-[0.32em] text-white/70">L’ambiance</p>
         <h2 className="mt-3 font-serif text-4xl leading-tight text-white sm:text-5xl">Un cadre qui inspire</h2>
         <p className="mt-4 max-w-md text-sm leading-relaxed text-white/85 sm:text-[15px]">
@@ -25,7 +26,7 @@ export function Ambiance() {
         >
           Découvrir la galerie
         </button>
-      </div>
+      </Reveal>
 
       <Dialog open={open} onClose={() => setOpen(false)} label="Galerie">
         <div className="flex max-h-[92dvh] flex-col">

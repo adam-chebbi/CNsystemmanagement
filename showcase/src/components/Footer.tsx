@@ -4,6 +4,7 @@ import type { SocialPlatform } from '../../../src/data/showcaseSettingsModel';
 import { CREDIT, SITE } from '../config/site';
 import { phoneHref, useSiteInfo } from '../lib/siteInfo';
 import { Logo } from './Logo';
+import { Reveal } from './ui/Reveal';
 
 const SOCIAL_ICONS: Record<SocialPlatform, ReactNode> = {
   instagram: (
@@ -49,7 +50,8 @@ export function Footer() {
 
   return (
     <footer id="contact" className="scroll-mt-16 border-t border-line lg:scroll-mt-[72px]">
-      <div
+      <Reveal
+        as="div"
         className={`mx-auto grid max-w-[1240px] gap-10 px-5 py-12 sm:grid-cols-2 sm:px-8 lg:gap-12 lg:px-12 lg:py-14 ${
           hasSocials ? 'lg:grid-cols-[1fr_1.05fr_0.6fr_1.7fr]' : 'lg:grid-cols-[1fr_1.05fr_1.9fr]'
         }`}
@@ -121,7 +123,7 @@ export function Footer() {
             className="h-full w-full border-0 dark:[filter:invert(92%)_hue-rotate(180deg)_saturate(0.7)]"
           />
         </div>
-      </div>
+      </Reveal>
 
       <div className="border-t border-line">
         <div className="mx-auto flex max-w-[1240px] flex-col items-center justify-between gap-1.5 px-5 py-5 text-center text-[11px] text-subtle sm:flex-row sm:px-8 sm:text-left lg:px-12">

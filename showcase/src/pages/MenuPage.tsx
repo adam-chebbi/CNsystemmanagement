@@ -8,6 +8,7 @@ import { buildGroups, categoryImage } from '../lib/catalogView';
 import { normalize } from '../lib/format';
 import { Link, useRouter } from '../lib/router';
 import { useCatalog } from '../lib/useCatalog';
+import { Reveal } from '../components/ui/Reveal';
 
 const ALL = '__all__';
 
@@ -90,27 +91,29 @@ function Catalogue({ catalog, initialCategory }: { catalog: Catalog; initialCate
         ) : (
           <div className="space-y-14 lg:space-y-16">
             {visible.map(({ group, products }) => (
-              <section key={group.name} aria-labelledby={`cat-${group.name}`}>
-                <div className="flex items-center gap-4">
-                  <div className="h-14 w-14 shrink-0 overflow-hidden rounded-2xl bg-section sm:h-16 sm:w-16">
-                    <img src={categoryImage(group).src} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover" />
+              <Reveal key={group.name} as="div">
+                <section aria-labelledby={`cat-${group.name}`}>
+                  <div className="flex items-center gap-4">
+                    <div className="h-14 w-14 shrink-0 overflow-hidden rounded-2xl bg-section sm:h-16 sm:w-16">
+                      <img src={categoryImage(group).src} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover" />
+                    </div>
+                    <div className="min-w-0">
+                      <h2 id={`cat-${group.name}`} className="font-serif text-[1.9rem] leading-none tracking-[-0.01em] text-ink sm:text-4xl">
+                        {group.name}
+                      </h2>
+                      <p className="mt-1.5 text-xs text-subtle">
+                        {products.length} produit{products.length > 1 ? 's' : ''}
+                      </p>
+                    </div>
+                    <span aria-hidden className="ml-2 hidden h-px flex-1 bg-brand/40 sm:block" />
                   </div>
-                  <div className="min-w-0">
-                    <h2 id={`cat-${group.name}`} className="font-serif text-[1.9rem] leading-none tracking-[-0.01em] text-ink sm:text-4xl">
-                      {group.name}
-                    </h2>
-                    <p className="mt-1.5 text-xs text-subtle">
-                      {products.length} produit{products.length > 1 ? 's' : ''}
-                    </p>
+                  <div className="mt-6 columns-1 gap-4 sm:columns-2 lg:columns-3">
+                    {products.map((p) => (
+                      <MenuProductCard key={p.id} product={p} extras={catalog.extras} />
+                    ))}
                   </div>
-                  <span aria-hidden className="ml-2 hidden h-px flex-1 bg-brand/40 sm:block" />
-                </div>
-                <div className="mt-6 columns-1 gap-4 sm:columns-2 lg:columns-3">
-                  {products.map((p) => (
-                    <MenuProductCard key={p.id} product={p} extras={catalog.extras} />
-                  ))}
-                </div>
-              </section>
+                </section>
+              </Reveal>
             ))}
           </div>
         )}
@@ -213,7 +216,10 @@ export function MenuPage() {
         ))}
 
       <section className="border-t border-line bg-section">
-        <div className="mx-auto flex max-w-[1240px] flex-col items-start justify-between gap-6 px-5 py-12 sm:px-8 md:flex-row md:items-center lg:px-12">
+        <Reveal
+          as="div"
+          className="mx-auto flex max-w-[1240px] flex-col items-start justify-between gap-6 px-5 py-12 sm:px-8 md:flex-row md:items-center lg:px-12"
+        >
           <div>
             <h2 className="font-serif text-3xl leading-tight text-ink sm:text-4xl">
               Une envie de café ? <em className="text-accent">Passez nous voir.</em>
@@ -239,7 +245,7 @@ export function MenuPage() {
               Retour à l’accueil
             </Link>
           </div>
-        </div>
+        </Reveal>
       </section>
     </>
   );

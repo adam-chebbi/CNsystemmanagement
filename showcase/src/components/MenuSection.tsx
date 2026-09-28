@@ -4,6 +4,7 @@ import { formatTND, startingPrice } from '../lib/format';
 import { buildGroups, categoryImage, type CategoryGroup } from '../lib/catalogView';
 import { Link } from '../lib/router';
 import { useCatalog } from '../lib/useCatalog';
+import { Reveal } from './ui/Reveal';
 
 const MAX_CARDS = 4;
 const MAX_ITEMS = 5;
@@ -72,7 +73,7 @@ export function MenuSection() {
   return (
     <section id="menu" className="scroll-mt-16 bg-section lg:scroll-mt-[72px]">
       <div className="mx-auto grid max-w-[1240px] gap-10 px-5 py-14 sm:px-8 sm:py-16 lg:grid-cols-[minmax(0,300px)_minmax(0,1fr)] lg:gap-12 lg:px-12 lg:py-20">
-        <div className="lg:pt-2">
+        <Reveal className="lg:pt-2">
           <p className="text-[11px] font-medium uppercase tracking-[0.32em] text-subtle">Notre menu</p>
           <h2 className="mt-4 font-serif text-[2.1rem] leading-[1.12] tracking-[-0.015em] text-ink sm:text-[2.5rem]">
             Des saveurs pour toutes les <em className="text-accent">envies</em>
@@ -87,7 +88,7 @@ export function MenuSection() {
           >
             Voir le menu complet <ArrowRight size={15} />
           </Link>
-        </div>
+        </Reveal>
 
         <div className="min-w-0">
           {state.status === 'loading' && (
@@ -122,8 +123,10 @@ export function MenuSection() {
 
           {state.status === 'ready' && groups.length > 0 && (
             <div className={`grid gap-4 ${groups.length > 1 ? 'sm:grid-cols-2' : ''} ${XL_COLUMNS[Math.min(groups.length, MAX_CARDS)]}`}>
-              {groups.slice(0, MAX_CARDS).map((g) => (
-                <MenuCard key={g.name} group={g} wide={groups.length === 1} />
+              {groups.slice(0, MAX_CARDS).map((g, i) => (
+                <Reveal key={g.name} delay={i * 80}>
+                  <MenuCard group={g} wide={groups.length === 1} />
+                </Reveal>
               ))}
             </div>
           )}
