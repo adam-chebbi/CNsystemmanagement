@@ -30,25 +30,45 @@ export function FloatingContactButtons() {
       )}
 
       <div
-        className="slide-up-in fixed inset-x-0 bottom-0 z-40 flex gap-2.5 border-t border-line bg-page/95 p-3 shadow-[0_-8px_24px_-12px] shadow-black/20 backdrop-blur-md lg:hidden"
-        style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}
+        className="fixed inset-x-3 bottom-3 z-40 lg:hidden"
+        style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
       >
-        <Link
-          to="/menu"
-          className="flex flex-1 items-center justify-center gap-2 rounded-full bg-brand px-4 py-3.5 text-[13px] font-semibold text-on-brand shadow-sm transition-transform duration-200 active:scale-95"
-        >
-          <Coffee size={16} /> Voir le menu
-        </Link>
-        {whatsappHref && (
-          <a
-            href={whatsappHref}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex flex-1 items-center justify-center gap-2 rounded-full border border-brand px-4 py-3.5 text-[13px] font-semibold text-ink shadow-sm transition-transform duration-200 active:scale-95"
-          >
-            <MessageCircle size={16} className="text-brand" /> WhatsApp
-          </a>
-        )}
+        <div className="bar-pop-in relative">
+          {/* Soft ambient glow beneath the floating bar — reads as depth, not just a flat shadow. */}
+          <div aria-hidden className="absolute inset-x-6 -bottom-2 -z-10 h-9 rounded-full bg-brand/35 blur-xl dark:bg-brand/20" />
+
+          <div className="flex items-stretch gap-1 rounded-[22px] border border-line/70 bg-card/85 p-1.5 shadow-[0_18px_40px_-14px] shadow-black/35 backdrop-blur-xl">
+            <Link
+              to="/menu"
+              className="group relative flex flex-1 items-center justify-center gap-2 overflow-hidden rounded-2xl bg-gradient-to-br from-brand to-[color-mix(in_srgb,var(--brand)_80%,black)] py-3.5 text-[13px] font-semibold text-on-brand transition-transform duration-200 active:scale-[0.96]"
+            >
+              <span
+                aria-hidden
+                className="pointer-events-none absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/25 to-transparent transition-transform duration-700 ease-out group-active:translate-x-full"
+              />
+              <Coffee size={17} strokeWidth={2.25} className="relative transition-transform duration-300 group-active:scale-90" />
+              <span className="relative">Voir le menu</span>
+            </Link>
+
+            {whatsappHref && (
+              <a
+                href={whatsappHref}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="group relative flex flex-1 items-center justify-center gap-2 rounded-2xl py-3.5 text-[13px] font-semibold text-ink transition-[background-color,transform] duration-200 active:scale-[0.96] active:bg-brand/10"
+              >
+                <span className="relative flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand/15 text-brand transition-transform duration-300 group-active:scale-90">
+                  <MessageCircle size={14} strokeWidth={2.4} />
+                  <span aria-hidden className="absolute -right-0.5 -top-0.5 flex h-2 w-2">
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-brand opacity-75" />
+                    <span className="relative inline-flex h-2 w-2 rounded-full bg-brand" />
+                  </span>
+                </span>
+                WhatsApp
+              </a>
+            )}
+          </div>
+        </div>
       </div>
     </>
   );

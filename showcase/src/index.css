@@ -113,12 +113,14 @@
 }
 .icon-pop-in { animation: icon-pop-in 0.35s cubic-bezier(0.22, 1, 0.36, 1) both; }
 
-/* Mobile floating contact bar: glides up into place instead of just appearing. */
-@keyframes slide-up-in {
-  from { opacity: 0; transform: translateY(100%); }
-  to { opacity: 1; transform: translateY(0); }
+/* Mobile floating contact bar: springs up into place with a slight overshoot, like a physical
+   object dropped into a pocket, instead of a flat linear slide. */
+@keyframes bar-pop-in {
+  0% { opacity: 0; transform: translateY(120%) scale(0.92); }
+  70% { opacity: 1; transform: translateY(-4px) scale(1.01); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
 }
-.slide-up-in { animation: slide-up-in 0.5s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.bar-pop-in { animation: bar-pop-in 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) both; }
 
 /* Desktop WhatsApp button: a slow, gentle attention pulse — subtle enough not to nag. */
 @keyframes soft-pulse-ring {
@@ -142,7 +144,7 @@
 
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
-  .animate-fade-up, .skeleton, .reveal.is-visible, .icon-pop-in, .slide-up-in, .soft-pulse-ring { animation: none; }
+  .animate-fade-up, .skeleton, .reveal.is-visible, .icon-pop-in, .bar-pop-in, .soft-pulse-ring { animation: none; }
   .reveal { opacity: 1; transform: none; }
   .media-zoom, .dialog-pop { transition: none; }
 }
