@@ -1,9 +1,11 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Ambiance } from './components/Ambiance';
 import { Features } from './components/Features';
 import { Footer } from './components/Footer';
+import { FloatingContactButtons } from './components/FloatingContactButtons';
 import { Header } from './components/Header';
 import { Hero } from './components/Hero';
+import { IntroAnimation } from './components/IntroAnimation';
 import { MenuSection } from './components/MenuSection';
 import { Story } from './components/Story';
 import { applySeo } from './lib/seoClient';
@@ -37,6 +39,7 @@ function NotFound() {
 // Two pages: the one-page home (sections reached by anchors) and the dedicated menu page.
 export default function App() {
   const { path } = useRouter();
+  const [logoRevealed, setLogoRevealed] = useState(false);
 
   useEffect(() => {
     applySeo(path);
@@ -44,13 +47,15 @@ export default function App() {
 
   return (
     <div className="flex min-h-screen flex-col bg-page text-ink">
-      <Header />
+      <IntroAnimation onLogoRevealChange={setLogoRevealed} />
+      <Header logoHidden={!logoRevealed} />
       <main className="flex-1">
         {path === '/' && <Home />}
         {path === '/menu' && <MenuPage />}
         {path !== '/' && path !== '/menu' && <NotFound />}
       </main>
       <Footer />
+      <FloatingContactButtons />
     </div>
   );
 }

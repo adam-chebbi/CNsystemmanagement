@@ -10,7 +10,7 @@ const SECTION_IDS = NAV_ITEMS.map((n) => n.id);
 
 type NavItem = (typeof NAV_ITEMS)[number];
 
-export function Header() {
+export function Header({ logoHidden = false }: { logoHidden?: boolean }) {
   const { path } = useRouter();
   const onHome = path === '/';
   const spy = useActiveSection(SECTION_IDS, path);
@@ -32,7 +32,7 @@ export function Header() {
   return (
     <header className="sticky top-0 z-40 border-b border-line bg-page/85 backdrop-blur-md">
       <div className="mx-auto flex h-16 max-w-[1240px] items-center justify-between gap-4 px-5 sm:px-8 lg:h-[72px] lg:px-12">
-        <Logo />
+        <Logo id="header-logo" style={{ opacity: logoHidden ? 0 : 1, transition: 'opacity 0.4s ease-out' }} />
 
         <nav className="hidden items-center gap-9 lg:flex" aria-label="Navigation principale">
           {NAV_ITEMS.map((item) => (
