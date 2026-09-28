@@ -22,7 +22,7 @@ export function Ambiance() {
         <button
           type="button"
           onClick={() => setOpen(true)}
-          className="mt-7 rounded-full bg-white px-7 py-3 text-[13px] font-semibold text-[#0F1A17] transition-colors hover:bg-brand"
+          className="mt-7 rounded-full bg-white px-7 py-3 text-[13px] font-semibold text-[#0F1A17] transition-colors hover:bg-brand hover:text-on-brand"
         >
           Découvrir la galerie
         </button>

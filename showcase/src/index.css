@@ -26,9 +26,12 @@
   --muted: #4A5856;
   --subtle: #829A99;
   --line: #E6E8E3;
-  --brand: #5DD3B2;
+  --brand: #C66724;
   --accent: #C66724;
-  --on-brand: #0F1A17;
+  /* Buttons/borders swap the mint "Mint Jelly" brand color for the same orange — the button text
+     color flips to light too, since #0F1A17 (dark ink) has poor contrast on this darker orange
+     (it was tuned for the much lighter mint). Dark mode keeps the original mint + dark-ink pair. */
+  --on-brand: #FAF9F5;
   color-scheme: light;
 }
 
