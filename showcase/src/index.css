@@ -27,7 +27,7 @@
   --subtle: #829A99;
   --line: #E6E8E3;
   --brand: #5DD3B2;
-  --accent: #4CCBA0;
+  --accent: #C66724;
   --on-brand: #0F1A17;
   color-scheme: light;
 }
@@ -73,6 +73,11 @@
 }
 .animate-fade-up { animation: fade-up 0.7s cubic-bezier(0.22, 1, 0.36, 1) both; }
 
+/* Scroll-reveal (see lib/useInView.ts + components/ui/Reveal.tsx): held in the "from" state of
+   fade-up until the element's own IntersectionObserver flips it to .is-visible. */
+.reveal { opacity: 0; transform: translateY(14px); }
+.reveal.is-visible { animation: fade-up 0.7s cubic-bezier(0.22, 1, 0.36, 1) both; }
+
 @keyframes shimmer {
   0% { background-position: -200% 0; }
   100% { background-position: 200% 0; }
@@ -88,5 +93,6 @@
 
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
-  .animate-fade-up, .skeleton { animation: none; }
+  .animate-fade-up, .skeleton, .reveal.is-visible { animation: none; }
+  .reveal { opacity: 1; transform: none; }
 }
