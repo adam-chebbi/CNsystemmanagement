@@ -54,7 +54,10 @@ export default function App() {
         {path === '/menu' && <MenuPage />}
         {path !== '/' && path !== '/menu' && <NotFound />}
       </main>
+      {/* Reserves room for the fixed mobile Menu/WhatsApp bar so it never covers the last bit of
+          real content (footer credit line, page bottom) — the bar has no footprint in normal flow. */}
       <Footer />
+      <div aria-hidden className="h-[calc(env(safe-area-inset-bottom)+5.5rem)] lg:hidden" />
       <FloatingContactButtons />
     </div>
   );

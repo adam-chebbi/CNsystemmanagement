@@ -62,7 +62,28 @@ export function IntroAnimation({ onLogoRevealChange }: { onLogoRevealChange: (re
       onLogoRevealChange(true);
       setPhase('crossfading');
     }, SHRINK_MS);
-    return () => window.clearTimeout(timer);
+
+    // A viewport resize/rotation mid-flight (orientation change, or a devtools resize while
+    // testing) would otherwise leave the logo gliding toward a now-stale header position —
+    // re-measure and retarget the transition live so it always lands exactly on the real logo.
+    const retarget = () => {
+      const group = groupRef.current;
+      const target = document.getElementById('header-logo');
+      if (!group || !target) return;
+      const groupRect = group.getBoundingClientRect();
+      const targetRect = target.getBoundingClientRect();
+      const scale = targetRect.width / groupRect.width;
+      const dx = targetRect.left + targetRect.width / 2 - (groupRect.left + groupRect.width / 2);
+      const dy = targetRect.top + targetRect.height / 2 - (groupRect.top + groupRect.height / 2);
+      setTransform(`translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px)) scale(${scale})`);
+    };
+    window.addEventListener('resize', retarget);
+    window.addEventListener('orientationchange', retarget);
+    return () => {
+      window.clearTimeout(timer);
+      window.removeEventListener('resize', retarget);
+      window.removeEventListener('orientationchange', retarget);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase]);
 
