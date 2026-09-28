@@ -21,9 +21,9 @@ export function Hero() {
           </p>
           <Link
             to="/menu"
-            className="mt-8 inline-flex items-center gap-2.5 rounded-full bg-brand px-7 py-3.5 text-sm font-semibold text-on-brand shadow-[0_8px_24px_-10px] shadow-brand transition-[filter,transform] hover:brightness-95 active:scale-[0.98]"
+            className="group mt-8 inline-flex items-center gap-2.5 rounded-full bg-brand px-7 py-3.5 text-sm font-semibold text-on-brand shadow-[0_8px_24px_-10px] shadow-brand transition-[filter,transform] hover:brightness-95 active:scale-[0.98]"
           >
-            Découvrir notre menu <ArrowRight size={16} />
+            Découvrir notre menu <ArrowRight size={16} className="transition-transform duration-300 group-hover:translate-x-1" />
           </Link>
           <a
             href={info.mapUrl}
@@ -36,7 +36,10 @@ export function Hero() {
         </div>
 
         {/* Photo: bleeds off the right edge on desktop, sits under the text on smaller screens. */}
-        <div className="relative -mx-5 h-72 sm:-mx-8 sm:h-[26rem] lg:absolute lg:inset-y-0 lg:right-0 lg:mx-0 lg:h-auto lg:w-[62%]">
+        <div
+          className="animate-fade-up relative -mx-5 h-72 sm:-mx-8 sm:h-[26rem] lg:absolute lg:inset-y-0 lg:right-0 lg:mx-0 lg:h-auto lg:w-[62%]"
+          style={{ animationDelay: '150ms' }}
+        >
           <img
             src={IMAGES.hero}
             alt="Un cappuccino avec un joli latte art, servi sur une table en marbre"

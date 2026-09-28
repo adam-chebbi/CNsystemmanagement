@@ -8,7 +8,7 @@ export function MenuProductCard({ product, extras }: { product: Product; extras:
   const varies = prices.length > 0 && Math.max(...prices) > Math.min(...prices);
 
   return (
-    <article className="group mb-4 flex break-inside-avoid flex-col rounded-2xl bg-card/70 p-1.5 shadow-[0_1px_0_0] shadow-line/60 transition-shadow hover:shadow-lg hover:shadow-black/5 dark:bg-card">
+    <article className="group mb-4 flex break-inside-avoid flex-col rounded-2xl bg-card/70 p-1.5 shadow-[0_1px_0_0] shadow-line/60 transition-[box-shadow,transform] duration-300 hover:-translate-y-1 hover:shadow-lg hover:shadow-black/5 dark:bg-card">
       {product.imageUrl && (
         <div className="aspect-[16/10] overflow-hidden rounded-xl bg-section">
           <img

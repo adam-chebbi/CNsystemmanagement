@@ -71,15 +71,61 @@
 }
 
 @keyframes fade-up {
-  from { opacity: 0; transform: translateY(14px); }
-  to { opacity: 1; transform: translateY(0); }
+  from { opacity: 0; transform: translateY(20px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
 }
-.animate-fade-up { animation: fade-up 0.7s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.animate-fade-up { animation: fade-up 0.85s cubic-bezier(0.22, 1, 0.36, 1) both; }
 
 /* Scroll-reveal (see lib/useInView.ts + components/ui/Reveal.tsx): held in the "from" state of
-   fade-up until the element's own IntersectionObserver flips it to .is-visible. */
-.reveal { opacity: 0; transform: translateY(14px); }
-.reveal.is-visible { animation: fade-up 0.7s cubic-bezier(0.22, 1, 0.36, 1) both; }
+   fade-up until the element's own IntersectionObserver flips it to .is-visible. A medium pace on
+   purpose — slow enough to actually see happen, not so slow it feels sluggish while scrolling. */
+.reveal { opacity: 0; transform: translateY(20px) scale(0.98); }
+.reveal.is-visible { animation: fade-up 0.85s cubic-bezier(0.22, 1, 0.36, 1) both; }
+
+/* Media hover-zoom: a contained image (overflow-hidden ancestor) grows slightly on hover — used on
+   photo cards throughout the site (menu cards, gallery thumbnails, the story photo). */
+.media-zoom { transition: transform 0.6s cubic-bezier(0.22, 1, 0.36, 1); }
+.media-zoom:hover { transform: scale(1.06); }
+
+/* Native <dialog> entrance/exit (Ambiance gallery): scale + fade in on open, reverse on close.
+   Unsupported browsers just get the plain show/hide — no @starting-style, no animation, no harm. */
+@starting-style {
+  .dialog-pop[open] { opacity: 0; transform: scale(0.96) translateY(8px); }
+}
+.dialog-pop {
+  transition: opacity 0.3s cubic-bezier(0.22, 1, 0.36, 1), transform 0.3s cubic-bezier(0.22, 1, 0.36, 1), overlay 0.3s allow-discrete, display 0.3s allow-discrete;
+}
+.dialog-pop[open] { opacity: 1; transform: scale(1) translateY(0); }
+.dialog-pop:not([open]) { opacity: 0; transform: scale(0.96) translateY(8px); }
+.dialog-pop::backdrop {
+  transition: opacity 0.3s ease, overlay 0.3s allow-discrete, display 0.3s allow-discrete;
+  opacity: 0;
+}
+.dialog-pop[open]::backdrop { opacity: 1; }
+@starting-style {
+  .dialog-pop[open]::backdrop { opacity: 0; }
+}
+
+/* Theme-toggle icon swap: the sun/moon glyph pops in in place of a hard cut. */
+@keyframes icon-pop-in {
+  from { opacity: 0; transform: scale(0.5) rotate(-45deg); }
+  to { opacity: 1; transform: scale(1) rotate(0); }
+}
+.icon-pop-in { animation: icon-pop-in 0.35s cubic-bezier(0.22, 1, 0.36, 1) both; }
+
+/* Mobile floating contact bar: glides up into place instead of just appearing. */
+@keyframes slide-up-in {
+  from { opacity: 0; transform: translateY(100%); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.slide-up-in { animation: slide-up-in 0.5s cubic-bezier(0.22, 1, 0.36, 1) both; }
+
+/* Desktop WhatsApp button: a slow, gentle attention pulse — subtle enough not to nag. */
+@keyframes soft-pulse-ring {
+  0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--brand) 35%, transparent); }
+  50% { box-shadow: 0 0 0 10px color-mix(in srgb, var(--brand) 0%, transparent); }
+}
+.soft-pulse-ring { animation: soft-pulse-ring 2.8s ease-in-out infinite; }
 
 @keyframes shimmer {
   0% { background-position: -200% 0; }
@@ -96,6 +142,7 @@
 
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
-  .animate-fade-up, .skeleton, .reveal.is-visible { animation: none; }
+  .animate-fade-up, .skeleton, .reveal.is-visible, .icon-pop-in, .slide-up-in, .soft-pulse-ring { animation: none; }
   .reveal { opacity: 1; transform: none; }
+  .media-zoom, .dialog-pop { transition: none; }
 }

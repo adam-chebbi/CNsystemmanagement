@@ -12,7 +12,7 @@ export function Story() {
             alt="Le comptoir de Café Noir, ses plantes et sa grande baie vitrée"
             loading="lazy"
             decoding="async"
-            className="aspect-[2/1] w-full object-cover"
+            className="media-zoom aspect-[2/1] w-full object-cover"
           />
         </Reveal>
 
@@ -26,9 +26,9 @@ export function Story() {
           </p>
           <a
             href="#contact"
-            className="mt-7 inline-flex items-center gap-2.5 rounded-full border border-brand px-6 py-3 text-[13px] font-semibold text-ink transition-colors hover:bg-brand hover:text-on-brand"
+            className="group mt-7 inline-flex items-center gap-2.5 rounded-full border border-brand px-6 py-3 text-[13px] font-semibold text-ink transition-colors hover:bg-brand hover:text-on-brand"
           >
-            En savoir plus <ArrowRight size={15} />
+            En savoir plus <ArrowRight size={15} className="transition-transform duration-300 group-hover:translate-x-1" />
           </a>
 
           <div className="mt-8 flex items-end justify-end gap-3 text-accent sm:mt-4 sm:pr-4">

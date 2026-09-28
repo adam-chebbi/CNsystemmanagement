@@ -79,7 +79,7 @@ export function Header({ logoHidden = false }: { logoHidden?: boolean }) {
       </div>
 
       {open && (
-        <nav id="mobile-nav" className="border-t border-line bg-page px-5 pb-5 pt-2 sm:px-8 lg:hidden" aria-label="Navigation mobile">
+        <nav id="mobile-nav" className="animate-fade-up border-t border-line bg-page px-5 pb-5 pt-2 sm:px-8 lg:hidden" aria-label="Navigation mobile">
           <ul className="divide-y divide-line">
             {NAV_ITEMS.map((item) => (
               <li key={item.id}>

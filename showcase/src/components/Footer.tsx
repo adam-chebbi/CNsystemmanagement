@@ -102,7 +102,7 @@ export function Footer() {
                     rel="noopener noreferrer"
                     aria-label={SOCIAL_LABELS[s.platform]}
                     title={SOCIAL_LABELS[s.platform]}
-                    className="transition-colors hover:text-accent"
+                    className="inline-flex transition-[color,transform] duration-300 hover:-translate-y-0.5 hover:text-accent"
                   >
                     {SOCIAL_ICONS[s.platform]}
                   </a>

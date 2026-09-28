@@ -38,7 +38,7 @@ export function Dialog({ open, onClose, label, children }: DialogProps) {
         // A click on the backdrop lands on the <dialog> element itself, not on its content.
         if (e.target === ref.current) onClose();
       }}
-      className="m-auto max-h-[92dvh] w-[calc(100%-1.5rem)] max-w-5xl overflow-hidden rounded-3xl border border-line bg-page p-0 text-ink shadow-2xl backdrop:bg-black/55 backdrop:backdrop-blur-sm"
+      className="dialog-pop m-auto max-h-[92dvh] w-[calc(100%-1.5rem)] max-w-5xl overflow-hidden rounded-3xl border border-line bg-page p-0 text-ink shadow-2xl backdrop:bg-black/55 backdrop:backdrop-blur-sm"
     >
       {open && children}
     </dialog>

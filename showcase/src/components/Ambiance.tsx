@@ -48,7 +48,7 @@ export function Ambiance() {
                   key={img.src}
                   className={`overflow-hidden rounded-2xl bg-section ${i === 0 ? 'col-span-2' : ''} ${i === GALLERY.length - 1 ? 'md:col-span-2' : ''}`}
                 >
-                  <img src={img.src} alt={img.alt} loading="lazy" decoding="async" className="h-40 w-full object-cover sm:h-52 md:h-60" />
+                  <img src={img.src} alt={img.alt} loading="lazy" decoding="async" className="media-zoom h-40 w-full object-cover sm:h-52 md:h-60" />
                 </li>
               ))}
             </ul>

@@ -23,19 +23,19 @@ export function FloatingContactButtons() {
           rel="noopener noreferrer"
           aria-label="Nous contacter sur WhatsApp"
           title="WhatsApp"
-          className="fixed bottom-6 right-6 z-40 hidden h-14 w-14 items-center justify-center rounded-full bg-brand text-on-brand shadow-[0_10px_30px_-8px] shadow-black/40 transition-transform hover:scale-105 active:scale-95 lg:flex"
+          className="soft-pulse-ring fixed bottom-6 right-6 z-40 hidden h-14 w-14 items-center justify-center rounded-full bg-brand text-on-brand shadow-[0_10px_30px_-8px] shadow-black/40 transition-transform duration-300 hover:scale-110 active:scale-95 lg:flex"
         >
           <MessageCircle size={24} strokeWidth={2} />
         </a>
       )}
 
       <div
-        className="fixed inset-x-0 bottom-0 z-40 flex gap-2 border-t border-line bg-page/95 p-3 backdrop-blur-md lg:hidden"
+        className="slide-up-in fixed inset-x-0 bottom-0 z-40 flex gap-2.5 border-t border-line bg-page/95 p-3 shadow-[0_-8px_24px_-12px] shadow-black/20 backdrop-blur-md lg:hidden"
         style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}
       >
         <Link
           to="/menu"
-          className="flex flex-1 items-center justify-center gap-2 rounded-full bg-brand px-4 py-3 text-[13px] font-semibold text-on-brand shadow-sm active:scale-[0.98]"
+          className="flex flex-1 items-center justify-center gap-2 rounded-full bg-brand px-4 py-3.5 text-[13px] font-semibold text-on-brand shadow-sm transition-transform duration-200 active:scale-95"
         >
           <Coffee size={16} /> Voir le menu
         </Link>
@@ -44,9 +44,9 @@ export function FloatingContactButtons() {
             href={whatsappHref}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex flex-1 items-center justify-center gap-2 rounded-full border border-brand px-4 py-3 text-[13px] font-semibold text-ink shadow-sm active:scale-[0.98]"
+            className="flex flex-1 items-center justify-center gap-2 rounded-full border border-brand px-4 py-3.5 text-[13px] font-semibold text-ink shadow-sm transition-transform duration-200 active:scale-95"
           >
-            <MessageCircle size={16} /> WhatsApp
+            <MessageCircle size={16} className="text-brand" /> WhatsApp
           </a>
         )}
       </div>

@@ -35,10 +35,10 @@ function MenuCard({ group, wide }: { group: CategoryGroup; wide: boolean }) {
 
   return (
     <article
-      className={`flex flex-col rounded-2xl bg-card/70 p-1.5 shadow-[0_1px_0_0] shadow-line/60 dark:bg-card ${wide ? 'md:flex-row' : ''}`}
+      className={`group flex flex-col rounded-2xl bg-card/70 p-1.5 shadow-[0_1px_0_0] shadow-line/60 transition-[box-shadow,transform] duration-300 hover:-translate-y-1 hover:shadow-lg hover:shadow-black/5 dark:bg-card ${wide ? 'md:flex-row' : ''}`}
     >
       <div className={`aspect-[16/9] overflow-hidden rounded-xl bg-section ${wide ? 'md:aspect-auto md:min-h-64 md:w-[42%] md:shrink-0' : ''}`}>
-        <img src={image.src} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover" />
+        <img src={image.src} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]" />
       </div>
       <div className={`flex flex-1 flex-col px-3 pb-3.5 pt-3.5 ${wide ? 'md:px-6 md:py-5' : ''}`}>
         <div className="flex items-center gap-3">
@@ -84,9 +84,9 @@ export function MenuSection() {
           </p>
           <Link
             to="/menu"
-            className="mt-7 inline-flex items-center gap-2.5 rounded-full bg-brand px-6 py-3 text-[13px] font-semibold text-on-brand transition-[filter] hover:brightness-95"
+            className="group mt-7 inline-flex items-center gap-2.5 rounded-full bg-brand px-6 py-3 text-[13px] font-semibold text-on-brand transition-[filter] hover:brightness-95"
           >
-            Voir le menu complet <ArrowRight size={15} />
+            Voir le menu complet <ArrowRight size={15} className="transition-transform duration-300 group-hover:translate-x-1" />
           </Link>
         </Reveal>
 

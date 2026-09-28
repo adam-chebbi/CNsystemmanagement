@@ -1,9 +1,9 @@
 import { useLayoutEffect, useRef, useState } from 'react';
 
 const SEEN_KEY = 'cafenoir-intro-seen';
-const HOLD_MS = 550;
-const SHRINK_MS = 950;
-const CROSSFADE_MS = 380;
+const HOLD_MS = 800;
+const SHRINK_MS = 1300;
+const CROSSFADE_MS = 450;
 
 const prefersReducedMotion = (): boolean =>
   typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;

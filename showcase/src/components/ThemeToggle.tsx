@@ -10,9 +10,11 @@ export function ThemeToggle() {
       onClick={toggle}
       aria-label={isDark ? 'Passer au mode clair' : 'Passer au mode sombre'}
       title={isDark ? 'Mode clair' : 'Mode sombre'}
-      className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-line text-muted transition-colors hover:border-brand hover:text-ink"
+      className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-line text-muted transition-[color,border-color,transform] duration-300 hover:border-brand hover:text-ink hover:rotate-12"
     >
-      {isDark ? <Sun size={17} /> : <Moon size={17} />}
+      <span key={theme} className="icon-pop-in flex">
+        {isDark ? <Sun size={17} /> : <Moon size={17} />}
+      </span>
     </button>
   );
 }
