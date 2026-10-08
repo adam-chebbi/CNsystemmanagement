@@ -39,6 +39,12 @@ export const COMPTE_SAISIE_ROLE_NAME = 'Compte Saisie';
 // need to check specifically this one rather than iterate the catalog.
 export const MANAGE_ROLES_PERMISSION = 'roles:manage';
 
+// Gate for the separate Historique & Comptage app (historique/) — it calls GET /api/auth/me and
+// lets a user in only if their role carries this key (or they are Super Admin).
+export const HISTORIQUE_ACCESS_PERMISSION = 'historique:access';
+export const GERANT_ROLE_NAME = 'Gérant';
+export const HISTORIQUE_URL = 'https://historique.cafenoir.tn';
+
 export interface PermissionDef {
   key: string;
   module: string; // grouping key, stable, used as a React key — e.g. 'sales'
@@ -110,6 +116,14 @@ export const PERMISSIONS: PermissionDef[] = [
 
   // --- Journal d'activité -----------------------------------------------------------------------
   { key: 'activity_log:view', module: 'activity_log', moduleLabel: "Journal d'activité", label: 'Consulter', description: "Voir l'historique des actions effectuées dans l'application." },
+
+  // --- Historique & Comptage (historique.cafenoir.tn) ---------------------------------------------
+  // A separate app with its own database (see historique/README.md) — only its logins and these
+  // grants live here. historique:access alone is what a Gérant needs day to day; the other two
+  // are for the owner/supervisor.
+  { key: HISTORIQUE_ACCESS_PERMISSION, module: 'historique', moduleLabel: 'Historique & Comptage', label: 'Accès & saisie', description: "Se connecter à historique.cafenoir.tn et saisir ventes, dépenses, chiffre d'affaires, comptages (espèces, tickets resto, TPE), mouvements de caisse et notes de la journée en cours." },
+  { key: 'historique:supervise', module: 'historique', moduleLabel: 'Historique & Comptage', label: 'Superviser', description: 'Valider ou rouvrir une journée clôturée, corriger/annuler toute saisie, saisir sur une date passée, voir tout le journal d’activité.', sensitive: true },
+  { key: 'historique:settings', module: 'historique', moduleLabel: 'Historique & Comptage', label: 'Paramétrer', description: 'Modifier les catégories, terminaux TPE, émetteurs de tickets resto, seuils d’écart et fond de caisse.', sensitive: true },
 
   // --- Paramètres ------------------------------------------------------------------------------
   { key: 'settings:manage', module: 'settings', moduleLabel: 'Paramètres', label: 'Gérer', description: 'Modifier les réglages généraux (seuils d’alerte, taux, marges...).', sensitive: true },

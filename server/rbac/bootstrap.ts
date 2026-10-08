@@ -1,6 +1,12 @@
 import { randomUUID } from 'node:crypto';
 import { db } from '../db/connection.js';
-import { PERMISSION_KEYS, SUPER_ADMIN_ROLE_NAME, COMPTE_SAISIE_ROLE_NAME } from '../../src/data/rbacModel.js';
+import {
+  PERMISSION_KEYS,
+  SUPER_ADMIN_ROLE_NAME,
+  COMPTE_SAISIE_ROLE_NAME,
+  GERANT_ROLE_NAME,
+  HISTORIQUE_ACCESS_PERMISSION,
+} from '../../src/data/rbacModel.js';
 
 interface RoleRow {
   id: string;
@@ -19,7 +25,9 @@ const COMPTE_SAISIE_STARTER_PERMISSIONS = ['dashboard:view', 'sales:view', 'sale
 // to actually use its own sales:create grant, with no obvious link between the two in the UI.
 const COMPTE_SAISIE_REQUIRED_FOR_SALES_ENTRY = ['products:view', 'hr:view'];
 
-const getRoleByName = (name: string): RoleRow | undefined =>
+const GERANT_STARTER_PERMISSIONS = [HISTORIQUE_ACCESS_PERMISSION];
+
+const getRoleByName =(name: string): RoleRow | undefined =>
   db.prepare('SELECT id FROM roles WHERE name = ?').get(name) as RoleRow | undefined;
 
 const createRole = (name: string, description: string, isSystem: boolean, permissions: string[]): string => {
@@ -64,6 +72,12 @@ export const bootstrapRbac = (): void => {
   } else {
     const insertPermission = db.prepare('INSERT OR IGNORE INTO role_permissions (role_id, permission_key) VALUES (?, ?)');
     COMPTE_SAISIE_REQUIRED_FOR_SALES_ENTRY.forEach((key) => insertPermission.run(compteSaisie.id, key));
+  }
+
+  // Created once, then left alone like Compte Saisie — a Super Admin assigns it to the café's
+  // managers (or adds historique:access to any other role) from Rôles & permissions.
+  if (!getRoleByName(GERANT_ROLE_NAME)) {
+    createRole(GERANT_ROLE_NAME, 'Gérant du café : accès à l’application Historique & Comptage (saisie de la journée, comptages, notes).', false, GERANT_STARTER_PERMISSIONS);
   }
 
   db.prepare('UPDATE users SET role_id = ? WHERE role_id IS NULL').run(superAdmin.id);

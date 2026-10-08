@@ -7,10 +7,11 @@ import {
   Settings,
   Users,
   HelpCircle,
+  ClipboardList,
 } from 'lucide-react';
 import { useAuth } from '../auth/AuthContext';
 import { useInstallPrompt } from '../hooks/useInstallPrompt';
-import { MANAGE_ROLES_PERMISSION } from '../data/rbacModel';
+import { HISTORIQUE_ACCESS_PERMISSION, HISTORIQUE_URL, MANAGE_ROLES_PERMISSION } from '../data/rbacModel';
 
 interface HeaderProps {
   onToggleSidebar: () => void;
@@ -161,6 +162,18 @@ export const Header: React.FC<HeaderProps> = ({
                     <Users size={13} className="text-gray-400" />
                     Rôles &amp; permissions
                   </button>
+                )}
+                {hasPermission(HISTORIQUE_ACCESS_PERMISSION) && (
+                  <a
+                    href={HISTORIQUE_URL}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={() => setShowUserMenu(false)}
+                    className="w-full text-left px-2 py-1.5 text-xs text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg cursor-pointer flex items-center gap-2"
+                  >
+                    <ClipboardList size={13} className="text-gray-400" />
+                    Historique &amp; Comptage
+                  </a>
                 )}
                 <a
                   href="https://docs.cafenoir.tn"
