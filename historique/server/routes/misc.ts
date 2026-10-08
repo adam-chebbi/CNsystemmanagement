@@ -266,6 +266,19 @@ export const miscRouter = (store: Store, uploadsDir: string): Router => {
     })
   );
 
+  router.get(
+    '/depenses/a-fournir',
+    asyncHandler((_req, res) => {
+      const rows = db
+        .prepare(
+          `SELECT d.*, j.date AS journee_date FROM depenses d JOIN journees j ON j.id = d.journee_id
+           WHERE d.statut = 'active' AND d.justificatif = 'a_fournir' ORDER BY j.date DESC, d.cree_le DESC LIMIT 200`
+        )
+        .all() as Record<string, unknown>[];
+      res.json({ items: rows.map((r) => ({ ...mapDepense(r), date: String(r.journee_date) })) });
+    })
+  );
+
   // A receipt often arrives the next day: attaching it stays possible on a closed (not validated)
   // journée — it adds proof, it changes no amount.
   router.post(

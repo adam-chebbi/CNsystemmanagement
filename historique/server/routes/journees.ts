@@ -440,6 +440,14 @@ export const journeesRouter = (store: Store): Router => {
         if (next && next.fond_ouverture_source !== 'comptage') {
           db.prepare("UPDATE journees SET fond_ouverture = ?, fond_ouverture_source = 'report' WHERE id = ?").run(v.fondLaisse, next.id);
         }
+        // The closing message is what the next shift must read first — surfaced as an open
+        // "Passation" note on their dashboard until someone marks it read (résolu).
+        if (v.noteCloture) {
+          db.prepare(
+            `INSERT INTO notes (id, journee_date, type, categorie, priorite, titre, contenu, statut, cree_par_id, cree_par_nom, cree_le)
+             VALUES (?, ?, 'passation', NULL, 'normale', ?, ?, 'ouvert', ?, ?, ?)`
+          ).run(randomUUID(), date, `Passation — clôture du ${formatDateFr(date, false)}`, v.noteCloture, req.user!.id, req.user!.fullName, nowIso());
+        }
         store.log(req, {
           module: 'journee',
           action: 'cloture',
