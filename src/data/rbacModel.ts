@@ -119,11 +119,10 @@ export const PERMISSIONS: PermissionDef[] = [
 
   // --- Historique & Comptage (historique.cafenoir.tn) ---------------------------------------------
   // A separate app with its own database (see historique/README.md) — only its logins and these
-  // grants live here. historique:access alone is what a Gérant needs day to day; the other two
-  // are for the owner/supervisor.
-  { key: HISTORIQUE_ACCESS_PERMISSION, module: 'historique', moduleLabel: 'Historique & Comptage', label: 'Accès & saisie', description: "Se connecter à historique.cafenoir.tn et saisir ventes, dépenses, chiffre d'affaires, comptages (espèces, tickets resto, TPE), mouvements de caisse et notes de la journée en cours." },
-  { key: 'historique:supervise', module: 'historique', moduleLabel: 'Historique & Comptage', label: 'Superviser', description: 'Valider ou rouvrir une journée clôturée, corriger/annuler toute saisie, saisir sur une date passée, voir tout le journal d’activité.', sensitive: true },
-  { key: 'historique:settings', module: 'historique', moduleLabel: 'Historique & Comptage', label: 'Paramétrer', description: 'Modifier les catégories, terminaux TPE, émetteurs de tickets resto, seuils d’écart et fond de caisse.', sensitive: true },
+  // grants live here. historique:access is all the café staff need; supervise is for the owner.
+  { key: HISTORIQUE_ACCESS_PERMISSION, module: 'historique', moduleLabel: 'Historique & Comptage', label: 'Accès & saisie', description: "Se connecter à historique.cafenoir.tn (terminal de caisse) et saisir, par service, le chiffre d'affaires, les dépenses payées avec la caisse et le comptage (TPE, ticket resto, espèces)." },
+  { key: 'historique:supervise', module: 'historique', moduleLabel: 'Historique & Comptage', label: 'Superviser', description: 'Corriger la caisse de n’importe quelle date passée (sans cette permission, seuls les 3 derniers jours sont modifiables).', sensitive: true },
+  { key: 'historique:settings', module: 'historique', moduleLabel: 'Historique & Comptage', label: 'Paramétrer', description: 'Réservé aux réglages futurs de l’application Historique.', sensitive: true },
 
   // --- Paramètres ------------------------------------------------------------------------------
   { key: 'settings:manage', module: 'settings', moduleLabel: 'Paramètres', label: 'Gérer', description: 'Modifier les réglages généraux (seuils d’alerte, taux, marges...).', sensitive: true },

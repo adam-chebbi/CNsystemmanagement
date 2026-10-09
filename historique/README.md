@@ -1,28 +1,27 @@
 # Historique & Comptage — Café Noir
 
-A separate app for the café's managers (gérants), at **historique.cafenoir.tn**. A gérant
-records the day and counts the till:
+A one-screen **cash terminal** for the café staff, at **historique.cafenoir.tn**. It is built for people who are not comfortable with computers: there is no menu, just one screen.
 
-- **Ventes** by category and payment method (espèces, carte, ticket resto, crédit client, chèque).
-- **Dépenses**, with a photo of the receipt, or "reçu à fournir" to attach later (allowed even after the day is closed).
-- **Chiffre d'affaires (ticket Z)**: the till's end-of-day report. Once entered, it is the reference figure.
-- **Comptage physique**, done blind. The gérant counts the espèces note by note and coin by coin, the tickets resto by issuer and face value, and the TPE terminal totals. The expected amount appears only after the count. Any écart above the tolerance needs a written justification.
-- **Mouvements de caisse**: cash put in, owner withdrawals, bank deposits, cash handed over, customer credit paid back, refunds.
-- **Notes & incidents**: TPE or till failure, power, internet or water cut, stock-out, breakage, theft or loss, counterfeit note, customer dispute, customer who left without paying, staff absence, inspection, and more. Each has a priority and is tracked through ouvert → en cours → résolu. The closing message becomes a "passation" note for the next shift.
-- **Clôture**: a checklist (Z entered, counts done, écarts justified…), then the split between the float left for tomorrow and the cash handed over. The day becomes read-only. A supervisor can reopen it (with a reason) or validate it.
-- **Historique**: past days with filters and totals, CSV export, and a printable day sheet.
-- **Crédits clients**: customer balances.
-- **Journal d'activité**: every action, with before/after values. Filter by date, user, module, action or text, and export to CSV. A gérant sees only their own actions; a supervisor sees everyone's.
-- **Installable PWA** "Historique et Comptage Café Noir", with the same logo as the main app. Entries made offline are queued on the phone and sent automatically when the connection returns, without creating duplicates.
+1. Pick the **date** (header: from the app's first day up to today) and the **service** (Matin / Soir).
+2. Enter the **chiffre d'affaires**.
+3. Add the **dépenses du jour** paid with the till's cash (what for + amount).
+4. The screen shows what **must be in the till**: chiffre d'affaires − dépenses.
+5. **Comptage**: enter the **TPE** total and the **ticket resto** total; the **espèces** are calculated automatically (the rest).
+6. **Enregistrer**. Saving again corrects the same service. Every save keeps the previous values in an audit trail (`activity_log` table).
+
+The **Historique** button opens a fullscreen view of past services with totals (CA, dépenses, caisse, TPE, ticket resto, espèces), period filters and CSV export.
+
+A save made without network is kept on the phone and sent automatically when the connection returns. The app installs as the PWA "Historique et Comptage Café Noir".
+
+Staff can correct today and the previous 2 days. Older days can only be changed by accounts with `historique:supervise`.
 
 ## What is shared with the main app: login only
 
 - **Own database**: `server/data/historique.sqlite3` (or `HISTORIQUE_DB_PATH`). This app never opens `cafenoir.sqlite3`.
 - **Accounts and access are managed in the main app**, under Rôles & permissions:
-  - `historique:access`: log in and enter data for the day. This is the seeded **"Gérant"** role.
-  - `historique:supervise`: reopen or validate a day, correct anyone's entries, enter on any past date, see the whole journal.
-  - `historique:settings`: tolerance, default float, catch-up days, categories, TPE terminals, ticket issuers.
-  - Super Admin has all three.
+  - `historique:access`: log in and use the terminal. This is the seeded **"Gérant"** role.
+  - `historique:supervise`: correct any past date.
+  - Super Admin has both.
 - Login, logout and password changes go through the main app's `/api/auth/*`. Every API request is checked against the main app's `GET /api/auth/me`, with a 15 s cache. Deactivating an account or revoking its session in the main app therefore locks the person out here too. If a valid account without `historique:access` logs in, its new session is revoked immediately.
 
 ## Development
