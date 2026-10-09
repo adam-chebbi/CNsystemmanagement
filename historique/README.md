@@ -39,10 +39,12 @@ npm run build           # typecheck + production build (dist/ + service worker +
 
 Amounts are stored as integer **millimes**. Business rules shared by server and client live in `shared/model.ts`.
 
-## Production (not deployed yet)
+## Production
 
-1. On the VM: `cd /var/www/CNsystemmanagement/historique && npm ci && npm run build`
-2. Create `historique/.env` from `.env.example` with `PORT=3012`, `MAIN_APP_URL=http://127.0.0.1:3011`, `NODE_ENV=production`.
-3. pm2: `pm2 start "npx tsx server/index.ts" --name historique --cwd /var/www/CNsystemmanagement/historique && pm2 save`
-4. nginx: install `deploy/historique.cafenoir.tn.nginx.conf`. Add `historique.cafenoir.tn` to the cloudflared tunnel ingress and DNS.
-5. Back up `historique/server/data/` (database and `uploads/` receipt photos) alongside the main database.
+Deployed on the VM alongside the main app:
+
+- pm2 app **`historique`** (in the VM's untracked `/var/www/CNsystemmanagement/ecosystem.config.cjs`): `PORT=3012`, `MAIN_APP_URL=http://127.0.0.1:3011`, `NODE_ENV=production`, `TZ=Africa/Tunis`.
+- The Cloudflare tunnel routes `historique.cafenoir.tn` **directly to `http://localhost:3012`** (no nginx hop). `deploy/historique.cafenoir.tn.nginx.conf` is kept in case you prefer to route through nginx (`localhost:80`) like the other sites.
+- DNS: a proxied CNAME `historique` → `a84d343d-c53e-4ae6-be88-77768a90d97c.cfargotunnel.com`.
+- Update: `cd /var/www/CNsystemmanagement && git pull --ff-only origin main && cd historique && npm ci && npm run build && pm2 restart historique`.
+- Back up `historique/server/data/` (database and `uploads/` receipt photos) alongside the main database.
