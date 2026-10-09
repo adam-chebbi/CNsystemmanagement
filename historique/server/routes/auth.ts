@@ -87,7 +87,7 @@ export const authRouter = (auth: MainAuth, store: Store): Router => {
     '/me',
     auth.requireUserAllowPendingPassword,
     asyncHandler((req, res) => {
-      res.json({ user: req.user, businessDate: store.businessToday(), settings: store.getSettings() });
+      res.json({ user: req.user, businessDate: store.businessToday(), dateDebut: store.dateDebut(), settings: store.getSettings() });
     })
   );
 
