@@ -11,7 +11,7 @@ const Backdrop: React.FC<{ children: React.ReactNode }> = ({ children }) => (
     <div className="pointer-events-none absolute inset-0 opacity-[0.35] bg-[radial-gradient(#d1d5db_1px,transparent_1px)] [background-size:26px_26px] animate-grid-pan" />
     <div className="relative flex flex-col items-center px-4 pt-[max(3rem,env(safe-area-inset-top))] pb-10">
       <img src="/logo-text.png" alt="Café Noir" className="h-8 w-auto animate-fade-up" />
-      <p className="mt-2 text-xs font-semibold tracking-wide text-emerald-700 uppercase">Historique & Comptage</p>
+      <p className="mt-2 text-xs font-semibold tracking-wide text-emerald-700 uppercase">Caisse — Historique & Comptage</p>
       <div className="w-full max-w-sm mt-8 animate-fade-up">{children}</div>
     </div>
   </div>
@@ -59,7 +59,7 @@ export const LoginPage: React.FC<{ message?: string }> = ({ message }) => {
     <Backdrop>
       <form onSubmit={submit} className="bg-white border border-gray-100 rounded-2xl shadow-xs p-6 space-y-3">
         <div className="mb-1">
-          <h1 className="text-base font-bold text-gray-900">Connexion gérant</h1>
+          <h1 className="text-base font-bold text-gray-900">Connexion</h1>
           <p className="text-xs text-gray-500 mt-0.5">Utilisez le même compte que sur l’application Café Noir.</p>
         </div>
         <div>

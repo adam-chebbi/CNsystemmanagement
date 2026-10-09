@@ -51,7 +51,8 @@ export const MoneyInput: React.FC<{
   disabled?: boolean;
   id?: string;
   className?: string;
-}> = ({ value, onChange, placeholder = '0,000', autoFocus, disabled, id, className = '' }) => {
+  large?: boolean;
+}> = ({ value, onChange, placeholder = '0,000', autoFocus, disabled, id, className = '', large }) => {
   const toText = (v: number | null) => (v === null ? '' : String(v / 1000).replace('.', ','));
   const [text, setText] = useState(() => toText(value));
   const lastEmitted = useRef<number | null>(value);
@@ -97,9 +98,9 @@ export const MoneyInput: React.FC<{
         value={text}
         placeholder={placeholder}
         onChange={(e) => handle(e.target.value)}
-        className={`${cls.input} pr-11 tabular-nums font-semibold`}
+        className={`${cls.input} pr-11 tabular-nums font-semibold py-3 sm:py-3 text-base ${large ? '!text-3xl !py-4 font-extrabold text-center' : ''}`}
       />
-      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-gray-400 pointer-events-none">DT</span>
+      <span className={`absolute right-3 top-1/2 -translate-y-1/2 font-semibold text-gray-400 pointer-events-none ${large ? 'text-base' : 'text-xs'}`}>DT</span>
     </div>
   );
 };

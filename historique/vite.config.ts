@@ -19,7 +19,7 @@ export default defineConfig({
         id: '/',
         name: 'Historique et Comptage Café Noir',
         short_name: 'Historique CN',
-        description: 'Saisie de la journée, comptage de caisse, notes et historique — Café Noir.',
+        description: 'Caisse du Café Noir : chiffre d’affaires, dépenses et comptage (espèces, TPE, ticket resto).',
         lang: 'fr',
         start_url: '/',
         scope: '/',
@@ -31,10 +31,6 @@ export default defineConfig({
           { src: '/android-chrome-192x192.png', sizes: '192x192', type: 'image/png' },
           { src: '/android-chrome-512x512.png', sizes: '512x512', type: 'image/png' },
           { src: '/android-chrome-512x512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
-        ],
-        shortcuts: [
-          { name: 'Nouvelle dépense', url: '/depenses?nouveau=1', icons: [{ src: '/android-chrome-192x192.png', sizes: '192x192' }] },
-          { name: 'Comptage de caisse', url: '/comptage', icons: [{ src: '/android-chrome-192x192.png', sizes: '192x192' }] },
         ],
       },
       workbox: {

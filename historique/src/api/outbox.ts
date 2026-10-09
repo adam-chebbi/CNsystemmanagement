@@ -103,6 +103,21 @@ export const createOrQueue = async <T,>(path: string, body: { id: string } & Rec
   }
 };
 
+// Same for a save (PUT) that is idempotent by nature — the queue keeps only the latest version
+// for a given key, so saving twice offline sends the last values once.
+export const saveOrQueue = async <T,>(path: string, body: unknown, key: string, label: string): Promise<{ queued: boolean; data?: T }> => {
+  try {
+    const data = await request<T>('PUT', path, body);
+    return { queued: false, data };
+  } catch (e) {
+    if (e instanceof NetworkError) {
+      outbox.add({ id: key, method: 'PUT', path, body, label });
+      return { queued: true };
+    }
+    throw e;
+  }
+};
+
 export const useOutbox = (): OutboxItem[] => useSyncExternalStore(outbox.subscribe, outbox.list, outbox.list);
 
 let started = false;

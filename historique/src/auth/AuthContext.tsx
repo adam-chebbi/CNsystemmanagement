@@ -1,5 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
-import { DEFAULT_SETTINGS, PERM_SETTINGS, PERM_SUPERVISE, currentBusinessDate, userCan, type HistoriqueSettings, type SessionUser } from '../../shared/model';
+import { DEFAULT_SETTINGS, PERM_SUPERVISE, currentBusinessDate, userCan, type HistoriqueSettings, type SessionUser } from '../../shared/model';
 import { api, ApiError, NetworkError, onAuthError } from '../api/client';
 import { flushOutbox } from '../api/outbox';
 
@@ -15,8 +15,8 @@ interface AuthContextValue {
   user: SessionUser | null;
   settings: HistoriqueSettings;
   businessDate: string;
+  dateDebut: string;
   canSupervise: boolean;
-  canConfigure: boolean;
   login: (identifier: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   changePassword: (currentPassword: string, newPassword: string) => Promise<void>;
@@ -30,7 +30,7 @@ const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 // secret: the session itself stays in the httpOnly cookie). Lets the app start offline so a Gérant
 // can keep entering dépenses while the Wi-Fi is down; the server re-checks everything on replay.
 const SESSION_CACHE = 'historique:session';
-const readCachedSession = (): { user: SessionUser; settings: HistoriqueSettings } | null => {
+const readCachedSession = (): { user: SessionUser; settings: HistoriqueSettings; dateDebut?: string } | null => {
   try {
     return JSON.parse(localStorage.getItem(SESSION_CACHE) || 'null');
   } catch {
@@ -41,6 +41,7 @@ const readCachedSession = (): { user: SessionUser; settings: HistoriqueSettings 
 interface MeResponse {
   user: SessionUser;
   businessDate: string;
+  dateDebut: string;
   settings: HistoriqueSettings;
 }
 
@@ -48,15 +49,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [state, setState] = useState<AuthState>({ kind: 'loading' });
   const [settings, setSettings] = useState<HistoriqueSettings>(DEFAULT_SETTINGS);
   const [businessDate, setBusinessDate] = useState('');
+  const [dateDebut, setDateDebut] = useState('');
 
   const reload = useCallback(async () => {
     try {
       const me = await api.get<MeResponse>('/auth/me');
       setSettings(me.settings);
       setBusinessDate(me.businessDate);
+      setDateDebut(me.dateDebut);
       setState({ kind: 'ready', user: me.user });
       try {
-        localStorage.setItem(SESSION_CACHE, JSON.stringify({ user: me.user, settings: me.settings }));
+        localStorage.setItem(SESSION_CACHE, JSON.stringify({ user: me.user, settings: me.settings, dateDebut: me.dateDebut }));
       } catch {
         // ignore
       }
@@ -67,6 +70,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (cached && !cached.user.mustChangePassword) {
         setSettings(cached.settings);
         setBusinessDate(currentBusinessDate(new Date(), cached.settings.heureBascule));
+        setDateDebut(cached.dateDebut ?? '');
         setState({ kind: 'ready', user: cached.user });
       } else if (e instanceof NetworkError) setState({ kind: 'offline' });
       else if (e instanceof ApiError && e.code === 'NO_ACCESS') setState({ kind: 'no_access', message: e.message });
@@ -142,8 +146,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         user,
         settings,
         businessDate,
+        dateDebut,
         canSupervise: userCan(user, PERM_SUPERVISE),
-        canConfigure: userCan(user, PERM_SETTINGS),
         login,
         logout,
         changePassword,
