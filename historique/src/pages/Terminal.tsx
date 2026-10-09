@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  CalendarDays,
   Check,
   ChevronLeft,
   ChevronRight,
@@ -34,6 +33,7 @@ import { useAuth } from '../auth/AuthContext';
 import { Alert, Amount, MoneyInput, formatDateTime, useToast } from '../components/ui';
 import { applyUpdate, useDirtyGuard, useInstallPrompt, useUpdateAvailable } from '../lib/pwa';
 import { HistoriqueModal } from './HistoriqueModal';
+import { CalendarPicker } from '../components/CalendarPicker';
 
 interface DayResponse {
   date: string;
@@ -229,19 +229,7 @@ export const Terminal: React.FC = () => {
             <button onClick={() => goDate(addDays(date, -1))} disabled={date <= minDate} className="hidden min-[420px]:block p-2 rounded-xl border border-gray-200 text-gray-500 disabled:opacity-30 cursor-pointer" aria-label="Jour précédent">
               <ChevronLeft size={18} />
             </button>
-            <label className="relative flex items-center gap-1.5 px-3 py-2 rounded-xl border border-gray-200 bg-white min-w-0 cursor-pointer">
-              <CalendarDays size={16} className="text-emerald-600 shrink-0" />
-              <span className="text-sm font-semibold text-gray-800 truncate capitalize">{isToday ? "Aujourd'hui" : formatDateFr(date, false)}</span>
-              <input
-                type="date"
-                value={date}
-                min={minDate}
-                max={businessDate}
-                onChange={(e) => e.target.value && goDate(e.target.value)}
-                className="absolute inset-0 opacity-0 cursor-pointer"
-                aria-label="Choisir la date"
-              />
-            </label>
+            <CalendarPicker value={date} minDate={minDate} maxDate={businessDate} onChange={goDate} refreshKey={day} />
             <button onClick={() => goDate(addDays(date, 1))} disabled={date >= businessDate} className="hidden min-[420px]:block p-2 rounded-xl border border-gray-200 text-gray-500 disabled:opacity-30 cursor-pointer" aria-label="Jour suivant">
               <ChevronRight size={18} />
             </button>
