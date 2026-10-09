@@ -29,6 +29,13 @@ export const createApp = ({ db, auth: authConfig, uploadsDir, distDir }: AppOpti
   app.set('trust proxy', 'loopback');
   app.disable('x-powered-by');
   // Receipt photos travel as base64 data URLs (resized client-side first), hence the higher limit.
+  // Set here rather than in nginx: in production the Cloudflare tunnel reaches this process directly.
+  app.use((_req, res, next) => {
+    res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+    next();
+  });
   app.use(express.json({ limit: '8mb' }));
   app.use(cookieParser());
   app.use(ensureCsrfCookie);
