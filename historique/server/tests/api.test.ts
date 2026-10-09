@@ -229,6 +229,20 @@ test('every save is kept in the audit trail with the previous values', async () 
   assert.equal(JSON.parse(rows[1].details).avant.tpe, 120000);
 });
 
+test('the first selectable day moves back when older records exist (imported history)', async () => {
+  const old = addDays(today, -40);
+  testDb
+    .prepare(
+      `INSERT INTO caisses (id, date, shift, ca, depenses, total_depenses, attendu_caisse, tpe, tickets_resto, especes, cree_par_id, cree_par_nom, cree_le)
+       VALUES ('old-1', ?, 'matin', 1000, '[]', 0, 1000, 0, 0, 1000, 'seed-demo', 'Démo', ?)`
+    )
+    .run(old, new Date().toISOString());
+  assert.equal((await gerant.req('GET', '/api/caisse/meta')).body.dateDebut, old);
+  assert.equal((await gerant.req('GET', `/api/caisse?from=${old}&to=${old}`)).body.items.length, 1);
+  // ...but it stays read-only for a Gérant (outside the 3-day correction window).
+  assert.equal((await gerant.req('GET', `/api/caisse/${old}`)).body.canWrite, false);
+});
+
 test('logout revokes the main-app session', async () => {
   const c = new Client();
   await c.login('gerant2');

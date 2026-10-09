@@ -35,7 +35,12 @@ export const createStore = (db: Db) => {
     heureBascule: setting('heureBascule', DEFAULT_SETTINGS.heureBascule),
   });
 
-  const dateDebut = (): string => setting('dateDebut', currentBusinessDate());
+  // First selectable day: when the app went live, or earlier if older records were imported.
+  const dateDebut = (): string => {
+    const configured = setting('dateDebut', currentBusinessDate());
+    const oldest = (db.prepare('SELECT MIN(date) AS d FROM caisses').get() as { d: string | null }).d;
+    return oldest && oldest < configured ? oldest : configured;
+  };
   const businessToday = (): string => currentBusinessDate(new Date(), getSettings().heureBascule);
 
   const log = (
