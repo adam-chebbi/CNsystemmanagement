@@ -6,6 +6,7 @@ import {
   CloudOff,
   CreditCard,
   Download,
+  HandCoins,
   History,
   LoaderCircle,
   Lock,
@@ -32,6 +33,7 @@ import { flushOutbox, saveOrQueue, useOutbox } from '../api/outbox';
 import { useAuth } from '../auth/AuthContext';
 import { Alert, Amount, MoneyInput, formatDateTime, useToast } from '../components/ui';
 import { applyUpdate, useDirtyGuard, useInstallPrompt, useUpdateAvailable } from '../lib/pwa';
+import { AvanceModal } from './AvanceModal';
 import { HistoriqueModal } from './HistoriqueModal';
 import { CalendarPicker } from '../components/CalendarPicker';
 
@@ -97,6 +99,7 @@ export const Terminal: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [offline, setOffline] = useState(!navigator.onLine);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [avanceOpen, setAvanceOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const requested = useRef('');
 
@@ -224,7 +227,7 @@ export const Terminal: React.FC = () => {
       {/* Header: identity, date filter, history */}
       <header className="shrink-0 bg-white/95 backdrop-blur-md border-b border-gray-100 px-3 sm:px-6 pt-[max(0.5rem,env(safe-area-inset-top))] pb-2 z-20">
         <div className="max-w-3xl mx-auto flex items-center gap-2">
-          <img src="/logo.png" alt="Café Noir" className="h-8 w-auto shrink-0" />
+          <img src="/logo.png" alt="Café Noir" className="hidden min-[440px]:block h-8 w-auto shrink-0" />
           <div className="flex-1 min-w-0 flex items-center justify-center gap-1">
             <button onClick={() => goDate(addDays(date, -1))} disabled={date <= minDate} className="hidden min-[420px]:block p-2 rounded-xl border border-gray-200 text-gray-500 disabled:opacity-30 cursor-pointer" aria-label="Jour précédent">
               <ChevronLeft size={18} />
@@ -234,9 +237,13 @@ export const Terminal: React.FC = () => {
               <ChevronRight size={18} />
             </button>
           </div>
-          <button onClick={() => setHistoryOpen(true)} className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-gray-900 text-white text-sm font-semibold cursor-pointer active:scale-95 transition">
+          <button onClick={() => setHistoryOpen(true)} className="flex items-center gap-1.5 px-2.5 sm:px-3 py-2 rounded-xl bg-gray-900 text-white text-sm font-semibold cursor-pointer active:scale-95 transition shrink-0">
             <History size={16} />
             Historique
+          </button>
+          <button onClick={() => setAvanceOpen(true)} className="flex items-center gap-1.5 px-2.5 sm:px-3 py-2 rounded-xl bg-violet-600 text-white text-sm font-semibold cursor-pointer active:scale-95 transition shrink-0">
+            <HandCoins size={16} />
+            Avance
           </button>
           <div className="relative">
             <button
@@ -435,6 +442,8 @@ export const Terminal: React.FC = () => {
           </div>
         </div>
       )}
+
+      <AvanceModal open={avanceOpen} onClose={() => setAvanceOpen(false)} minDate={minDate} />
 
       <HistoriqueModal
         open={historyOpen}
