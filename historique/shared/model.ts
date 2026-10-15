@@ -133,3 +133,46 @@ export interface HistoriqueSettings {
 }
 
 export const DEFAULT_SETTINGS: HistoriqueSettings = { joursRattrapage: 2, heureBascule: 5 };
+
+// --- Avances au personnel -----------------------------------------------------------------------------
+// Completely independent from the caisse: an avance never changes the chiffre d'affaires, the
+// dépenses, "doit être en caisse" or the espèces. It is only a dated record of money given to an
+// employee. Once confirmed it cannot be edited; it can be deleted only within AVANCE_DELETE_WINDOW_MS
+// of its creation, by its author (or a supervisor), after re-entering their password — and even
+// then it is only hidden, never erased.
+
+export const AVANCE_DELETE_WINDOW_MS = 24 * 60 * 60 * 1000;
+
+export const AVANCE_MOTIFS = ['Transport', 'Personnel', 'Santé', 'Urgence', 'Autre'] as const;
+
+export interface Avance {
+  id: string;
+  employe: string;
+  montant: number;
+  motif: string | null;
+  commentaire: string | null;
+  date: string; // YYYY-MM-DD (Tunisia local time)
+  heure: string; // HH:MM
+  saisieManuelle: boolean; // date/heure typed by hand rather than taken from the clock
+  creeParId: string;
+  creeParNom: string;
+  creeLe: string; // server timestamp of the entry, whatever date was typed
+  supprimable: boolean; // computed for the current viewer
+  supprimableJusqua: string; // creeLe + 24 h
+}
+
+export interface AvanceEmploye {
+  nom: string;
+  nb: number;
+  total: number;
+}
+
+export const normalizeName = (name: string): string =>
+  name
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .replace(/\s+/g, ' ');
+
+export const cleanName = (name: string): string => name.trim().replace(/\s+/g, ' ');

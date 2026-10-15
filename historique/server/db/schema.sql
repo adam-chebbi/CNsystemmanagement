@@ -45,3 +45,32 @@ CREATE TABLE IF NOT EXISTS activity_log (
   user_agent TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_activity_timestamp ON activity_log(timestamp);
+
+-- Avances au personnel: independent from `caisses` (never part of any caisse calculation).
+-- Never hard-deleted: a deletion (allowed within 24 h, password required) only sets supprime_*.
+CREATE TABLE IF NOT EXISTS avances (
+  id TEXT PRIMARY KEY,
+  employe TEXT NOT NULL,
+  employe_cle TEXT NOT NULL,
+  montant INTEGER NOT NULL CHECK (montant > 0),
+  motif TEXT,
+  commentaire TEXT,
+  date TEXT NOT NULL,
+  heure TEXT NOT NULL,
+  saisie_manuelle INTEGER NOT NULL DEFAULT 0,
+  cree_par_id TEXT NOT NULL,
+  cree_par_nom TEXT NOT NULL,
+  cree_le TEXT NOT NULL,
+  supprime_par_nom TEXT,
+  supprime_le TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_avances_date ON avances(date);
+CREATE INDEX IF NOT EXISTS idx_avances_employe ON avances(employe_cle);
+
+-- Employee names typed in the avance form, remembered locally to suggest them next time (no link
+-- to the main app's HR records, on purpose).
+CREATE TABLE IF NOT EXISTS avance_employes (
+  cle TEXT PRIMARY KEY,
+  nom TEXT NOT NULL,
+  dernier_usage TEXT NOT NULL
+);

@@ -69,6 +69,13 @@ const startFakeMain = () => {
     res.status(204).end();
   });
   main.post('/api/auth/change-password', (_req, res) => res.status(204).end());
+  main.post('/api/auth/verify-password', (req, res) => {
+    if (!csrfOk(req)) return res.status(403).json({ error: { message: 'CSRF' } });
+    const key = sessions.get(req.cookies.session);
+    if (!key) return res.status(401).json({ error: { message: 'no' } });
+    if (USERS[key].password !== req.body.password) return res.status(400).json({ error: { message: 'Mot de passe incorrect.', code: 'WRONG_PASSWORD' } });
+    res.status(204).end();
+  });
   return new Promise<void>((resolve) => {
     mainServer = main.listen(0, () => resolve());
   });
@@ -241,6 +248,61 @@ test('the first selectable day moves back when older records exist (imported his
   assert.equal((await gerant.req('GET', `/api/caisse?from=${old}&to=${old}`)).body.items.length, 1);
   // ...but it stays read-only for a Gérant (outside the 3-day correction window).
   assert.equal((await gerant.req('GET', `/api/caisse/${old}`)).body.canWrite, false);
+});
+
+test('avances: saved with date and time, names remembered, independent from the caisse', async () => {
+  const caisseBefore = (await gerant.req('GET', `/api/caisse?from=${today}&to=${today}`)).body.totals;
+  const a = await gerant.req('POST', '/api/avances', { id: crypto.randomUUID(), employe: '  Ahmed   Ben Ali ', montant: 70000, motif: 'Transport' });
+  assert.equal(a.status, 201);
+  assert.equal(a.body.item.employe, 'Ahmed Ben Ali');
+  assert.match(a.body.item.heure, /^\d{2}:\d{2}$/);
+  assert.equal(a.body.item.saisieManuelle, false);
+  assert.equal(a.body.item.supprimable, true);
+
+  // Manual date/time: kept as typed; the future is refused.
+  const yesterday = addDays(today, -1);
+  const m = await gerant.req('POST', '/api/avances', { employe: 'ahmed ben ali', montant: 20000, saisieManuelle: true, date: yesterday, heure: '09:15' });
+  assert.equal(m.body.item.date, yesterday);
+  assert.equal(m.body.item.heure, '09:15');
+  assert.equal((await gerant.req('POST', '/api/avances', { employe: 'X Y', montant: 1000, saisieManuelle: true, date: addDays(today, 2), heure: '10:00' })).status, 400);
+  assert.equal((await gerant.req('POST', '/api/avances', { employe: 'X Y', montant: 1000, saisieManuelle: true })).status, 400);
+  assert.equal((await gerant.req('POST', '/api/avances', { employe: 'X Y', montant: 0 })).status, 400);
+
+  // Names: one entry per person whatever the spelling/case.
+  const names = (await gerant.req('GET', '/api/avances/employes')).body.items;
+  assert.equal(names.filter((n: { nom: string }) => n.nom.toLowerCase() === 'ahmed ben ali').length, 1);
+  assert.equal(names[0].total, 90000);
+
+  // The caisse is untouched by avances (they can exceed what is in the till).
+  const caisseAfter = (await gerant.req('GET', `/api/caisse?from=${today}&to=${today}`)).body.totals;
+  assert.deepEqual(caisseAfter, caisseBefore);
+
+  const list = (await gerant.req('GET', `/api/avances?from=${yesterday}&to=${today}`)).body;
+  assert.equal(list.items.length, 2);
+  assert.equal(list.total, 90000);
+  assert.equal(list.parEmploye[0].nb, 2);
+});
+
+test('avances: deletion only within 24 h, by the author, with the right password — and never erased', async () => {
+  const a = (await gerant.req('POST', '/api/avances', { employe: 'Meriem K', montant: 15000 })).body.item;
+  assert.equal((await gerant2.req('POST', `/api/avances/${a.id}/supprimer`, { password: USERS.gerant2.password })).status, 403);
+  const wrong = await gerant.req('POST', `/api/avances/${a.id}/supprimer`, { password: 'pas-le-bon' });
+  assert.equal(wrong.status, 400);
+  assert.equal(wrong.body.error.code, 'WRONG_PASSWORD');
+  assert.equal((await gerant.req('GET', '/api/auth/me')).status, 200, 'a wrong password does not log the user out');
+  assert.equal((await gerant.req('POST', `/api/avances/${a.id}/supprimer`, { password: USERS.gerant.password })).status, 204);
+  const listed = (await gerant.req('GET', '/api/avances')).body.items.some((x: { id: string }) => x.id === a.id);
+  assert.equal(listed, false);
+  const row = testDb.prepare('SELECT supprime_par_nom FROM avances WHERE id = ?').get(a.id) as { supprime_par_nom: string };
+  assert.equal(row.supprime_par_nom, 'Sami Gérant', 'kept in the database with who deleted it');
+
+  // After 24 h: impossible, even with the password, even for a supervisor.
+  const old = (await gerant.req('POST', '/api/avances', { employe: 'Meriem K', montant: 5000 })).body.item;
+  testDb.prepare('UPDATE avances SET cree_le = ? WHERE id = ?').run(new Date(Date.now() - 25 * 3600 * 1000).toISOString(), old.id);
+  const late = await patron.req('POST', `/api/avances/${old.id}/supprimer`, { password: USERS.patron.password });
+  assert.equal(late.status, 403);
+  assert.equal(late.body.error.code, 'DELAI_DEPASSE');
+  assert.equal((await gerant.req('GET', '/api/avances')).body.items.find((x: { id: string }) => x.id === old.id).supprimable, false);
 });
 
 test('logout revokes the main-app session', async () => {

@@ -164,7 +164,21 @@ export const createMainAuth = (config: MainAuthConfig) => {
     return decodeURIComponent(c.slice(prefix.length).split(';')[0]);
   };
 
+  // Re-checks the signed-in user's password with the main app (POST /api/auth/verify-password),
+  // without opening a session. Wrong password → 400 WRONG_PASSWORD (never 401, which the client
+  // would treat as "logged out").
+  const verifyPassword = async (req: Request, password: string): Promise<void> => {
+    const r = await forward(req, '/verify-password', { password });
+    if (r.status === 204) return;
+    const message = (r.body as { error?: { message?: string } } | null)?.error?.message;
+    if (r.status === 401) throw new ApiError(401, 'Session invalide ou expirée. Reconnectez-vous.', 'UNAUTHENTICATED');
+    if (r.status === 423) throw new ApiError(423, message ?? 'Compte temporairement verrouillé.');
+    if (r.status === 404) throw new ApiError(503, "La vérification du mot de passe n'est pas disponible.", 'AUTH_UNAVAILABLE');
+    throw new ApiError(400, message ?? 'Mot de passe incorrect.', 'WRONG_PASSWORD');
+  };
+
   return {
+    verifyPassword,
     requireUser: middleware(false),
     requireUserAllowPendingPassword: middleware(true),
     resolve,
