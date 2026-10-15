@@ -203,6 +203,34 @@ authRouter.get(
   })
 );
 
+// Re-confirms the signed-in user's password before a sensitive action in another app — used by
+// Historique (historique.cafenoir.tn) to delete an employee advance within its 24 h window. Opens
+// no session; failures count toward the same lockout as login so it can't be used to brute-force.
+const verifyPasswordSchema = z.object({ password: z.string().min(1, 'Mot de passe requis.') });
+
+authRouter.post(
+  '/verify-password',
+  requireAuth,
+  asyncHandler((req, res) => {
+    const { password } = verifyPasswordSchema.parse(req.body);
+    const row = db
+      .prepare('SELECT password_hash, failed_login_attempts, locked_until FROM users WHERE id = ?')
+      .get(req.user!.id) as { password_hash: string | null; failed_login_attempts: number; locked_until: string | null } | undefined;
+    if (!row) throw new ApiError(401, 'Session invalide ou expirée.');
+    if (row.locked_until && new Date(row.locked_until).getTime() > Date.now()) {
+      throw new ApiError(423, 'Compte temporairement verrouillé après plusieurs échecs. Réessayez dans quelques minutes.');
+    }
+    if (!verifyPassword(password, row.password_hash)) {
+      const attempts = row.failed_login_attempts + 1;
+      const lockedUntil = attempts >= LOGIN_LOCKOUT_THRESHOLD ? new Date(Date.now() + LOGIN_LOCKOUT_DURATION_MS).toISOString() : null;
+      db.prepare('UPDATE users SET failed_login_attempts = ?, locked_until = ? WHERE id = ?').run(attempts, lockedUntil, req.user!.id);
+      throw new ApiError(400, 'Mot de passe incorrect.', 'WRONG_PASSWORD');
+    }
+    db.prepare('UPDATE users SET failed_login_attempts = 0, locked_until = NULL WHERE id = ?').run(req.user!.id);
+    res.status(204).end();
+  })
+);
+
 // Always requires the current password (which the user necessarily knows — they just used it, or
 // the temporary one, to log in) even though a session is already open, so an already-authenticated
 // but hijacked session can't silently take over the account by setting a new password blind.
