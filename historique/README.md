@@ -17,24 +17,24 @@ A save made without network is kept on the phone and sent automatically when the
 
 Staff can correct today and the previous 2 days. Older days can only be changed by accounts with `historique:supervise`.
 
-## What is shared with the main app: login only
+## Accounts: independent from the main app
 
-- **Own database**: `server/data/historique.sqlite3` (or `HISTORIQUE_DB_PATH`). This app never opens `cafenoir.sqlite3`.
-- **Accounts and access are managed in the main app**, under Rôles & permissions:
-  - `historique:access`: log in and use the terminal. This is the seeded **"Gérant"** role.
-  - `historique:supervise`: correct any past date.
-  - Super Admin has both.
-- Login, logout and password changes go through the main app's `/api/auth/*`. Every API request is checked against the main app's `GET /api/auth/me`, with a 15 s cache. Deactivating an account or revoking its session in the main app therefore locks the person out here too. If a valid account without `historique:access` logs in, its new session is revoked immediately.
+Since 2026-10-17 Historique has **its own accounts** (`users`, `sessions` tables in its own database) and shares nothing with the main Café Noir app:
+
+- **Login:** email + password. Passwords are scrypt-hashed. 5 wrong attempts lock the account for 15 minutes.
+- **Sessions:** the session lives in an httpOnly cookie `hist_session`, bound to historique.cafenoir.tn only. A session expires after 30 days without use.
+- **Temporary passwords:** an account created with one (`must_change_password`) must choose a new password at its first login, and every API call is refused until then. Changing a password signs out the account's other devices.
+- **Roles:** `admin` can correct any past day and delete anyone's avance within 24 h. `gerant` can correct the last 3 days and delete only their own avances within 24 h.
+- **Fresh start:** `server/scripts/reset-fresh.ts --confirm` wipes all data and creates the accounts given as JSON on stdin, so passwords never appear in the repository (see the script header). **Back up the database first.**
 
 ## Development
 
 ```bash
-# 1. main app API (port 4000), from the repo root
-npm run server:dev
-# 2. this app, from historique/
 npm install
-npm run dev:full        # vite on :3100 + API on :4100 (MAIN_APP_URL defaults to http://127.0.0.1:4000)
-npm test                # unit tests + end-to-end API tests (throwaway DB, fake main-app auth)
+npm run dev:full        # vite on :3100 + API on :4100
+# create a local account (fresh DB):
+echo '[{"email":"admin@local.tn","fullName":"Admin","password":"temporaire","role":"admin","mustChangePassword":true}]' | npx tsx server/scripts/reset-fresh.ts --confirm
+npm test                # end-to-end API tests on a throwaway DB
 npm run build           # typecheck + production build (dist/ + service worker + manifest)
 ```
 
@@ -44,7 +44,7 @@ Amounts are stored as integer **millimes**. Business rules shared by server and 
 
 Deployed on the VM alongside the main app:
 
-- pm2 app **`historique`** (in the VM's untracked `/var/www/CNsystemmanagement/ecosystem.config.cjs`): `PORT=3012`, `MAIN_APP_URL=http://127.0.0.1:3011`, `NODE_ENV=production`, `TZ=Africa/Tunis`.
+- pm2 app **`historique`** (in the VM's untracked `/var/www/CNsystemmanagement/ecosystem.config.cjs`): `PORT=3012`, `NODE_ENV=production`, `TZ=Africa/Tunis`.
 - The Cloudflare tunnel routes `historique.cafenoir.tn` **directly to `http://localhost:3012`** (no nginx hop). `deploy/historique.cafenoir.tn.nginx.conf` is kept in case you prefer to route through nginx (`localhost:80`) like the other sites.
 - DNS: a proxied CNAME `historique` → `a84d343d-c53e-4ae6-be88-77768a90d97c.cfargotunnel.com`.
 - Update: `cd /var/www/CNsystemmanagement && git pull --ff-only origin main && cd historique && npm ci && npm run build && pm2 restart historique`.
