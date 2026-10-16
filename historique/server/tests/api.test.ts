@@ -4,82 +4,35 @@ import type { AddressInfo } from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
 import { after, before, test } from 'node:test';
-import cookieParser from 'cookie-parser';
-import express from 'express';
+import type express from 'express';
 import { createApp } from '../app.ts';
 import { openDatabase } from '../db/connection.ts';
+import { createUser } from '../lib/localAuth.ts';
 import { addDays } from '../../shared/model.ts';
 
-// End-to-end: the real Historique app on a throwaway database, talking to a fake "main app" that
-// implements just the four /api/auth routes Historique relies on.
+// End-to-end: the real Historique app (with its own accounts) on a throwaway database.
 
 process.env.TZ = 'Africa/Tunis';
 
-interface FakeUser {
-  id: string;
+interface TestUser {
+  email: string;
   fullName: string;
-  roleName: string;
-  isSuperAdmin: boolean;
-  permissions: string[];
-  mustChangePassword: boolean;
   password: string;
+  role: 'admin' | 'gerant';
+  mustChangePassword: boolean;
 }
 
-const USERS: Record<string, FakeUser> = {
-  gerant: { id: 'u-gerant', fullName: 'Sami Gérant', roleName: 'Gérant', isSuperAdmin: false, permissions: ['historique:access'], mustChangePassword: false, password: 'secret1' },
-  gerant2: { id: 'u-gerant2', fullName: 'Ines Gérante', roleName: 'Gérant', isSuperAdmin: false, permissions: ['historique:access'], mustChangePassword: false, password: 'secret2' },
-  patron: { id: 'u-patron', fullName: 'Le Patron', roleName: 'Super Admin', isSuperAdmin: true, permissions: [], mustChangePassword: false, password: 'secret3' },
-  caissier: { id: 'u-caissier', fullName: 'Caissier', roleName: 'Compte Saisie', isSuperAdmin: false, permissions: ['sales:create'], mustChangePassword: false, password: 'secret4' },
+const USERS: Record<string, TestUser> = {
+  gerant: { email: 'sami@cafe.tn', fullName: 'Sami Gérant', password: 'secret-sami-1', role: 'gerant', mustChangePassword: false },
+  gerant2: { email: 'ines@cafe.tn', fullName: 'Ines Gérante', password: 'secret-ines-2', role: 'gerant', mustChangePassword: false },
+  patron: { email: 'patron@cafe.tn', fullName: 'Le Patron', password: 'secret-patron-3', role: 'admin', mustChangePassword: false },
+  nouveau: { email: 'Contact@Cafe.tn', fullName: 'Nouvel Admin', password: 'temporaire', role: 'admin', mustChangePassword: true },
 };
 
-const sessions = new Map<string, string>(); // token -> user key
-const revoked: string[] = [];
-let mainServer: ReturnType<express.Express['listen']>;
 let appServer: ReturnType<express.Express['listen']>;
 let baseUrl = '';
 let tmpDir = '';
 let testDb: ReturnType<typeof openDatabase>;
-
-const startFakeMain = () => {
-  const main = express();
-  main.use(express.json());
-  main.use(cookieParser());
-  const csrfOk = (req: express.Request) => req.cookies.csrf_token && req.cookies.csrf_token === req.get('x-csrf-token');
-  main.post('/api/auth/login', (req, res) => {
-    if (!csrfOk(req)) return res.status(403).json({ error: { message: 'CSRF' } });
-    const key = Object.keys(USERS).find((k) => k === req.body.identifier);
-    if (!key || USERS[key].password !== req.body.password) return res.status(401).json({ error: { message: 'Identifiant ou mot de passe incorrect.' } });
-    const token = `tok-${key}-${Math.random().toString(36).slice(2)}`;
-    sessions.set(token, key);
-    res.cookie('session', token, { httpOnly: true, path: '/' });
-    const { password: _p, ...user } = USERS[key];
-    res.json({ user });
-  });
-  main.get('/api/auth/me', (req, res) => {
-    const key = sessions.get(req.cookies.session);
-    if (!key) return res.status(401).json({ error: { message: 'no' } });
-    const { password: _p, ...user } = USERS[key];
-    res.json({ user });
-  });
-  main.post('/api/auth/logout', (req, res) => {
-    if (!csrfOk(req)) return res.status(403).json({ error: { message: 'CSRF' } });
-    revoked.push(req.cookies.session);
-    sessions.delete(req.cookies.session);
-    res.clearCookie('session', { path: '/' });
-    res.status(204).end();
-  });
-  main.post('/api/auth/change-password', (_req, res) => res.status(204).end());
-  main.post('/api/auth/verify-password', (req, res) => {
-    if (!csrfOk(req)) return res.status(403).json({ error: { message: 'CSRF' } });
-    const key = sessions.get(req.cookies.session);
-    if (!key) return res.status(401).json({ error: { message: 'no' } });
-    if (USERS[key].password !== req.body.password) return res.status(400).json({ error: { message: 'Mot de passe incorrect.', code: 'WRONG_PASSWORD' } });
-    res.status(204).end();
-  });
-  return new Promise<void>((resolve) => {
-    mainServer = main.listen(0, () => resolve());
-  });
-};
 
 class Client {
   cookies = new Map<string, string>();
@@ -106,7 +59,7 @@ class Client {
   }
   async login(key: string) {
     await this.req('GET', '/api/health');
-    return this.req('POST', '/api/auth/login', { identifier: key, password: USERS[key].password });
+    return this.req('POST', '/api/auth/login', { email: USERS[key].email, password: USERS[key].password });
   }
 }
 
@@ -116,13 +69,10 @@ const gerant2 = new Client();
 const patron = new Client();
 
 before(async () => {
-  await startFakeMain();
   tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'historique-test-'));
   testDb = openDatabase(path.join(tmpDir, 'test.sqlite3'));
-  const { app } = createApp({
-    db: testDb,
-    auth: { mainAppUrl: `http://127.0.0.1:${(mainServer.address() as AddressInfo).port}`, sessionCookie: 'session', cacheTtlMs: 0 },
-  });
+  Object.values(USERS).forEach((u) => createUser(testDb, u));
+  const { app } = createApp({ db: testDb });
   await new Promise<void>((resolve) => {
     appServer = app.listen(0, () => resolve());
   });
@@ -135,30 +85,53 @@ before(async () => {
 
 after(() => {
   appServer?.close();
-  mainServer?.close();
   testDb?.close();
   fs.rmSync(tmpDir, { recursive: true, force: true });
 });
 
 test('unauthenticated requests are refused', async () => {
   const anon = new Client();
-  assert.equal((await anon.req('GET', `/api/journees/${today}`)).status, 401);
+  assert.equal((await anon.req('GET', `/api/caisse/${today}`)).status, 401);
 });
 
-test('a valid main-app account WITHOUT historique:access cannot get in, and its session is revoked', async () => {
-  const c = new Client();
-  const res = await c.login('caissier');
-  assert.equal(res.status, 403);
-  assert.equal(res.body.error.code, 'NO_ACCESS');
-  assert.equal(c.cookies.has('session'), false);
-  assert.equal(revoked.some((t) => t.startsWith('tok-caissier')), true);
-});
-
-test('wrong password is relayed as 401 and logged', async () => {
+test('own accounts: email is case-insensitive, wrong password refused, own cookie (not the main app one)', async () => {
   const c = new Client();
   await c.req('GET', '/api/health');
-  const res = await c.req('POST', '/api/auth/login', { identifier: 'gerant', password: 'nope' });
-  assert.equal(res.status, 401);
+  assert.equal((await c.req('POST', '/api/auth/login', { email: 'SAMI@cafe.tn', password: 'nope' })).status, 401);
+  const ok = await c.req('POST', '/api/auth/login', { email: 'SAMI@cafe.tn', password: USERS.gerant.password });
+  assert.equal(ok.status, 200);
+  assert.equal(ok.body.user.fullName, 'Sami Gérant');
+  assert.ok(c.cookies.has('hist_session'));
+  assert.equal(c.cookies.has('session'), false);
+});
+
+test('first login with a temporary password: everything is blocked until a new password is chosen', async () => {
+  const c = new Client();
+  const login = await c.login('nouveau');
+  assert.equal(login.status, 200);
+  assert.equal(login.body.user.mustChangePassword, true);
+  assert.equal((await c.req('GET', '/api/auth/me')).body.user.mustChangePassword, true);
+  const blocked = await c.req('GET', `/api/caisse/${today}`);
+  assert.equal(blocked.status, 403);
+  assert.equal(blocked.body.error.code, 'PASSWORD_CHANGE_REQUIRED');
+  assert.equal((await c.req('POST', '/api/auth/change-password', { currentPassword: 'faux', newPassword: 'nouveau-mdp-1' })).status, 400);
+  assert.equal((await c.req('POST', '/api/auth/change-password', { currentPassword: 'temporaire', newPassword: 'court' })).status, 400);
+  assert.equal((await c.req('POST', '/api/auth/change-password', { currentPassword: 'temporaire', newPassword: 'temporaire' })).status, 400);
+  assert.equal((await c.req('POST', '/api/auth/change-password', { currentPassword: 'temporaire', newPassword: 'nouveau-mdp-1' })).status, 204);
+  assert.equal((await c.req('GET', `/api/caisse/${today}`)).status, 200);
+  // The temporary password no longer works; the new one does.
+  const again = new Client();
+  await again.req('GET', '/api/health');
+  assert.equal((await again.req('POST', '/api/auth/login', { email: 'contact@cafe.tn', password: 'temporaire' })).status, 401);
+  assert.equal((await again.req('POST', '/api/auth/login', { email: 'contact@cafe.tn', password: 'nouveau-mdp-1' })).body.user.mustChangePassword, false);
+});
+
+test('5 wrong passwords lock the account for a while', async () => {
+  createUser(testDb, { email: 'lock@cafe.tn', fullName: 'Lock', password: 'correct-horse', role: 'gerant', mustChangePassword: false });
+  const c = new Client();
+  await c.req('GET', '/api/health');
+  for (let i = 0; i < 5; i++) await c.req('POST', '/api/auth/login', { email: 'lock@cafe.tn', password: 'bad' });
+  assert.equal((await c.req('POST', '/api/auth/login', { email: 'lock@cafe.tn', password: 'correct-horse' })).status, 423);
 });
 
 test('mutations without the CSRF header are refused', async () => {
@@ -305,7 +278,7 @@ test('avances: deletion only within 24 h, by the author, with the right password
   assert.equal((await gerant.req('GET', '/api/avances')).body.items.find((x: { id: string }) => x.id === old.id).supprimable, false);
 });
 
-test('logout revokes the main-app session', async () => {
+test('logout revokes the session', async () => {
   const c = new Client();
   await c.login('gerant2');
   assert.equal((await c.req('POST', '/api/auth/logout')).status, 204);

@@ -4,7 +4,7 @@ import cookieParser from 'cookie-parser';
 import express from 'express';
 import type { Db } from './db/connection.js';
 import { csrfProtection, ensureCsrfCookie, errorMiddleware } from './lib/http.js';
-import { createMainAuth, type MainAuthConfig } from './lib/mainAuth.js';
+import { createLocalAuth } from './lib/localAuth.js';
 import { createStore } from './lib/store.js';
 import { authRouter } from './routes/auth.js';
 import { avancesRouter } from './routes/avances.js';
@@ -12,15 +12,14 @@ import { caisseRouter } from './routes/caisse.js';
 
 export interface AppOptions {
   db: Db;
-  auth: MainAuthConfig;
   distDir?: string;
 }
 
 // Built as a factory (rather than at import time) so the tests can spin up the whole app against a
-// throwaway database and a fake "main app" auth server.
-export const createApp = ({ db, auth: authConfig, distDir }: AppOptions) => {
+// throwaway database.
+export const createApp = ({ db, distDir }: AppOptions) => {
   const store = createStore(db);
-  const auth = createMainAuth(authConfig);
+  const auth = createLocalAuth(db);
   const app = express();
 
   app.set('trust proxy', 'loopback');
@@ -46,7 +45,7 @@ export const createApp = ({ db, auth: authConfig, distDir }: AppOptions) => {
   });
   app.use('/api/auth', authRouter(auth, store));
 
-  // Everything below requires a valid main-app session carrying historique:access.
+  // Everything below requires a signed-in account (see server/lib/localAuth.ts).
   app.use('/api', auth.requireUser);
   app.use('/api', caisseRouter(store));
   app.use('/api', avancesRouter(store, auth));

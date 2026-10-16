@@ -15,10 +15,6 @@ const db = openDatabase(dbPath);
 
 const { app } = createApp({
   db,
-  auth: {
-    mainAppUrl: process.env.MAIN_APP_URL || 'http://127.0.0.1:4000',
-    sessionCookie: process.env.MAIN_SESSION_COOKIE || 'session',
-  },
   distDir: path.join(__dirname, '..', 'dist'),
 });
 

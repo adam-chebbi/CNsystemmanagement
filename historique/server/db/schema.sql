@@ -74,3 +74,32 @@ CREATE TABLE IF NOT EXISTS avance_employes (
   nom TEXT NOT NULL,
   dernier_usage TEXT NOT NULL
 );
+
+-- Accounts of this app — fully independent from the main app since 2026-10-17. Passwords are
+-- scrypt-hashed ("<salt-hex>:<hash-hex>"). must_change_password forces a new password at the next
+-- login (temporary passwords). Accounts are never deleted, only deactivated.
+CREATE TABLE IF NOT EXISTS users (
+  id TEXT PRIMARY KEY,
+  email TEXT NOT NULL UNIQUE,
+  full_name TEXT NOT NULL,
+  role TEXT NOT NULL DEFAULT 'gerant',
+  password_hash TEXT NOT NULL,
+  must_change_password INTEGER NOT NULL DEFAULT 0,
+  is_active INTEGER NOT NULL DEFAULT 1,
+  failed_login_attempts INTEGER NOT NULL DEFAULT 0,
+  locked_until TEXT,
+  password_updated_at TEXT,
+  created_at TEXT NOT NULL
+);
+
+-- One row per signed-in device. The token lives only in an httpOnly cookie.
+CREATE TABLE IF NOT EXISTS sessions (
+  token TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL REFERENCES users(id),
+  created_at TEXT NOT NULL,
+  last_seen_at TEXT NOT NULL,
+  revoked_at TEXT,
+  ip TEXT,
+  user_agent TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id);

@@ -14,7 +14,7 @@ import {
   type Avance,
 } from '../../shared/model.js';
 import { ApiError, asyncHandler, notFound } from '../lib/http.js';
-import type { MainAuth } from '../lib/mainAuth.js';
+import type { LocalAuth } from '../lib/localAuth.js';
 import { nowIso, type Store } from '../lib/store.js';
 
 // Avances au personnel — independent from the caisse (see shared/model.ts). Nothing here reads or
@@ -41,7 +41,7 @@ const clockNow = () => {
   return { date: toIsoDate(d), heure: `${pad(d.getHours())}:${pad(d.getMinutes())}` };
 };
 
-export const avancesRouter = (store: Store, auth: MainAuth): Router => {
+export const avancesRouter = (store: Store, auth: Pick<LocalAuth, 'verifyPassword'>): Router => {
   const router = Router();
   const { db } = store;
 
