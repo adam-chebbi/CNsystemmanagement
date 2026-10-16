@@ -17,7 +17,7 @@ interface AuthContextValue {
   businessDate: string;
   dateDebut: string;
   canSupervise: boolean;
-  login: (identifier: string, password: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   changePassword: (currentPassword: string, newPassword: string) => Promise<void>;
   reload: () => Promise<void>;
@@ -82,7 +82,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     void reload();
   }, [reload]);
 
-  // Session revoked/expired from the main app (account deactivated, "déconnecter cet appareil"…)
+  // Session expired or revoked (account deactivated, password changed on another device…)
   // while the app is open → back to the login screen.
   useEffect(
     () =>
@@ -116,8 +116,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [state.kind]);
 
   const login = useCallback(
-    async (identifier: string, password: string) => {
-      await api.post('/auth/login', { identifier, password });
+    async (email: string, password: string) => {
+      await api.post('/auth/login', { email, password });
       await reload();
     },
     [reload]

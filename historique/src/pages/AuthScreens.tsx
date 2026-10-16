@@ -41,7 +41,7 @@ export const LoginPage: React.FC<{ message?: string }> = ({ message }) => {
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!identifier.trim() || !password) {
-      setError('Identifiant et mot de passe requis.');
+      setError('Email et mot de passe requis.');
       return;
     }
     setBusy(true);
@@ -60,13 +60,12 @@ export const LoginPage: React.FC<{ message?: string }> = ({ message }) => {
       <form onSubmit={submit} className="bg-white border border-gray-100 rounded-2xl shadow-xs p-6 space-y-3">
         <div className="mb-1">
           <h1 className="text-base font-bold text-gray-900">Connexion</h1>
-          <p className="text-xs text-gray-500 mt-0.5">Utilisez le même compte que sur l’application Café Noir.</p>
         </div>
         <div>
           <label htmlFor="identifier" className={cls.label}>
-            Email, téléphone ou CIN
+            Email
           </label>
-          <input id="identifier" autoComplete="username" className={cls.input} value={identifier} onChange={(e) => setIdentifier(e.target.value)} placeholder="email@exemple.tn ou 12345678" />
+          <input id="identifier" type="email" inputMode="email" autoComplete="username" autoCapitalize="none" className={cls.input} value={identifier} onChange={(e) => setIdentifier(e.target.value)} placeholder="email@exemple.tn" />
         </div>
         <div>
           <label htmlFor="password" className={cls.label}>

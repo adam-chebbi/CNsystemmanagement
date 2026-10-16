@@ -7,6 +7,7 @@ import {
   CreditCard,
   Download,
   HandCoins,
+  KeyRound,
   History,
   LoaderCircle,
   Lock,
@@ -36,6 +37,7 @@ import { applyUpdate, useDirtyGuard, useInstallPrompt, useUpdateAvailable } from
 import { AvanceModal } from './AvanceModal';
 import { HistoriqueModal } from './HistoriqueModal';
 import { CalendarPicker } from '../components/CalendarPicker';
+import { ChangePasswordModal } from '../components/ChangePasswordModal';
 
 interface DayResponse {
   date: string;
@@ -100,6 +102,7 @@ export const Terminal: React.FC = () => {
   const [offline, setOffline] = useState(!navigator.onLine);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [avanceOpen, setAvanceOpen] = useState(false);
+  const [passwordOpen, setPasswordOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const requested = useRef('');
 
@@ -263,6 +266,9 @@ export const Terminal: React.FC = () => {
                       <Download size={15} /> Installer l’application
                     </button>
                   )}
+                  <button onClick={() => (setMenuOpen(false), setPasswordOpen(true))} className="w-full flex items-center gap-2 px-2 py-2 rounded-lg text-sm text-gray-700 hover:bg-gray-50 cursor-pointer">
+                    <KeyRound size={15} /> Changer mon mot de passe
+                  </button>
                   <button onClick={() => (setMenuOpen(false), void logout())} className="w-full flex items-center gap-2 px-2 py-2 rounded-lg text-sm text-rose-600 hover:bg-rose-50 cursor-pointer">
                     <LogOut size={15} /> Déconnexion
                   </button>
@@ -443,6 +449,7 @@ export const Terminal: React.FC = () => {
         </div>
       )}
 
+      <ChangePasswordModal open={passwordOpen} onClose={() => setPasswordOpen(false)} />
       <AvanceModal open={avanceOpen} onClose={() => setAvanceOpen(false)} minDate={minDate} />
 
       <HistoriqueModal
